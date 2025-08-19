@@ -63,7 +63,7 @@ const getEventType = (type) => {
     switch (type) {
         case 'webinar': return 'Вебинар';
         case 'conference': return 'Конференция';
-        case  'workshop': return 'Мастер-класс';
+        case 'workshop': return 'Мастер-класс';
         case 'other': return 'Другое';
         default: return type || '';
     }

@@ -136,3 +136,4 @@
 "} 
 [2025-08-19 14:47:21] local.INFO: PayKeeper Webhook: Валидация прошла успешно {"ip":"91.142.92.81","user_agent":"PayKeeper/2"} 
 [2025-08-19 14:47:32] local.INFO: PayKeeper Webhook: Валидация прошла успешно {"ip":"91.142.92.81","user_agent":"PayKeeper/2"} 
+[2025-08-19 18:39:55] local.INFO: Отправляем payment_url в flash-данных {"payment_url":"https://medalliance-expert.server.paykeeper.ru//bill/20250819183955023/","payment_id":11} 
