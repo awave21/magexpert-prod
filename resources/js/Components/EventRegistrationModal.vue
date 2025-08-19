@@ -22,7 +22,11 @@ import PhoneInput from './Form/PhoneInput.vue';
 const props = defineProps({
   show: {
     type: Boolean,
+    default: false,
+    isOnDemand: { //  новый проп по запросу
+    type: Boolean,
     default: false
+  }
   },
   event: {
     type: Object,
