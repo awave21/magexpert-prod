@@ -134,7 +134,7 @@ const getButtonText = (event) => {
   } else if (event.is_on_demand) {
     return 'Запросить участие';
   } else if (event.is_paid) {
-    return event.show_price && event.price ? 'Купить билет' : 'Записаться';
+    return event.show_price && event.price ? 'Принять участие' : 'Записаться';
   } else {
     return 'Зарегистрироваться';
   }
