@@ -36,7 +36,11 @@ const handleRegistrationClick = () => {
     window.location.href = route('my-events.view', props.event.slug);
     return;
   }
-
+    // Если событие "по запросу" → всегда форма, даже для авторизованных
+    if (props.event.is_on_demand) {
+        showRegistrationModal.value = true;
+    return;
+    }
   // Блокируем, если регистрация недоступна или уже идет запрос
   if (!isRegistrationAvailable(props.event) || isSubmitting.value) return;
 
