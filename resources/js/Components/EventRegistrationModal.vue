@@ -27,10 +27,6 @@ const props = defineProps({
   event: {
     type: Object,
     required: true
-  },
-  isOnDemand: { //  новый проп по запросу
-    type: Boolean,
-    default: false
   }
 });
 
@@ -137,11 +133,10 @@ const submitRegistration = () => {
     // Для существующих пользователей - проверяем необходимость оплаты
     handleExistingUserRegistration();
   } else {
-    registrationForm.on_demand = props.isOnDemand; //  прокидываем флаг в форму
     // Для новых пользователей - обычная регистрация
     registrationForm.post(route('events.register', props.event.slug), {
       onSuccess: (response) => {
-        if (props.event.is_paid && !props.isOnDemand) {
+        if (props.event.is_paid) {
           // Для платных мероприятий Inertia автоматически перенаправит на оплату
           // Если мы дошли до этой точки, значит что-то пошло не так
           console.error('Не удалось перенаправить на оплату', response);
@@ -447,7 +442,7 @@ watch(() => props.show, (newValue) => {
                       class="flex-1 flex justify-center items-center rounded-lg bg-brandcoral px-4 py-2 text-sm font-medium text-white hover:bg-brandcoral/90 focus:outline-none focus:ring-2 focus:ring-brandcoral focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span v-if="registrationForm.processing">Регистрируем...</span>
-                      <span v-else>{{ props.isOnDemand ? 'Отправить заявку' : 'Зарегистрироваться' }}</span>
+                      <span v-else>Зарегистрироваться</span>
                     </button>
                   </div>
                 </form>
