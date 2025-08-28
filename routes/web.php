@@ -40,11 +40,11 @@ Route::middleware('throttle:10,1')->group(function () {
         ])->withCookie(cookie(
             name: 'XSRF-TOKEN',
             value: $token,
-            minutes: 0, // сессионная
+            minutes: 0,
             path: '/',
             domain: null,
             secure: config('session.secure', false),
-            httpOnly: false, // должен быть доступен JS
+            httpOnly: false,
             raw: false,
             sameSite: 'Lax'
         ))

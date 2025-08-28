@@ -48,6 +48,7 @@ class Event extends Model
         'is_live', // Транслируется ли событие в прямом эфире
         'letter_draft_id',
         'groupsensay', // Группа Sendsay
+        'max_quantity', // Максимальное количество мест
     ];
 
     /**
@@ -69,6 +70,7 @@ class Event extends Model
         'show_price' => 'boolean',
         'price' => 'decimal:2',
         'is_live' => 'boolean',
+        'max_quantity' => 'integer',
     ];
 
     /**
@@ -276,6 +278,13 @@ class Event extends Model
             ->where(function($query) {
                 $query->whereNull('event_user.access_expires_at')
                       ->orWhere('event_user.access_expires_at', '>', now());
+
+            })
+            ->where(function($query) {
+                // Универсальные правила доступа
+                $query->where('event_user.payment_status', 'completed') // оплачено
+                      ->orWhere('event_user.payment_status', 'free')     // бесплатное
+                      ->orWhere('event_user.payment_status', 'unpaid');  // "по запросу"
             })
             ->exists();
     }

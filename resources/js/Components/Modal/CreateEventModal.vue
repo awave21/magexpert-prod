@@ -75,7 +75,17 @@
           :error="form.errors.format"
           placeholder="Выберите формат"
         />
-        
+        <TextInput
+          id="max_quantity"
+          label="Максимальное число мест"
+          type="number"
+          min="0"
+          step="1"
+          v-model.number="form.max_quantity"
+          :error="form.errors.max_quantity"
+          placeholder="Оставьте пустым для безлимита"
+        />
+
         <TextInput
           id="location"
           label="Место проведения"
@@ -380,6 +390,7 @@ const form = useForm({
   is_live: false,
   letter_draft_id: '',
   groupsensay: '',
+  max_quantity: null,
   _method: 'POST'
 });
 
@@ -435,6 +446,7 @@ watch(() => props.event, (newEvent) => {
     form.is_live = newEvent.is_live ?? false;
     form.letter_draft_id = newEvent.letter_draft_id || '';
     form.groupsensay = newEvent.groupsensay || '';
+    form.max_quantity = newEvent.max_quantity ?? null;
     
     // Загружаем выбранные категории
     form.selected_categories = newEvent.categories ? newEvent.categories.map(cat => cat.id) : [];
@@ -507,6 +519,7 @@ const submitForm = () => {
     is_live: data.is_live,
     letter_draft_id: data.letter_draft_id || null,
     groupsensay: data.groupsensay || null,
+    max_quantity: (data.max_quantity === '' || data.max_quantity == null) ? null : Number(data.max_quantity)
   })).post(url, {
     forceFormData: form.image instanceof File,
     onSuccess: () => {

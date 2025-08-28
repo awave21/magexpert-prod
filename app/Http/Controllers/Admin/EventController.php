@@ -243,6 +243,7 @@ class EventController extends Controller
             'is_live' => 'boolean',
             'letter_draft_id' => 'nullable|string|max:255',
             'groupsensay' => 'nullable|string|max:255',
+            'max_quantity' => 'nullable|integer|min:0',
         ];
         
         // Добавляем правило для изображения только если оно загружается
@@ -376,6 +377,7 @@ class EventController extends Controller
             'is_live' => 'boolean',
             'letter_draft_id' => 'nullable|string|max:255',
             'groupsensay' => 'nullable|string|max:255',
+            'max_quantity' => 'nullable|integer|min:0',
         ];
         
         // Добавляем правило для изображения только если оно загружается

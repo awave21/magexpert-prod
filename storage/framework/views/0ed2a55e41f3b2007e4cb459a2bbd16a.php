@@ -2,7 +2,7 @@
 <html lang="<?php echo e(str_replace('_', '-', app()->getLocale())); ?>">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
         <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
 
         <title inertia><?php echo e(config('app.name', 'Laravel')); ?></title>
@@ -23,6 +23,7 @@
         <!-- Цвет темы для мобильных браузеров -->
         <meta name="theme-color" content="#ffffff">
         <meta name="application-name" content="<?php echo e(config('app.name', 'Laravel')); ?>">
+        <meta name="apple-mobile-web-app-title" content="<?php echo e(config('app.name', 'Laravel')); ?>">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <link rel="mask-icon" href="/favicon.svg" color="#ffffff">
