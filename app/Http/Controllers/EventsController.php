@@ -373,10 +373,20 @@ class EventsController extends Controller
         if (!$event->is_active) {
             return back()->withErrors(['event' => 'Мероприятие недоступно']);
         }
+        // 🔹 1. Если мероприятие "по запросу" → сразу заявка, без оплаты
+        if ($event->is_on_demand) {
+            $registration = $event->registrations()->create([
+                'user_id' => $user->id,
+                'status'  => 'unpaid', // фиксируем, что участие без оплаты
+            ]);
 
-        if (!$event->registration_enabled) {
-            return back()->withErrors(['event' => 'Регистрация на мероприятие отключена']);
+            $this->syncWithBitrix24Safe($event, $user, $request);
+
+            return back()->with('success', 'Вы зарегистрированы! С вами свяжется менеджер.');
         }
+            if (!$event->registration_enabled) {
+                return back()->withErrors(['event' => 'Регистрация на мероприятие отключена']);
+            }
 
         // Для архивных мероприятий проверяем наличие записи
         if ($event->is_archived) {

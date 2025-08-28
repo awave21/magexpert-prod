@@ -39,7 +39,26 @@ const handleRegistrationClick = () => {
    
   // Блокируем, если регистрация недоступна или уже идет запрос
   if (!isRegistrationAvailable(props.event) || isSubmitting.value) return;
-
+  
+  // ==== Сценарий "по запросу" ====
+  if (props.event.is_on_demand) {
+    isSubmitting.value = true;
+    router.post(route('events.register', props.event.slug), {}, {
+      preserveScroll: true,
+      onSuccess: () => {
+        toast.success('Вы зарегистрированы! С вами свяжется менеджер.');
+        window.location.href = route('my-events.view', props.event.slug); // ✅ доступ открыт
+      },
+      onError: () => {
+        toast.error('Не удалось отправить заявку');
+      },
+      onFinish: () => {
+        isSubmitting.value = false;
+      }
+    });
+    return;
+  }
+  // ==== конец "по запросу" ====
   // Если пользователь авторизован — мгновенная регистрация без ввода данных
   const user = page.props.auth?.user;
   if (user) {
