@@ -133,6 +133,8 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
     Route::delete('/speakers/{speaker}', [SpeakerController::class, 'destroy'])->name('admin.speakers.destroy');
     
     // Маршруты для мероприятий
+  
+
     Route::get('/events', [EventController::class, 'index'])->name('admin.events');
     Route::get('/events/search', [EventController::class, 'search'])->name('admin.events.search');
     Route::get('/events/{event}', [EventController::class, 'show'])->name('admin.events.show');
@@ -143,7 +145,12 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
     Route::post('/events/upload-image', [EventController::class, 'uploadEditorImage'])->name('admin.events.upload-image');
     // Удаление изображений редактора
     Route::post('/events/delete-image', [EventController::class, 'deleteEditorImage'])->name('admin.events.delete-image');
-    
+    //скачивание файлов
+    Route::get('/program/{filePath}', [EventController::class, 'downloadFile'])
+    ->where('filePath', '.*') // ← позволяет передавать пути с /
+    ->name('admin.events.download');
+
+
     // Маршруты для категорий
     Route::get('/categories', [CategoryController::class, 'index'])->name('admin.categories');
     Route::post('/categories', [CategoryController::class, 'store'])->name('admin.categories.store');

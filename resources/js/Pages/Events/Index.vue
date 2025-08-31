@@ -34,15 +34,22 @@ const loadMoreRef = ref(null);
 
 // Наблюдение за изменением фильтров для обновления локального состояния
 watch(
-    () => props.filters,
-    (newFilters) => {
-        // Обновляем локальное состояние в соответствии с фильтрами
+    () => [props.filters, props.events],
+    ([newFilters, newEvents]) => {
+        // 🔹 Обновляем состояния фильтров
         searchQuery.value = newFilters.search || "";
         activeTab.value = newFilters.filter || "all";
 
-        // Обновляем состояние сортировки
         if (newFilters.sort && newFilters.direction) {
             sortOption.value = `${newFilters.sort}_${newFilters.direction}`;
+        } else {
+            sortOption.value = "start_date_asc";
+        }
+
+        // 🔹 Обновляем список событий
+        if (newEvents?.data) {
+            localEvents.value = [...newEvents.data];
+            hasMorePages.value = newEvents.next_page_url !== null;
         }
     },
     { deep: true, immediate: true }
@@ -256,21 +263,26 @@ const changeSorting = (event) => {
 // Поиск по Enter
 const performSearch = () => {
     const [sort, direction] = (sortOption.value || "start_date_asc").split("_");
+
     router.get(
         route("events.index"),
         {
             search: searchQuery.value,
             filter: activeTab.value,
-            sort,
-            direction,
-            category: props.filters.category,
-            type: props.filters.type,
-            format: props.filters.format,
+            category: props.filters.category || "",
+            type: props.filters.type || "",
+            format: props.filters.format || "",
+            sort_field: sort,
+            sort_direction: direction,
         },
         {
-            preserveScroll: false,
+            preserveState: true,
+            preserveScroll: true,
             replace: true,
-            only: ["events", "filters"], // ⬅️ вернуть filters
+            only: ["events", "filters"],
+            onSuccess: () => {
+                showFilters.value = false;
+            },
         }
     );
 };

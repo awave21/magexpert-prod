@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Validator;
 
 class EventController extends Controller
 {
+    
+    
     /**
      * Отображает список мероприятий
      *
@@ -244,6 +246,7 @@ class EventController extends Controller
             'letter_draft_id' => 'nullable|string|max:255',
             'groupsensay' => 'nullable|string|max:255',
             'max_quantity' => 'nullable|integer|min:0',
+            'file' => 'nullable|file|mimes:pdf,docx,jpg,png|max:10240',
         ];
         
         // Добавляем правило для изображения только если оно загружается
@@ -252,6 +255,16 @@ class EventController extends Controller
         }
         
         $validated = $request->validate($rules);
+        
+      $filePath = null;
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $fileName = uniqid() . '_' . $file->getClientOriginalName();
+            $file->storeAs('program', $fileName,'public');
+            $filePath = 'storage/program/' . $fileName;
+        }
+
 
         // Генерируем slug, если он не был предоставлен
         if (empty($validated['slug'])) {
@@ -284,7 +297,9 @@ class EventController extends Controller
         }
 
         // Создаем мероприятие
-        $event = Event::create($validated);
+        $event = Event::create(array_merge($validated, [
+    'file_path' => $filePath
+        ]));
 
         // Обрабатываем загрузку изображения, если оно есть
         if ($imageFile) {
@@ -339,6 +354,7 @@ class EventController extends Controller
         if (!$currentUser->hasAnyRole(['admin', 'manager', 'editor'])) {
             abort(403, 'У вас нет прав для редактирования мероприятий');
         }
+            
 
         // Валидация данных
         $rules = [
@@ -378,6 +394,7 @@ class EventController extends Controller
             'letter_draft_id' => 'nullable|string|max:255',
             'groupsensay' => 'nullable|string|max:255',
             'max_quantity' => 'nullable|integer|min:0',
+            'file' => 'nullable|file|mimes:pdf,docx,jpg,png|max:10240',
         ];
         
         // Добавляем правило для изображения только если оно загружается
@@ -386,6 +403,39 @@ class EventController extends Controller
         }
         
         $validated = $request->validate($rules);
+        
+     // Получаем текущий путь к файлу
+        $filePath = $event->file_path;
+
+       // Проверяем флаг удаления файла
+if ($request->boolean('delete_file')) {
+    // Удаляем старый файл, если он существует
+  if ($filePath && !str_starts_with($filePath, 'http')) {
+    $relativePath = str_replace('storage/', '', $filePath); // events/files/...
+    if (Storage::disk('public')->exists($relativePath)) {
+        Storage::disk('public')->delete($relativePath);
+    }
+}
+    $filePath = null; // Сбрасываем путь
+}
+
+// Обрабатываем загрузку нового файла
+if ($request->hasFile('file')) {
+    // Удаление старого файла, если он существует
+   if ($filePath && !str_starts_with($filePath, 'http')) {
+    $relativePath = str_replace('storage/', '', $filePath);
+    if (Storage::disk('public')->exists($relativePath)) {
+        Storage::disk('public')->delete($relativePath);
+    }
+}
+
+    $file = $request->file('file');
+    $fileName = uniqid() . '_' . $file->getClientOriginalName();
+    $file->storeAs('program', $fileName, 'public');
+    $filePath = 'storage/program/' . $fileName;
+}
+
+
         
         // Генерируем slug, если он не был предоставлен
         if (empty($validated['slug'])) {
@@ -401,7 +451,7 @@ class EventController extends Controller
         }
 
         // Данные для обновления мероприятия, исключая изображение, флаги, спикеров и категории
-        $updateData = collect($validated)->except(['image', 'delete_image', 'speakers', 'categories'])->all();
+        $updateData = collect($validated)->except(['image', 'delete_image', 'speakers', 'categories'])->merge(['file_path' => $filePath])->all();
         $event->update($updateData);
 
         // Перенос изображений из временных черновиков в папку события и обновление HTML (на случай остатков черновиков)
@@ -457,7 +507,7 @@ class EventController extends Controller
         $this->cleanupUnusedContentImages($event);
         $this->cleanupDraftImagesForRequest($request, (string) ($event->full_description ?? ''));
 
-        return back()->with('success', 'Мероприятие успешно обновлено');
+        return back();
     }
 
     /**
@@ -469,12 +519,11 @@ class EventController extends Controller
     public function destroy(Event $event)
     {
         $currentUser = auth()->user();
-        
-        // Проверяем права на удаление мероприятия
+         // Проверяем права на удаление мероприятия
         if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для удаления мероприятий');
         }
-
+    
         // Удаляем изображение мероприятия из хранилища, если оно существует
         if ($event->image && !str_starts_with($event->image, 'http')) {
             $imagePath = str_replace('/storage/', '', $event->image);
@@ -482,6 +531,15 @@ class EventController extends Controller
                 Storage::disk('public')->delete($imagePath);
             }
         }
+
+        // Удаляем файл мероприятия, если он существует
+        if ($event->file_path && !str_starts_with($event->file_path, 'http')) {
+            $filePath = str_replace('storage/', '', $event->file_path);
+            if (Storage::disk('public')->exists($filePath)) {
+                Storage::disk('public')->delete($filePath);
+            }
+        }
+
 
         // Удаляем изображения из описания (events/{id}/content/*)
         $contentDir = "events/{$event->id}/content";
@@ -514,6 +572,26 @@ class EventController extends Controller
             'canManageEvents' => $currentUser->hasAnyRole(['admin', 'manager', 'editor']),
         ]);
     }
+  /**
+ * Открывает файл мероприятия в браузере (PDF, DOCX и др.)
+ *
+ * @param string $filePath
+ * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+ */
+public function viewFile($filePath)
+{
+    $path = storage_path('app/public/' . str_replace('storage/', '', $filePath));
+
+    if (!file_exists($path)) {
+        abort(404, 'Файл не найден');
+    }
+
+    return response()->file($path, [
+        'Content-Disposition' => 'inline; filename="'.basename($path).'"'
+    ]);
+}
+
+
 
     /**
      * Генерирует уникальный slug для мероприятия
@@ -834,4 +912,5 @@ class EventController extends Controller
         
         return $links;
     }
+    
 } 

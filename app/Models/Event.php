@@ -49,6 +49,7 @@ class Event extends Model
         'letter_draft_id',
         'groupsensay', // Группа Sendsay
         'max_quantity', // Максимальное количество мест
+        'file_path', // программа
     ];
 
     /**
@@ -71,6 +72,7 @@ class Event extends Model
         'price' => 'decimal:2',
         'is_live' => 'boolean',
         'max_quantity' => 'integer',
+        'file_path' => 'string',
     ];
 
     /**

@@ -39,7 +39,7 @@ class SendsayService
             'webinar' => 'Вебинар',
             'conference' => 'Конференция',
             'course' => 'Курс',
-            'workshop' => 'Мастер-класс',
+            'workshop' => 'WOrk',
             'seminar' => 'Семинар',
             'other' => 'Другое',
         ];
