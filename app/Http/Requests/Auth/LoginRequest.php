@@ -45,7 +45,8 @@ class LoginRequest extends FormRequest
         $password = (string) $this->input('password');
 
         // Более понятные сообщения об ошибках авторизации на русском
-        $user = \App\Models\User::where('email', $email)->first();
+       $user = \App\Models\User::whereRaw('LOWER(email) = ?', [Str::lower($email)])->first();
+
 
         if (! $user) {
             RateLimiter::hit($this->throttleKey());
@@ -55,7 +56,8 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if (! Auth::attempt(['email' => $email, 'password' => $password], $this->boolean('remember'))) {
+        if (! Auth::attempt(['email' => Str::lower($email), 'password' => $password], $this->boolean('remember'))) {
+            // Если пароль неверен, увеличиваем количество попыток входа
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

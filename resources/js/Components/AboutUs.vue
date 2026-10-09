@@ -15,35 +15,39 @@
                     <div
                         class="relative bg-gradient-to-br from-brandblue/5 via-white to-brandcoral/5 rounded-2xl p-8 mb-8 border border-gray-100 shadow-sm"
                     >
-                        <div
-                            class="absolute top-4 left-4 w-12 h-12 bg-brandblue/10 rounded-full flex items-center justify-center"
-                        >
+                        <div class="flex flex-col md:flex-row md:items-start">
                             <div
-                                class="w-6 h-6 bg-gradient-to-br from-brandblue to-brandcoral rounded-full"
-                            ></div>
-                        </div>
-                        <p
-                            class="text-xl leading-relaxed text-gray-800 font-medium pl-16 relative"
-                        >
-                            Компания
-                            <span class="text-brandblue font-bold"
-                                >«МедАльянсГрупп»</span
-                            >, основанная в
-                            <span class="text-brandcoral font-semibold"
-                                >2016 году</span
-                            >, специализируется на поставках медицинского
-                            оборудования для акушерско-гинекологической
-                            практики. С
-                            <span class="text-brandblue font-semibold"
-                                >2019 года</span
+                                class="w-8 h-8 md:w-12 md:h-12 bg-brandblue/10 rounded-full flex items-center justify-center mb-4 md:mb-0 md:mr-4 flex-shrink-0"
                             >
-                            организация расширила деятельность, инициировав
-                            проведение образовательных мероприятий для
-                            медицинских специалистов, включая
-                            научно-практические конгрессы, конференции,
-                            мастер-классы и онлайн-трансляции, направленные на
-                            освещение актуальных вопросов современной медицины.
-                        </p>
+                                <div
+                                    class="w-4 h-4 md:w-6 md:h-6 bg-gradient-to-br from-brandblue to-brandcoral rounded-full"
+                                ></div>
+                            </div>
+                            <p
+                                class="text-lg md:text-xl leading-relaxed text-gray-800 font-medium"
+                            >
+                                Компания
+                                <span class="text-brandblue font-bold"
+                                    >«МедАльянсГрупп»</span
+                                >, основанная в
+                                <span class="text-brandcoral font-semibold"
+                                    >2016 году</span
+                                >, специализируется на поставках медицинского
+                                оборудования для акушерско-гинекологической
+                                практики.<br /><br />
+                                С
+                                <span class="text-brandblue font-semibold"
+                                    >2019 года</span
+                                >
+                                организация расширила деятельность, инициировав
+                                проведение образовательных мероприятий для
+                                медицинских специалистов, включая
+                                научно-практические конгрессы, конференции,
+                                мастер-классы и онлайн-трансляции, направленные
+                                на освещение актуальных вопросов современной
+                                медицины.
+                            </p>
+                        </div>
                     </div>
 
                     <div class="bg-gray-50 rounded-xl p-8 mb-8">

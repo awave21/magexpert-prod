@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { Head, Link, router } from "@inertiajs/vue3";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import EventFilters from "@/Components/Events/EventFilters.vue";
@@ -31,28 +31,58 @@ const localEvents = ref([...props.events.data]);
 const hasMorePages = ref(props.events.next_page_url !== null);
 const loadingMore = ref(false);
 const loadMoreRef = ref(null);
+const currentPage = ref(props.events.current_page || 1);
 
 // Наблюдение за изменением фильтров для обновления локального состояния
+onMounted(() => {
+    // 🔹 Обновляем состояния фильтров и события из начальных пропс
+    searchQuery.value = props.filters.search || "";
+    activeTab.value = props.filters.filter || "all";
+
+    if (props.filters.sort && props.filters.direction) {
+        sortOption.value = `${props.filters.sort}_${props.filters.direction}`;
+    } else if (props.filters.sort) {
+        sortOption.value = `${props.filters.sort}_desc`;
+    } else {
+        sortOption.value = "start_date_desc";
+    }
+
+    localEvents.value = [...props.events.data];
+    hasMorePages.value = props.events.next_page_url !== null;
+    currentPage.value = props.events.current_page || 1;
+});
+
+// Флаг для предотвращения каскадных запросов при обновлении из серверного ответа
+let isUpdatingFromServer = false;
+
 watch(
-    () => [props.filters, props.events],
-    ([newFilters, newEvents]) => {
-        // 🔹 Обновляем состояния фильтров
+    () => props.filters,
+    (newFilters) => {
+        isUpdatingFromServer = true;
+
+        // 🔹 Обновляем состояния фильтров при изменениях
         searchQuery.value = newFilters.search || "";
         activeTab.value = newFilters.filter || "all";
 
         if (newFilters.sort && newFilters.direction) {
             sortOption.value = `${newFilters.sort}_${newFilters.direction}`;
+        } else if (newFilters.sort) {
+            // Если sort есть, direction нет — используй desc
+            sortOption.value = `${newFilters.sort}_desc`;
         } else {
-            sortOption.value = "start_date_asc";
+            sortOption.value = "start_date_desc";
         }
 
-        // 🔹 Обновляем список событий
-        if (newEvents?.data) {
-            localEvents.value = [...newEvents.data];
-            hasMorePages.value = newEvents.next_page_url !== null;
-        }
+        // 🔹 Сброс событий при изменении фильтров (кроме пагинации)
+        localEvents.value = [...props.events.data];
+        hasMorePages.value = props.events.next_page_url !== null;
+        currentPage.value = props.events.current_page || 1;
+
+        nextTick(() => {
+            isUpdatingFromServer = false;
+        });
     },
-    { deep: true, immediate: true }
+    { deep: true }
 );
 
 // Функция для загрузки следующей страницы
@@ -62,7 +92,9 @@ const loadMoreEvents = () => {
     loadingMore.value = true;
 
     // Используем значение из реактивной переменной sortOption
-    const [sort, direction] = sortOption.value.split("_");
+    const parts = sortOption.value.split("_");
+    const direction = parts.pop();
+    const sort = parts.join("_");
 
     // Формируем параметры запроса на основе текущих фильтров
     const params = {
@@ -70,7 +102,7 @@ const loadMoreEvents = () => {
         filter: activeTab.value,
         sort: sort,
         direction: direction,
-        page: props.events.current_page + 1,
+        page: currentPage.value + 1,
     };
 
     // Добавляем дополнительные параметры фильтрации, если они есть
@@ -97,6 +129,7 @@ const loadMoreEvents = () => {
                 ...localEvents.value,
                 ...page.props.events.data,
             ];
+            currentPage.value = page.props.events.current_page;
             hasMorePages.value = page.props.events.next_page_url !== null;
             loadingMore.value = false;
         },
@@ -136,18 +169,6 @@ const sortOption = ref(
     props.filters.sort && props.filters.direction
         ? `${props.filters.sort}_${props.filters.direction}`
         : "start_date_asc"
-);
-
-watch(
-    () => props.filters,
-    (newFilters) => {
-        if (newFilters.sort && newFilters.direction) {
-            sortOption.value = `${newFilters.sort}_${newFilters.direction}`;
-        } else {
-            sortOption.value = "start_date_asc";
-        }
-    },
-    { deep: true, immediate: true }
 );
 
 // Вычисляемые свойства
@@ -230,8 +251,27 @@ const applyFilters = (newFilters) => {
 const switchTab = (tab) => {
     activeTab.value = tab;
 
-    // Применяем фильтр через query-параметры
-    window.location.href = route("events.index", { filter: tab });
+    const parts = (sortOption.value || "start_date_asc").split("_");
+    const direction = parts.pop();
+    const sort = parts.join("_");
+
+    router.get(
+        route("events.index"),
+        {
+            search: searchQuery.value,
+            filter: activeTab.value,
+            category: props.filters.category || "",
+            type: props.filters.type || "",
+            format: props.filters.format || "",
+            sort,
+            direction,
+        },
+        {
+            preserveScroll: true,
+            replace: true,
+            only: ["events", "filters"],
+        }
+    );
 };
 
 // Функция для изменения сортировки
@@ -239,7 +279,11 @@ const changeSorting = (event) => {
     const value = event.target.value;
     sortOption.value = value;
 
-    const [sort, direction] = value.split("_");
+    const parts = value.split("_");
+    const direction = parts.pop();
+    const sort = parts.join("_");
+
+    console.log("changeSorting:", sort, direction, value); // Добавлено для debug
 
     router.get(
         route("events.index"),
@@ -262,7 +306,9 @@ const changeSorting = (event) => {
 
 // Поиск по Enter
 const performSearch = () => {
-    const [sort, direction] = (sortOption.value || "start_date_asc").split("_");
+    const parts = (sortOption.value || "start_date_asc").split("_");
+    const direction = parts.pop();
+    const sort = parts.join("_");
 
     router.get(
         route("events.index"),
@@ -272,8 +318,8 @@ const performSearch = () => {
             category: props.filters.category || "",
             type: props.filters.type || "",
             format: props.filters.format || "",
-            sort_field: sort,
-            sort_direction: direction,
+            sort: sort,
+            direction: direction, // ✅ теперь оба параметра передаются правильно
         },
         {
             preserveState: true,
@@ -290,6 +336,9 @@ const performSearch = () => {
 // Автопоиск без Enter (дебаунс, от 3 символов; очистка — сброс результата)
 let searchDebounce = null;
 watch(searchQuery, (newValue, oldValue) => {
+    // Не реагируем на программные изменения из серверного ответа
+    if (isUpdatingFromServer) return;
+
     const serverSearch = props.filters.search || "";
     // Если текущее значение совпадает с тем, что пришло с сервера, ничего не делаем
     if (newValue === serverSearch) return;
@@ -602,11 +651,11 @@ watch(searchQuery, (newValue, oldValue) => {
                             @change="changeSorting"
                             class="rounded-md border-gray-300 py-2 pl-3 pr-10 text-sm text-gray-900 focus:border-brandblue focus:outline-none focus:ring-brandblue dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                         >
-                            <option value="start_date_asc">
-                                По дате (сначала старые)
-                            </option>
                             <option value="start_date_desc">
                                 По дате (сначала новые)
+                            </option>
+                            <option value="start_date_asc">
+                                По дате (сначала старые)
                             </option>
                             <option value="title_asc">По названию (А-Я)</option>
                             <option value="title_desc">

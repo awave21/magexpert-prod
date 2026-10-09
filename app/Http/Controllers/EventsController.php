@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class EventsController extends Controller
@@ -100,13 +101,25 @@ class EventsController extends Controller
             $sortField = 'start_date';
         }
 
-        $defaultDirection = $filter === 'archive' ? 'desc' : 'asc';
+        $defaultDirection = $filter === 'archive' ? 'desc' : 'desc';
         $sortDirection = $request->input('direction', $defaultDirection);
         $sortDirection = in_array(strtolower($sortDirection), ['asc', 'desc'])
             ? strtolower($sortDirection)
             : $defaultDirection;
 
-        $query->orderBy($sortField, $sortDirection);
+        \Log::info('Events sort params:', ['sort' => $sortField, 'direction' => $sortDirection]);
+
+        // 🔹 сортировка по дате с NULL в начале или в конце
+            if (in_array($sortField, ['start_date', 'end_date'])) {
+            $query->orderByRaw("$sortField IS NULL ASC")
+                ->orderBy($sortField, $sortDirection);
+        } else {
+            $query->orderBy($sortField, $sortDirection);
+        }
+
+
+
+
 
         $perPage = $request->input('per_page', 12);
         $events = $query->paginate($perPage)->withQueryString();
@@ -271,7 +284,13 @@ class EventsController extends Controller
     {
         // Игнорируем event_id от фронта
         $request->request->remove('event_id');
-
+        //  внешняя ссылка
+         if ($event->external_url) {
+        if ($request->wantsJson()) {
+            return response()->json(['redirect' => $event->external_url]);
+        }
+        return redirect($event->external_url);
+    }
         if (!$event->is_active) {
             return $this->errorResponse($request, 'Мероприятие недоступно');
         }
@@ -281,12 +300,7 @@ class EventsController extends Controller
         if ($event->is_archived && !$event->hasKinescopeRecord()) {
             return $this->errorResponse($request, 'Запись мероприятия пока недоступна');
         }
-        if (
-            !$event->is_archived &&
-            $event->format === 'offline' &&
-            $event->start_date &&
-            $event->start_date < now()->format('Y-m-d')
-        ) {
+        if (!$event->is_archived && $event->format === 'offline' && !$event->isRegistrationAvailable()) {
             return $this->errorResponse($request, 'Мероприятие уже прошло');
         }
 
@@ -345,6 +359,9 @@ class EventsController extends Controller
                 'phone'          => 'required|string|max:20',
                 'city'           => 'required|string|max:255',
                 'specialization' => 'nullable|string|max:255',
+                'privacy_consent' => 'required|accepted',
+                'oferta_consent' => 'required|accepted',
+                'newsletter_consent' => 'nullable|boolean',
             ]);
         }
         if ($validator->fails()) {
@@ -376,10 +393,13 @@ class EventsController extends Controller
                     'specialization'   => $request->specialization,
                     'password'         => Hash::make($generatedPassword),
                     'email_verified_at'=> now(),
+                    'newsletter_consent' => $request->boolean('newsletter_consent', false),
+                    'privacy_consent' => $request->boolean('privacy_consent'),
+                    'oferta_consent' => $request->boolean('oferta_consent'),
                 ]);
                 // по желанию можно логинить
-                // Auth::login($user);
-                // $request->session()->regenerate();
+                 Auth::login($user);
+                $request->session()->regenerate();
             }
 
             if ($event->hasUserAccess($user)) {

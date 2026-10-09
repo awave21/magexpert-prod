@@ -213,7 +213,16 @@ const getFirstRegaliaLine = (regalia) => {
             <h3
                 class="mb-2 text-xl font-bold text-gray-900 group-hover:text-brandblue dark:text-white dark:group-hover:text-brandblue"
             >
+                <a
+                    v-if="event.external_url"
+                    :href="event.external_url"
+                    target="_blank"
+                    class="after:absolute after:inset-0"
+                >
+                    {{ event.title }}
+                </a>
                 <Link
+                    v-else
                     :href="route('events.show', event.slug)"
                     class="after:absolute after:inset-0"
                 >
@@ -357,11 +366,23 @@ const getFirstRegaliaLine = (regalia) => {
                 </div>
 
                 <!-- Кнопка справа -->
+
+                <a
+                    v-if="event.external_url"
+                    :href="event.external_url"
+                    target="_blank"
+                    class="inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-brandcoral transition-all duration-200 bg-brandcoral/10 hover:bg-brandcoral hover:text-white"
+                >
+                    <span>Перейти на сайт</span>
+                    <ArrowLongRightIcon class="ml-1 h-5 w-5" />
+                </a>
                 <Link
+                    v-else
                     :href="route('events.show', event.slug)"
                     class="inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-brandcoral transition-all duration-200 bg-brandcoral/10 hover:bg-brandcoral hover:text-white"
                 >
-                    <span v-if="event.is_archived">
+                    <span v-if="event.external_url">Перейти на сайт</span>
+                    <span v-else-if="event.is_archived">
                         {{ event.kinescope_id ? "Смотреть" : "Подробнее" }}
                     </span>
                     <span v-else-if="event.is_on_demand">Запросить</span>

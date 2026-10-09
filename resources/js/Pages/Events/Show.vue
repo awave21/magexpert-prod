@@ -29,17 +29,21 @@ const page = usePage();
 const toast = useToast();
 
 const handleRegistrationClick = () => {
+    // если есть внешняя ссылка
+    if (props.event.external_url) {
+        window.location.href = props.event.external_url;
+        return;
+    }
     // уже есть доступ
     if (props.event.user_has_access) {
         router.get(
-            route("events.index"),
-            { filter: tab },
+            route("my-events.view", props.event.slug), // или events.content
+            {},
             {
                 preserveState: true,
                 preserveScroll: true,
             }
         );
-
         return;
     }
 
@@ -116,6 +120,10 @@ const formatDate = (date) => {
         year: "numeric",
     });
 };
+const formatTime = (time) => {
+    if (!time) return "";
+    return time.substring(0, 5); // Убираем секунды
+};
 
 const formatPrice = (price) => {
     if (price === null || price === 0) return "Бесплатно";
@@ -146,6 +154,7 @@ const shouldShowCurrency = (event) => {
 };
 
 const getButtonText = (event) => {
+    if (event.external_url) return "Перейти на сайт";
     if (event.is_archived) {
         if (event.is_paid) {
             return event.show_price && event.price
@@ -172,13 +181,12 @@ const isRegistrationAvailable = (event) => {
     if (event.is_archived) {
         return event.has_recording;
     }
-    if (
-        event.format === "offline" &&
-        event.start_date &&
-        new Date(event.start_date) < new Date() &&
-        !event.is_archived
-    ) {
-        return false;
+    if (event.format === "offline" && event.start_date) {
+        const time = event.start_time || "23:59:59";
+        const startDateTime = new Date(`${event.start_date}T${time}`);
+        if (startDateTime < new Date()) {
+            return false;
+        }
     }
     return true;
 };
@@ -492,11 +500,11 @@ const getFirstRegaliaLine = (regalia) => {
                                             v-if="speaker.regalia"
                                             class="mt-3"
                                         >
-                                            <h4
+                                            <!-- <h4
                                                 class="text-sm font-medium text-gray-900 dark:text-white mb-1"
                                             >
                                                 Регалии:
-                                            </h4>
+                                            </h4> -->
                                             <div
                                                 class="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line leading-relaxed"
                                             >
@@ -558,7 +566,9 @@ const getFirstRegaliaLine = (regalia) => {
                                             class="flex items-center mt-1 text-gray-600 dark:text-gray-400"
                                         >
                                             <ClockIcon class="mr-1 h-4 w-4" />
-                                            <span>{{ event.start_time }}</span>
+                                            <span>{{
+                                                formatTime(event.start_time)
+                                            }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -780,6 +790,7 @@ const getFirstRegaliaLine = (regalia) => {
                             </p>
                         </div>
                         <div
+                            v-if="event.file_path"
                             class="bg-white rounded-xl p-6 border border-gray-200 dark:border-gray-700 dark:bg-gray-800"
                         >
                             <h2
@@ -789,7 +800,7 @@ const getFirstRegaliaLine = (regalia) => {
                             </h2>
 
                             <!-- Условный рендеринг: отображаем кнопку только если есть файл -->
-                            <div v-if="event.file_path">
+                            <div>
                                 <a
                                     :href="`/${event.file_path}`"
                                     target="_blank"

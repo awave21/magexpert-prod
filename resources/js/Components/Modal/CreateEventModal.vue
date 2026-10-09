@@ -138,6 +138,19 @@
                     :error="form.errors.location"
                     placeholder="Введите место проведения"
                 />
+                <TextInput
+                    id="external_url"
+                    label="Ссылка на внешний сайт"
+                    v-model="form.external_url"
+                    :error="form.errors.external_url"
+                    placeholder="https://example.com"
+                    type="url"
+                >
+                    <template #hint>
+                        Если указана ссылка, кнопка "Записаться" будет
+                        перенаправлять на этот сайт вместо регистрации
+                    </template>
+                </TextInput>
             </div>
 
             <div class="space-y-3 p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
@@ -532,6 +545,7 @@ const form = useForm({
     full_description: "",
     topic: "",
     location: "",
+    external_url: "",
     price: "",
     is_paid: false,
     show_price: false,
@@ -617,6 +631,7 @@ watch(
             form.full_description = newEvent.full_description || "";
             form.topic = newEvent.topic || "";
             form.location = newEvent.location || "";
+            form.external_url = newEvent.external_url || ""; // Внешняя ссылка
             form.price = newEvent.price || "";
             form.format = newEvent.format || "";
             form.registration_enabled = newEvent.registration_enabled ?? true;

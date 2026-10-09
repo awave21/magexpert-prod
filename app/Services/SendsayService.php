@@ -39,7 +39,7 @@ class SendsayService
             'webinar' => 'Вебинар',
             'conference' => 'Конференция',
             'course' => 'Курс',
-            'workshop' => 'WOrk',
+            'workshop' => 'Мастер-класс',
             'seminar' => 'Семинар',
             'other' => 'Другое',
         ];
@@ -792,4 +792,38 @@ class SendsayService
 
         return $this->sendEmail($user->email, $draftId, $variables, $extraData);
     }
+
+    /**
+ * Отправка письма при API регистрации с паролем
+ *
+ * @param string $email
+ * @param string $password Новый пароль
+ * @param string $name Имя пользователя
+ * @return bool
+ */
+public function sendApiRegistrationEmail(string $email, string $password, string $name = ''): bool
+{
+    $draftId = config('sendsay.draft_ids.api_registration');
+    
+    if (!$draftId) {
+        $this->log('error', 'ID черновика письма API регистрации не настроен');
+        return false;
+    }
+
+    // Переменные для шаблона
+    $variables = [];
+    
+    // Дополнительные данные для шаблона
+    $extraData = [
+        'user_email' => strtolower($email),
+        'password' => $password,
+        'name' => $name,
+        'registration_type' => 'api',
+        'generated_at' => now()->format('d.m.Y H:i'),
+    ];
+
+    return $this->sendEmail($email, $draftId, $variables, $extraData);
+}
+
+
 }

@@ -32,6 +32,7 @@ class Event extends Model
         'full_description',
         'topic',
         'location',
+        'external_url',
         'price',
         'is_paid', // Платное мероприятие (независимо от цены)
         'show_price', // Показывать цену на фронтенде
@@ -249,11 +250,32 @@ class Event extends Model
         }
         
         // Для офлайн мероприятий регистрация недоступна если они уже прошли (и не архивные)
-        if ($this->format === 'offline' && $this->start_date && $this->start_date->isPast()) {
+        if ($this->format === 'offline' && $this->getStartDateTime()?->isPast()) {
             return false;
         }
-        
+
         return true;
+    }
+
+    /**
+     * Дата и время начала мероприятия. Если время не задано - конец дня начала
+     * (регистрация остаётся доступной весь день начала мероприятия).
+     *
+     * @return \Carbon\Carbon|null
+     */
+    private function getStartDateTime(): ?\Carbon\Carbon
+    {
+        if (!$this->start_date) {
+            return null;
+        }
+
+        $dateStr = is_string($this->start_date) ? $this->start_date : $this->start_date->format('Y-m-d');
+
+        if ($this->start_time) {
+            return \Carbon\Carbon::parse($dateStr . ' ' . $this->start_time);
+        }
+
+        return \Carbon\Carbon::parse($dateStr)->endOfDay();
     }
     
     /**

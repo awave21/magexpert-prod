@@ -208,4 +208,6 @@ Route::get('/game', [GameController::class, 'index'])->name('game');
 Route::post('/api/test-websocket', [GameController::class, 'testWebSocket']);
 Route::post('/api/test-notification', [\App\Http\Controllers\Admin\NotificationController::class, 'testNotification']);
 
+
+
 require __DIR__.'/auth.php';

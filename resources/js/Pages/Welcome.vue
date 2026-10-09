@@ -23,6 +23,10 @@ defineProps({
         default: null,
     },
 });
+const formatTime = (time) => {
+    if (!time) return "";
+    return time.substring(0, 5); // Убираем секунды, если формат HH:MM:SS
+};
 
 const telegram = {
     url: "https://t.me/beautifulgynecology", // TODO: подставь реальную ссылку
@@ -84,7 +88,7 @@ const telegram = {
                             <!-- Изображение мероприятия -->
                             <div
                                 v-if="upcomingEvent.image"
-                                class="h-48 bg-cover bg-center"
+                                class="h-48 bg-cover bg-start"
                                 :style="{
                                     backgroundImage: `url(${upcomingEvent.image})`,
                                 }"
@@ -149,7 +153,9 @@ const telegram = {
                                             >
                                                 в
                                                 {{
-                                                    upcomingEvent.start_time
+                                                    formatTime(
+                                                        upcomingEvent.start_time
+                                                    )
                                                 }}</span
                                             >
                                         </span>
@@ -185,13 +191,19 @@ const telegram = {
                                     </p>
                                 </div>
                                 <a
-                                    :href="`/events/${upcomingEvent.slug}`"
+                                    :href="
+                                        upcomingEvent.external_url
+                                            ? upcomingEvent.external_url
+                                            : `/events/${upcomingEvent.slug}`
+                                    "
                                     class="inline-block w-full bg-brandcoral text-white font-semibold py-3 px-6 rounded-full text-center transition-colors hover:bg-brandcoral/90"
                                 >
                                     {{
-                                        upcomingEvent.is_on_demand
+                                        upcomingEvent.external_url
+                                            ? "Перейти на сайт"
+                                            : upcomingEvent.is_on_demand
                                             ? "Смотреть"
-                                            : "Записаться"
+                                            : "Подробнее"
                                     }}
                                 </a>
                             </div>

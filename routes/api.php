@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\PayKeeperWebhookController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,3 +19,6 @@ use Illuminate\Support\Facades\Route;
 Route::post('/webhook/paykeeper', [PayKeeperWebhookController::class, 'handleWebhook'])
     ->middleware('verify.paykeeper.webhook')
     ->name('webhook.paykeeper');
+
+  // API для пользователей
+Route::post('/users', [UserController::class, 'store']);

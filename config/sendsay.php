@@ -48,6 +48,7 @@ return [
         'promotional' => env('SENDSAY_DRAFT_PROMOTIONAL', null),
         'gift_certificate' => env('SENDSAY_DRAFT_GIFT_CERTIFICATE', null),
         'event_registration' => env('SENDSAY_DRAFT_EVENT_REGISTRATION', null),
+        'api_registration' => env('SENDSAY_DRAFT_API_REGISTRATION', null),
     ],
 
     /*

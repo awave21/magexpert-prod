@@ -30,6 +30,9 @@ class User extends Authenticatable
         'avatar',
         'city',
         'password',
+        'privacy_consent',      // согласие на обработку данных
+        'oferta_consent',       // согласие с офертой
+        'newsletter_consent',   // рассылка (необяз)
     ];
 
     /**

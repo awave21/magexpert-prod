@@ -123,6 +123,9 @@ const registrationForm = useForm({
     city: "",
     specialization: "",
     event_id: props.event.id,
+    privacy_consent: false,
+    oferta_consent: false,
+    newsletter_consent: false,
 });
 
 // Сброс состояния при закрытии модального окна
@@ -132,6 +135,9 @@ const resetModal = () => {
     emailForm.reset();
     registrationForm.reset();
     isLoading.value = false;
+    registrationForm.privacy_consent = false;
+    registrationForm.oferta_consent = false;
+    registrationForm.newsletter_consent = false;
 };
 
 // Закрытие модального окна
@@ -180,6 +186,36 @@ const proceedToPayment = () => {
 // Отправка формы регистрации
 const submitRegistration = async () => {
     await refreshCsrf();
+
+    // Клиентская валидация чекбоксов (для UI обратной связи) - только для новых пользователей
+    if (!userExists.value) {
+        let hasError = false;
+
+        if (!registrationForm.privacy_consent) {
+            registrationForm.errors.privacy_consent =
+                "Обязательно дать согласие на обработку персональных данных";
+            hasError = true;
+        } else {
+            registrationForm.errors.privacy_consent = "";
+        }
+
+        if (!registrationForm.oferta_consent) {
+            registrationForm.errors.oferta_consent =
+                "Обязательно согласиться с условиями Публичной оферты";
+            hasError = true;
+        } else {
+            registrationForm.errors.oferta_consent = "";
+        }
+
+        // Если есть ошибки, не отправляем форму
+        if (hasError) {
+            return;
+        }
+
+        // Очистка ошибок в случае успеха валидации
+        registrationForm.errors.privacy_consent = "";
+        registrationForm.errors.oferta_consent = "";
+    }
 
     if (userExists.value) {
         await handleExistingUserRegistration();
@@ -616,6 +652,116 @@ const progressPercent = computed(() => {
                                         "
                                         placeholder="Введите специализацию (необязательно)"
                                     />
+                                    <!-- Чекбоксы согласия -->
+                                    <div
+                                        class="space-y-3 border-t pt-4 border-gray-200 dark:border-gray-700"
+                                    >
+                                        <div class="flex items-start space-x-2">
+                                            <input
+                                                id="privacy_consent"
+                                                type="checkbox"
+                                                v-model="
+                                                    registrationForm.privacy_consent
+                                                "
+                                                class="h-4 w-4 mt-1 text-brandblue focus:ring-brandblue border-gray-300 dark:border-gray-600 rounded"
+                                            />
+                                            <label
+                                                for="privacy_consent"
+                                                class="text-sm text-gray-600 dark:text-gray-400"
+                                            >
+                                                *Даю согласие на
+                                                <a
+                                                    href="/storage/politics/soglasie-na-obrabotku-personalnyh-dannyh-medalyans-expert.pdf"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    <em class="cursor-pointer"
+                                                        >обработку персональных
+                                                        данных</em
+                                                    ></a
+                                                >
+                                            </label>
+                                        </div>
+                                        <div
+                                            v-if="
+                                                !registrationForm.privacy_consent &&
+                                                registrationForm.errors
+                                                    .privacy_consent
+                                            "
+                                            class="text-xs text-red-600 dark:text-red-400"
+                                        >
+                                            {{
+                                                registrationForm.errors
+                                                    .privacy_consent
+                                            }}
+                                        </div>
+
+                                        <div class="flex items-start space-x-2">
+                                            <input
+                                                id="oferta_consent"
+                                                type="checkbox"
+                                                v-model="
+                                                    registrationForm.oferta_consent
+                                                "
+                                                class="h-4 w-4 mt-1 text-brandblue focus:ring-brandblue border-gray-300 dark:border-gray-600 rounded"
+                                            />
+                                            <label
+                                                for="oferta_consent"
+                                                class="text-sm text-gray-600 dark:text-gray-400"
+                                            >
+                                                *Согласен с условиями
+                                                <a
+                                                    class="cursor-pointer"
+                                                    href="/storage/politics/publichnaya-oferta-dlya-medalyans-expert.pdf"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    ><em
+                                                        >Публичной оферты
+                                                    </em></a
+                                                >
+                                            </label>
+                                        </div>
+                                        <div
+                                            v-if="
+                                                !registrationForm.oferta_consent &&
+                                                registrationForm.errors
+                                                    .oferta_consent
+                                            "
+                                            class="text-xs text-red-600 dark:text-red-400"
+                                        >
+                                            {{
+                                                registrationForm.errors
+                                                    .oferta_consent
+                                            }}
+                                        </div>
+
+                                        <div class="flex items-start space-x-2">
+                                            <input
+                                                id="newsletter_consent"
+                                                type="checkbox"
+                                                v-model="
+                                                    registrationForm.newsletter_consent
+                                                "
+                                                class="h-4 w-4 mt-1 text-brandblue focus:ring-brandblue border-gray-300 dark:border-gray-600 rounded"
+                                            />
+                                            <label
+                                                for="newsletter_consent"
+                                                class="text-sm text-gray-600 dark:text-gray-400"
+                                            >
+                                                Согласие на получение рассылки
+                                                <a
+                                                    class="cursor-pointer"
+                                                    href="/storage/politics/publichnaya-oferta-dlya-medalyans-expert.pdf"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    ><em
+                                                        >рекламно-информационных
+                                                        материалов
+                                                    </em>
+                                                </a>
+                                            </label>
+                                        </div>
+                                    </div>
 
                                     <div class="flex space-x-3 pt-4">
                                         <button

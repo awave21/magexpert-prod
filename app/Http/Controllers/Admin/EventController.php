@@ -247,6 +247,7 @@ class EventController extends Controller
             'groupsensay' => 'nullable|string|max:255',
             'max_quantity' => 'nullable|integer|min:0',
             'file' => 'nullable|file|mimes:pdf,docx,jpg,png|max:10240',
+            'external_url' => 'nullable|url',
         ];
         
         // Добавляем правило для изображения только если оно загружается
@@ -395,6 +396,7 @@ class EventController extends Controller
             'groupsensay' => 'nullable|string|max:255',
             'max_quantity' => 'nullable|integer|min:0',
             'file' => 'nullable|file|mimes:pdf,docx,jpg,png|max:10240',
+            'external_url' => 'nullable|url',
         ];
         
         // Добавляем правило для изображения только если оно загружается

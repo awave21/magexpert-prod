@@ -4,6 +4,8 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+    
+
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
@@ -29,6 +31,37 @@
         <link rel="mask-icon" href="/favicon.svg" color="#ffffff">
 
         <!-- Scripts -->
+
+         <!-- Yandex.Metrika counter -->
+            <script type="text/javascript">
+            (function(m,e,t,r,i,k,a){
+                m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                m[i].l=1*new Date();
+                for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+                k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+            })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=104263544', 'ym');
+
+            ym(104263544, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true});
+            </script>
+            <noscript><div><img src="https://mc.yandex.ru/watch/104263544" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+        <!-- /Yandex.Metrika counter -->
+
+        <!-- Bitrix24 -->
+              <script>
+                (function(w,d,u){
+                        var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
+                        var h=d.getElementsByTagName('script')[0];h.parentNode.insertBefore(s,h);
+                })(window,document,'https://cdn-ru.bitrix24.ru/b16028682/crm/site_button/loader_3_2310pe.js');
+            </script>
+
+            <!-- Adjust Bitrix24 widget position -->
+            <style>
+                .b24-widget {
+                    bottom: 120px !important;
+                }
+            </style>
+
+
         @routes
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
