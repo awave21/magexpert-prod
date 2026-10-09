@@ -5,6 +5,7 @@ type Ctx = {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  register: (data: { organization: string; name: string; email: string; password: string }) => Promise<void>
   logout: () => Promise<void>
 }
 const AuthContext = createContext<Ctx>(null as never)
@@ -29,12 +30,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(r.user.data ?? r.user)
   }, [])
 
+  const register = useCallback(async (data: { organization: string; name: string; email: string; password: string }) => {
+    const r = await api<{ token: string; user: { data?: User } & User }>('/register', { method: 'POST', body: data })
+    tokenStore.set(r.token)
+    setUser(r.user.data ?? r.user)
+  }, [])
+
   const logout = useCallback(async () => {
     try { await api('/logout', { method: 'POST' }) } catch { /* токен всё равно удаляем */ }
     tokenStore.clear()
     setUser(null)
   }, [])
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading, login, logout])
+  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

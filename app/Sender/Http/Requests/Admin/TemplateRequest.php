@@ -34,6 +34,10 @@ class TemplateRequest extends FormRequest
             'subject' => ['required', 'string', 'max:255'],
             'body_html' => ['required', 'string'],
             'body_text' => ['nullable', 'string'],
+            'folder_id' => [
+                'nullable', 'integer',
+                Rule::exists(config('sender.connection').'.sender_template_folders', 'id')->where('organization_id', $organizationId),
+            ],
         ];
     }
 
@@ -48,6 +52,7 @@ class TemplateRequest extends FormRequest
             'slug.unique' => 'Шаблон с таким идентификатором уже есть',
             'name.required' => 'Укажите название',
             'subject.required' => 'Укажите тему письма',
+            'folder_id.exists' => 'Такой папки нет',
             'body_html.required' => 'Укажите текст письма',
         ];
     }

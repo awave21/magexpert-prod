@@ -50,6 +50,6 @@ class TemplateController extends Controller
     {
         $model = $this->organization($request)->templates()->findOrFail($template);
 
-        return response()->json(['data' => $renderer->render($model, (array) $request->input('data', []))]);
+        return response()->json(['data' => $renderer->render($model, array_merge($this->organization($request)->variables()->whereNotNull('default_value')->where('default_value', '!=', '')->pluck('default_value', 'key')->all(), (array) $request->input('data', [])))]);
     }
 }

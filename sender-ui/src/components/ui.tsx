@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, Check, Copy } from 'lucide-react'
 
 const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'err' | 'neutral' }> = {
   sent: { label: 'Отправлено', tone: 'ok' },
@@ -82,6 +83,10 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       </div>
     </div>
   )
+}
+
+export function BackLink({ to, children }: { to: string; children: ReactNode }) {
+  return <Link to={to} className="back"><ArrowLeft size={15} />{children}</Link>
 }
 
 export function PageHead({ title, sub, actions }: { title: string; sub?: string; actions?: ReactNode }) {

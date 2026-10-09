@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, RefreshCw, X } from 'lucide-react'
 import { api, type DnsRecord, type Domain, type VerifyReport } from '../api'
-import { CopyField, Modal, Status, ago, useToast } from '../components/ui'
+import { BackLink, CopyField, Modal, Status, ago, useToast } from '../components/ui'
 
 const INFO: Record<DnsRecord['key'], { title: string; text: string }> = {
   verification: { title: 'Подтверждение владения', text: 'Показывает, что домен ваш' },
@@ -46,6 +46,7 @@ export default function DomainDetail() {
 
   return (
     <main className="page">
+      <BackLink to="/domains">Все домены</BackLink>
       <div className="page-head">
         <div>
           <div className="row"><h1 className="mono" style={{ fontSize: 28 }}>{d.domain}</h1><Status value={d.status} /></div>

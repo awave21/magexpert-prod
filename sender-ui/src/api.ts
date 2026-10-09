@@ -53,7 +53,7 @@ export type Domain = {
   verified_at: string | null; last_checked_at: string | null; created_at: string
   dns_records?: DnsRecord[]
 }
-export type Template = { id: number; slug: string; name: string; subject: string; body_html: string; body_text: string | null; updated_at: string }
+export type Template = { id: number; folder_id: number | null; slug: string; name: string; subject: string; body_html: string; body_text: string | null; updated_at: string }
 export type Message = {
   id: string; status: 'queued' | 'sending' | 'sent' | 'failed' | 'blocked'; to: string; from: string; subject: string
   template: string | null; attempts: number; error: string | null; sent_at: string | null; created_at: string
@@ -61,6 +61,10 @@ export type Message = {
 }
 export type ApiKey = { id: number; name: string; key_prefix: string; last_used_at: string | null; revoked_at: string | null; created_at: string }
 export type Suppression = { id: number; email: string; reason: 'bounce' | 'complaint' | 'unsubscribe' | 'manual'; created_at: string }
+export type Folder = { id: number; name: string; templates_count: number }
+export type BaseVariable = { key: string; label: string; description: string; sample: string }
+export type CustomVariable = { id: number; key: string; label: string; default_value: string | null }
+export type Variables = { base: BaseVariable[]; custom: CustomVariable[] }
 export type Paged<T> = { data: T[]; meta: { current_page: number; last_page: number; total: number } }
 export type VerifyReport = Record<'verification' | 'dkim' | 'spf' | 'dmarc', boolean>
 export type Stats = {

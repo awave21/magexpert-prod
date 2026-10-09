@@ -18,6 +18,7 @@ class TemplateResource extends JsonResource
         return [
             'id' => $this->id,
             'slug' => $this->slug,
+            'folder_id' => $this->folder_id,
             'name' => $this->name,
             'subject' => $this->subject,
             'body_html' => $this->body_html,

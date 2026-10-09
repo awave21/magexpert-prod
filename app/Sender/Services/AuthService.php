@@ -2,6 +2,7 @@
 
 namespace App\Sender\Services;
 
+use App\Sender\Models\Organization;
 use App\Sender\Models\User;
 use App\Sender\Models\UserToken;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,37 @@ class AuthService
             return null;
         }
 
+        return ['user' => $user, 'token' => $this->issueToken($user)];
+    }
+
+    /**
+     * Создаёт организацию и её первого пользователя, сразу выдаёт токен.
+     *
+     * @return array{user: User, token: string}
+     */
+    public function register(string $organizationName, string $name, string $email, string $password): array
+    {
+        return Organization::query()->getConnection()->transaction(function () use ($organizationName, $name, $email, $password): array {
+            $organization = Organization::query()->create([
+                'name' => trim($organizationName),
+                'slug' => $this->uniqueSlug($organizationName),
+                'is_active' => true,
+            ]);
+
+            $user = User::query()->create([
+                'organization_id' => $organization->id,
+                'name' => trim($name),
+                'email' => Str::lower(trim($email)),
+                'password' => $password,
+                'is_active' => true,
+            ]);
+
+            return ['user' => $user, 'token' => $this->issueToken($user)];
+        });
+    }
+
+    private function issueToken(User $user): string
+    {
         $plain = self::PREFIX.Str::random(48);
 
         $user->tokens()->create([
@@ -31,7 +63,19 @@ class AuthService
             'expires_at' => now()->addDays(self::TTL_DAYS),
         ]);
 
-        return ['user' => $user, 'token' => $plain];
+        return $plain;
+    }
+
+    private function uniqueSlug(string $name): string
+    {
+        $base = Str::slug($name) ?: 'org';
+        $slug = $base;
+
+        while (Organization::query()->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.Str::lower(Str::random(5));
+        }
+
+        return $slug;
     }
 
     public function authenticate(string $plain): ?User

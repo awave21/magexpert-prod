@@ -7,6 +7,8 @@ use App\Sender\Http\Controllers\Admin\MessageController as AdminMessageControlle
 use App\Sender\Http\Controllers\Admin\StatsController;
 use App\Sender\Http\Controllers\Admin\SuppressionController;
 use App\Sender\Http\Controllers\Admin\TemplateController;
+use App\Sender\Http\Controllers\Admin\TemplateFolderController;
+use App\Sender\Http\Controllers\Admin\VariableController;
 use App\Sender\Http\Controllers\MessageController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
@@ -20,6 +22,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
 
     Route::prefix('admin')->name('sender.admin.')->group(function (): void {
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
+        Route::post('register', [AuthController::class, 'register'])->middleware('throttle:10,60')->name('register');
 
         Route::middleware(AuthenticateUser::class)->group(function (): void {
             Route::get('me', [AuthController::class, 'me'])->name('me');
@@ -32,6 +35,11 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::post('domains/{domain}/verify', [DomainController::class, 'verify'])->name('domains.verify');
             Route::delete('domains/{domain}', [DomainController::class, 'destroy'])->name('domains.destroy');
 
+            Route::get('template-folders', [TemplateFolderController::class, 'index'])->name('template-folders.index');
+            Route::post('template-folders', [TemplateFolderController::class, 'store'])->name('template-folders.store');
+            Route::put('template-folders/{folder}', [TemplateFolderController::class, 'update'])->name('template-folders.update');
+            Route::delete('template-folders/{folder}', [TemplateFolderController::class, 'destroy'])->name('template-folders.destroy');
+
             Route::get('templates', [TemplateController::class, 'index'])->name('templates.index');
             Route::post('templates', [TemplateController::class, 'store'])->name('templates.store');
             Route::get('templates/{template}', [TemplateController::class, 'show'])->name('templates.show');
@@ -42,6 +50,11 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::get('api-keys', [ApiKeyController::class, 'index'])->name('api-keys.index');
             Route::post('api-keys', [ApiKeyController::class, 'store'])->name('api-keys.store');
             Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->name('api-keys.destroy');
+
+            Route::get('variables', [VariableController::class, 'index'])->name('variables.index');
+            Route::post('variables', [VariableController::class, 'store'])->name('variables.store');
+            Route::put('variables/{variable}', [VariableController::class, 'update'])->name('variables.update');
+            Route::delete('variables/{variable}', [VariableController::class, 'destroy'])->name('variables.destroy');
 
             Route::get('messages', [AdminMessageController::class, 'index'])->name('messages.index');
             Route::get('messages/{uuid}', [AdminMessageController::class, 'show'])->name('messages.show');

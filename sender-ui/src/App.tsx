@@ -11,6 +11,7 @@ import TemplateEditor from './pages/TemplateEditor'
 import Messages from './pages/Messages'
 import ApiKeys from './pages/ApiKeys'
 import Blocked from './pages/Blocked'
+import VariablesPage from './pages/Variables'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="domains/:id" element={<DomainDetail />} />
         <Route path="templates" element={<Templates />} />
         <Route path="templates/:id" element={<TemplateEditor />} />
+        <Route path="variables" element={<VariablesPage />} />
         <Route path="api-keys" element={<ApiKeys />} />
         <Route path="blocked" element={<Blocked />} />
         <Route path="*" element={<Navigate to="/" replace />} />

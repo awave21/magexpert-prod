@@ -28,6 +28,7 @@ class MessageService
         array $data = [],
     ): Message {
         $to = Str::lower(trim($to));
+        $data = array_merge($this->defaults($organization), $data);
         $fromEmail = Str::lower(trim($fromEmail));
 
         $domain = $organization->domains()
@@ -59,6 +60,16 @@ class MessageService
         SendMessageJob::dispatch($message->id)->onQueue(config('sender.queue'));
 
         return $message;
+    }
+
+    /**
+     * Значения по умолчанию своих переменных организации: действуют, если приложение не передало значение.
+     *
+     * @return array<string, string>
+     */
+    private function defaults(Organization $organization): array
+    {
+        return $organization->variables()->whereNotNull('default_value')->where('default_value', '!=', '')->pluck('default_value', 'key')->all();
     }
 
     private function blockReason(Organization $organization, ?Domain $domain, string $to): ?string

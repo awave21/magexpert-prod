@@ -38,6 +38,16 @@ class Organization extends SenderModel
         return $this->hasMany(Suppression::class, 'organization_id');
     }
 
+    public function templateFolders(): HasMany
+    {
+        return $this->hasMany(TemplateFolder::class, 'organization_id');
+    }
+
+    public function variables(): HasMany
+    {
+        return $this->hasMany(Variable::class, 'organization_id');
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class, 'organization_id');

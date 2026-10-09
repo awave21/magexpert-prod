@@ -10,12 +10,18 @@ class Template extends SenderModel
 
     protected $fillable = [
         'organization_id',
+        'folder_id',
         'slug',
         'name',
         'subject',
         'body_html',
         'body_text',
     ];
+
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(TemplateFolder::class, 'folder_id');
+    }
 
     public function organization(): BelongsTo
     {

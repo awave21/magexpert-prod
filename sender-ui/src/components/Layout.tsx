@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Globe, LayoutDashboard, LogOut, Mail, Menu, Moon, PanelLeftClose, Plus, ScrollText, Search, ShieldBan, Sun, KeyRound, FileText } from 'lucide-react'
+import { Bell, Globe, LayoutDashboard, LogOut, Mail, Menu, Moon, PanelLeftClose, Plus, ScrollText, Search, ShieldBan, Sun, KeyRound, FileText, Braces } from 'lucide-react'
 import { api, type Domain } from '../api'
 import { useAuth } from '../auth'
 
@@ -57,6 +57,7 @@ export function Layout() {
         <div className="nav-title">Настройка</div>
         {item('/domains', <Globe size={20} />, 'Домены', unverified)}
         {item('/templates', <FileText size={20} />, 'Шаблоны')}
+        {item('/variables', <Braces size={20} />, 'Переменные')}
         {item('/api-keys', <KeyRound size={20} />, 'API-ключи')}
         {item('/blocked', <ShieldBan size={20} />, 'Блокировки')}
         <div className="spacer" />
