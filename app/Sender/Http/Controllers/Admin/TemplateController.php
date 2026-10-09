@@ -4,7 +4,11 @@ namespace App\Sender\Http\Controllers\Admin;
 
 use App\Sender\Http\Requests\Admin\MoveTemplateRequest;
 use App\Sender\Http\Requests\Admin\TemplateRequest;
+use App\Sender\Http\Requests\Admin\TestTemplateRequest;
+use App\Sender\Http\Resources\MessageResource;
 use App\Sender\Http\Resources\TemplateResource;
+use App\Sender\Models\Domain;
+use App\Sender\Services\MessageService;
 use App\Sender\Services\TemplateRenderer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,5 +67,31 @@ class TemplateController extends Controller
         $model = $this->organization($request)->templates()->findOrFail($template);
 
         return response()->json(['data' => $renderer->render($model, array_merge($this->organization($request)->variables()->whereNotNull('default_value')->where('default_value', '!=', '')->pluck('default_value', 'key')->all(), (array) $request->input('data', [])))]);
+    }
+
+    /**
+     * Тестовая отправка сохранённой версии шаблона с первого подтверждённого домена организации.
+     * Письмо проходит обычный путь: очередь, журнал, список блокировок.
+     */
+    public function test(TestTemplateRequest $request, int $template, MessageService $messages): JsonResponse
+    {
+        $organization = $this->organization($request);
+        $model = $organization->templates()->findOrFail($template);
+        $domain = $organization->domains()->where('status', Domain::STATUS_VERIFIED)->oldest('id')->first();
+
+        if ($domain === null) {
+            return response()->json(['message' => 'Нет подтверждённого домена: тестовое письмо отправить не с чего'], 422);
+        }
+
+        $message = $messages->send(
+            $organization,
+            $model,
+            $request->string('to')->toString(),
+            'noreply@'.$domain->domain,
+            $organization->name,
+            (array) $request->validated('data', []),
+        );
+
+        return (new MessageResource($message->load('template')))->response()->setStatusCode(201);
     }
 }

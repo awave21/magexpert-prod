@@ -245,3 +245,22 @@ it('applies default values of custom variables when sending', function (): void 
     $this->withToken($this->token)->postJson(adminApi()."/templates/{$template->id}/preview", ['data' => ['clinic' => 'Другая']])
         ->assertJsonPath('data.subject', 'Из Другая');
 });
+
+it('sends a test email from the first verified domain', function (): void {
+    Illuminate\Support\Facades\Queue::fake();
+    $template = $this->organization->templates()->create(['slug' => 'welcome', 'name' => 'Привет', 'subject' => 'Здравствуйте, {{ name }}', 'body_html' => 'X']);
+
+    $this->withToken($this->token)->postJson(adminApi()."/templates/{$template->id}/test", ['to' => 'me@example.com'])
+        ->assertUnprocessable();
+
+    $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'verified_at' => now(), 'dkim_selector' => 'mail']);
+
+    $this->withToken($this->token)->postJson(adminApi()."/templates/{$template->id}/test", ['to' => 'Me@Example.com', 'data' => ['name' => 'Анна']])
+        ->assertCreated()
+        ->assertJsonPath('data.status', Message::STATUS_QUEUED)
+        ->assertJsonPath('data.to', 'me@example.com')
+        ->assertJsonPath('data.from', 'noreply@mag-expert.ru')
+        ->assertJsonPath('data.subject', 'Здравствуйте, Анна');
+
+    Illuminate\Support\Facades\Queue::assertPushed(App\Sender\Jobs\SendMessageJob::class);
+});
