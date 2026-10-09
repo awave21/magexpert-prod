@@ -33,7 +33,7 @@ export default function Messages() {
   const m = detail.data?.data
 
   return (
-    <main className="page" style={{ maxWidth: 1320 }}>
+    <main className="page">
       <PageHead title="Журнал сообщений" sub="Каждое письмо и что с ним произошло" />
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
         <div className="tabs" role="tablist" style={{ flex: 1 }}>

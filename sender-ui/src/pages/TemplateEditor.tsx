@@ -101,7 +101,7 @@ export default function TemplateEditor() {
   const dirty = q.data?.data && (q.data.data.body_html !== form.body_html || q.data.data.subject !== form.subject)
 
   return (
-    <main className="page" style={{ maxWidth: 1320 }}>
+    <main className="page">
       <form onSubmit={submit}>
         <BackLink to={form.folder_id ? `/templates?folder=${form.folder_id}` : '/templates'}>Все шаблоны</BackLink>
         <PageHead title={isNew ? 'Новый шаблон' : form.name || 'Шаблон'} sub={isNew ? 'Ключ шаблона приложение передаёт при отправке письма' : undefined}
