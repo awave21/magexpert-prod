@@ -681,3 +681,8 @@ button { font: inherit; color: inherit; }
 .api-kv > span:nth-child(odd) { color: var(--muted); }
 .api-table { max-width: 720px; }
 .api-vars { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.addr-status { font-size: 13px; }
+.addr-pending { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; font-size: 13px; }
+.addr-pending .status { font-size: 13px; }
+.addr-pending .sub { font-size: 12px; }

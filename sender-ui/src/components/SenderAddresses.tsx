@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Mail, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Mail, Pencil, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import { api, ApiError, type SenderAddress } from '../api'
-import { Modal, useToast } from './ui'
+import { Modal, ago, useToast } from './ui'
 
 // Адреса отправителей домена: шаблоны выбирают отправителя из этого списка
 export function SenderAddresses({ domain, verified }: { domain: string; verified: boolean }) {
@@ -21,12 +21,17 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
   const refresh = () => qc.invalidateQueries({ queryKey: ['sender-addresses'] })
   const add = useMutation({
     mutationFn: () => api('/sender-addresses', { method: 'POST', body: { email: `${local.trim()}@${domain}`, name: name.trim() } }),
-    onSuccess: () => { setAdding(false); setLocal(''); setName(''); setErrors({}); toast('Адрес добавлен'); refresh() },
+    onSuccess: () => { setAdding(false); toast(`Письмо со ссылкой отправлено на ${local.trim()}@${domain}`); setLocal(''); setName(''); setErrors({}); refresh() },
     onError: (e) => setErrors(e instanceof ApiError ? e.errors : {}),
   })
   const rename = useMutation({
     mutationFn: (x: { id: number; name: string }) => api(`/sender-addresses/${x.id}`, { method: 'PUT', body: { name: x.name.trim() } }),
     onSuccess: () => { setEditing(null); toast('Имя изменено'); refresh() },
+    onError: (e) => toast((e as Error).message, true),
+  })
+  const resend = useMutation({
+    mutationFn: (a: SenderAddress) => api(`/sender-addresses/${a.id}/resend`, { method: 'POST' }),
+    onSuccess: (_r, a) => { toast(`Письмо отправлено ещё раз на ${a.email}`); refresh() },
     onError: (e) => toast((e as Error).message, true),
   })
   const remove = useMutation({
@@ -41,7 +46,7 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
       <div className="addr-head">
         <div>
           <h2>Адреса отправителей</h2>
-          <p className="sub">С этих адресов уходят письма. В шаблоне отправитель выбирается из этого списка.</p>
+          <p className="sub">С этих адресов уходят письма. На новый адрес придёт письмо со ссылкой: пока её не открыли, письма с адреса не отправляются.</p>
         </div>
         <button type="button" className="btn" onClick={() => { setErrors({}); setAdding(true) }}><Plus size={15} />Добавить адрес</button>
       </div>
@@ -61,8 +66,20 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
                   <button type="button" className="btn icon sm" aria-label="Отмена" onClick={() => setEditing(null)}><X size={15} /></button>
                 </form>
               ) : (
-                <div className="addr-who"><b>{a.name}</b><span className="mono">{a.email}</span></div>
+                <div className="addr-who">
+                  <b>{a.name}</b>
+                  <span className="mono">{a.email}</span>
+                </div>
               )}
+              {editing?.id !== a.id && (a.confirmed
+                ? <span className="status ok addr-status"><i />Подтверждён</span>
+                : (
+                  <div className="addr-pending">
+                    <span className="status warn"><i />Ждёт подтверждения</span>
+                    <span className="sub">{a.confirmation_sent_at ? `письмо отправлено ${ago(a.confirmation_sent_at)}` : 'письмо не отправлено'}</span>
+                    <button type="button" className="btn sm text" disabled={resend.isPending} onClick={() => resend.mutate(a)}><RotateCw size={13} />Отправить ещё раз</button>
+                  </div>
+                ))}
               {editing?.id !== a.id && (
                 <div className="addr-acts">
                   <button type="button" className="btn icon sm ghost" title="Изменить имя" aria-label="Изменить имя" onClick={() => setEditing({ id: a.id, name: a.name })}><Pencil size={15} /></button>
@@ -85,7 +102,7 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
                   onChange={(e) => setLocal(e.target.value.replace(/[@\s]/g, '').toLowerCase())} />
                 <span className="mono">@{domain}</span>
               </div>
-              {errors.email ? <div className="hint err">{errors.email[0]}</div> : <div className="hint">Например: noreply, events, info</div>}
+              {errors.email ? <div className="hint err">{errors.email[0]}</div> : <div className="hint">На этот ящик придёт письмо со ссылкой подтверждения, поэтому он должен принимать почту.</div>}
             </div>
             <div className="field">
               <label htmlFor="addr-name">Имя отправителя</label>

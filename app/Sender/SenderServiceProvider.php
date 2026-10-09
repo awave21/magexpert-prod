@@ -4,6 +4,7 @@ namespace App\Sender;
 
 use App\Sender\Client\HttpSenderClient;
 use App\Sender\Client\LocalSenderClient;
+use App\Sender\Console\AddressConfirmCommand;
 use App\Sender\Console\DkimExportCommand;
 use App\Sender\Console\DkimImportCommand;
 use App\Sender\Console\DomainCommand;
@@ -41,7 +42,7 @@ class SenderServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/routes.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([InstallDefaultsCommand::class, DomainCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class]);
+            $this->commands([InstallDefaultsCommand::class, DomainCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class]);
         }
     }
 }

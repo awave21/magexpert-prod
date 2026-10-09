@@ -215,10 +215,12 @@ export default function TemplateEditor() {
                   <select id="sender" className={`select${err('sender_address_id') ? ' err' : ''}`} value={form.sender_address_id ?? ''}
                     onChange={(e) => setForm((f) => ({ ...f, sender_address_id: e.target.value ? Number(e.target.value) : null }))}>
                     <option value="">{addresses.length ? 'Выберите адрес' : 'Адресов пока нет'}</option>
-                    {addresses.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.email}{x.verified ? '' : ' (домен не подтверждён)'}</option>)}
+                    {addresses.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.email}{!x.confirmed ? ' (ждёт подтверждения)' : !x.verified ? ' (домен не подтверждён)' : ''}</option>)}
                   </select>
-                  <div className={`hint${err('sender_address_id') ? ' err' : sender && !sender.verified ? ' warn-text' : ''}`}>
-                    {err('sender_address_id') ?? (sender && !sender.verified
+                  <div className={`hint${err('sender_address_id') ? ' err' : sender && (!sender.verified || !sender.confirmed) ? ' warn-text' : ''}`}>
+                    {err('sender_address_id') ?? (sender && !sender.confirmed
+                      ? `Адрес не подтверждён: откройте письмо со ссылкой в ящике ${sender.email}. До этого письма по шаблону не уходят.`
+                      : sender && !sender.verified
                       ? 'Домен этого адреса не подтверждён: письма не уйдут, пока не внесены DNS-записи.'
                       : <>Адреса и имена отправителей задаются в разделе <Link to="/domains">«Домены»</Link>.</>)}
                   </div>

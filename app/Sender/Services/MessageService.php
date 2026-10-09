@@ -6,6 +6,7 @@ use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Models\Domain;
 use App\Sender\Models\Message;
 use App\Sender\Models\Organization;
+use App\Sender\Models\SenderAddress;
 use App\Sender\Models\Suppression;
 use App\Sender\Models\Template;
 use Illuminate\Support\Str;
@@ -51,7 +52,7 @@ class MessageService
             'data' => $data,
         ]);
 
-        $blockReason = $this->blockReason($organization, $domain, $to, $fromEmail);
+        $blockReason = $this->blockReason($organization, $domain, $to, $fromEmail, $sender);
 
         if ($blockReason !== null) {
             $message->fill(['status' => Message::STATUS_BLOCKED, 'error' => $blockReason])->save();
@@ -76,10 +77,14 @@ class MessageService
         return $organization->variables()->whereNotNull('default_value')->where('default_value', '!=', '')->pluck('default_value', 'key')->all();
     }
 
-    private function blockReason(Organization $organization, ?Domain $domain, string $to, string $fromEmail): ?string
+    private function blockReason(Organization $organization, ?Domain $domain, string $to, string $fromEmail, ?SenderAddress $sender = null): ?string
     {
         if ($fromEmail === '') {
             return 'Не указан адрес отправителя: задайте его в настройках шаблона';
+        }
+
+        if ($sender !== null && ! $sender->isConfirmed()) {
+            return "Адрес отправителя {$sender->email} не подтверждён: откройте письмо со ссылкой в этом ящике";
         }
 
         if ($domain === null || ! $domain->isVerified()) {

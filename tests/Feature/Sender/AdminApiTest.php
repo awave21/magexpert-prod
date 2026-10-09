@@ -302,6 +302,7 @@ it('uploads an image for an email and rejects other files', function (): void {
 });
 
 it('manages sender addresses on own domains only', function (): void {
+    Illuminate\Support\Facades\Mail::fake();
     $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'verified_at' => now(), 'dkim_selector' => 'mail']);
 
     $id = $this->withToken($this->token)->postJson(adminApi().'/sender-addresses', ['email' => 'Events@Mag-Expert.ru', 'name' => 'МагЭксперт'])
@@ -326,7 +327,7 @@ it('manages sender addresses on own domains only', function (): void {
 it('sends from the sender address chosen in the template', function (): void {
     Illuminate\Support\Facades\Queue::fake();
     $domain = $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'verified_at' => now(), 'dkim_selector' => 'mail']);
-    $address = $this->organization->senderAddresses()->create(['domain_id' => $domain->id, 'email' => 'events@mag-expert.ru', 'name' => 'МагЭксперт']);
+    $address = $this->organization->senderAddresses()->create(['domain_id' => $domain->id, 'email' => 'events@mag-expert.ru', 'name' => 'МагЭксперт', 'confirmed_at' => now()]);
     $foreign = $this->other->senderAddresses()->create([
         'domain_id' => $this->other->domains()->create(['domain' => 'other.ru', 'verification_token' => 't', 'status' => 'verified', 'dkim_selector' => 'mail'])->id,
         'email' => 'x@other.ru', 'name' => 'X',
@@ -361,4 +362,51 @@ it('sends from the sender address chosen in the template', function (): void {
     $this->withToken($plain)->postJson('/api/sender/v1/messages', ['template' => $bare->slug, 'to' => 'anna@example.com'])
         ->assertUnprocessable()
         ->assertJsonPath('status', 'blocked');
+});
+
+it('confirms a sender address by the link from the email', function (): void {
+    Illuminate\Support\Facades\Mail::fake();
+    Illuminate\Support\Facades\Queue::fake();
+    $domain = $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'verified_at' => now(), 'dkim_selector' => 'mail']);
+
+    $id = $this->withToken($this->token)->postJson(adminApi().'/sender-addresses', ['email' => 'events@mag-expert.ru', 'name' => 'МагЭксперт'])
+        ->assertCreated()
+        ->assertJsonPath('data.confirmed', false)
+        ->json('data.id');
+
+    Illuminate\Support\Facades\Mail::assertSentCount(1);
+    $address = App\Sender\Models\SenderAddress::query()->findOrFail($id);
+    expect($address->confirmation_token)->not->toBeNull();
+
+    // пока адрес не подтверждён, письма шаблона блокируются
+    $template = $this->organization->templates()->create(['slug' => 't', 'name' => 'T', 'subject' => 'T', 'body_html' => 'T', 'sender_address_id' => $id]);
+    $message = app(App\Sender\Services\MessageService::class)->send($this->organization, $template, 'anna@example.com');
+    expect($message->status)->toBe(Message::STATUS_BLOCKED)->and($message->error)->toContain('не подтверждён');
+
+    // повторная отправка не чаще раза в минуту
+    $this->withToken($this->token)->postJson(adminApi()."/sender-addresses/{$id}/resend")->assertStatus(429);
+
+    // ссылку подменяем известным токеном, как будто открыли письмо
+    $address->forceFill(['confirmation_token' => hash('sha256', str_repeat('a', 48))])->save();
+    $this->get('/sender/confirm-address/'.str_repeat('b', 48))->assertStatus(410);
+    $this->get('/sender/confirm-address/'.str_repeat('a', 48))->assertOk()->assertSee('Адрес подтверждён');
+
+    expect($address->fresh()->isConfirmed())->toBeTrue();
+    $this->withToken($this->token)->getJson(adminApi().'/sender-addresses')->assertJsonPath('data.0.confirmed', true);
+    $this->withToken($this->token)->postJson(adminApi()."/sender-addresses/{$id}/resend")->assertUnprocessable();
+
+    $message = app(App\Sender\Services\MessageService::class)->send($this->organization, $template->refresh(), 'anna@example.com');
+    expect($message->status)->toBe(Message::STATUS_QUEUED);
+});
+
+it('expires the confirmation link after two days', function (): void {
+    Illuminate\Support\Facades\Mail::fake();
+    $domain = $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'dkim_selector' => 'mail']);
+    $address = $this->organization->senderAddresses()->create([
+        'domain_id' => $domain->id, 'email' => 'a@mag-expert.ru', 'name' => 'A',
+        'confirmation_token' => hash('sha256', str_repeat('c', 48)), 'confirmation_sent_at' => now()->subHours(49),
+    ]);
+
+    $this->get('/sender/confirm-address/'.str_repeat('c', 48))->assertStatus(410);
+    expect($address->fresh()->isConfirmed())->toBeFalse();
 });

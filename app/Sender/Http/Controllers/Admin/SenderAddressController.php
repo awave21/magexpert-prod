@@ -4,6 +4,7 @@ namespace App\Sender\Http\Controllers\Admin;
 
 use App\Sender\Http\Requests\Admin\SenderAddressRequest;
 use App\Sender\Models\SenderAddress;
+use App\Sender\Services\SenderAddressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -20,19 +21,35 @@ class SenderAddressController extends Controller
         return response()->json(['data' => $addresses->map(fn (SenderAddress $a): array => $this->present($a))]);
     }
 
-    public function store(SenderAddressRequest $request): JsonResponse
+    /**
+     * Новый адрес сразу получает письмо со ссылкой подтверждения.
+     */
+    public function store(SenderAddressRequest $request, SenderAddressService $addresses): JsonResponse
     {
         $organization = $this->organization($request);
         $email = $request->validated('email');
         $domain = $organization->domains()->where('domain', Str::after($email, '@'))->firstOrFail();
 
-        $address = $organization->senderAddresses()->create([
-            'domain_id' => $domain->id,
-            'email' => $email,
-            'name' => $request->validated('name'),
-        ]);
+        $address = $addresses->create($organization, $domain, $email, $request->validated('name'));
 
         return response()->json(['data' => $this->present($address->load('domain'))], 201);
+    }
+
+    public function resend(Request $request, int $address, SenderAddressService $addresses): JsonResponse
+    {
+        $model = $this->organization($request)->senderAddresses()->with('domain')->findOrFail($address);
+
+        if ($model->isConfirmed()) {
+            return response()->json(['message' => 'Адрес уже подтверждён'], 422);
+        }
+
+        if (! $addresses->canResend($model)) {
+            return response()->json(['message' => 'Письмо только что отправлено, повторить можно через минуту'], 429);
+        }
+
+        $addresses->sendConfirmation($model);
+
+        return response()->json(['data' => $this->present($model->fresh('domain'))]);
     }
 
     /**
@@ -64,6 +81,8 @@ class SenderAddressController extends Controller
             'name' => $address->name,
             'domain' => $address->domain?->domain,
             'verified' => (bool) $address->domain?->isVerified(),
+            'confirmed' => $address->isConfirmed(),
+            'confirmation_sent_at' => $address->confirmation_sent_at?->toIso8601String(),
         ];
     }
 }

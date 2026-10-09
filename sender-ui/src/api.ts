@@ -74,4 +74,4 @@ export type Stats = {
   recent: Message[]
 }
 
-export type SenderAddress = { id: number; email: string; name: string; domain: string | null; verified: boolean }
+export type SenderAddress = { id: number; email: string; name: string; domain: string | null; verified: boolean; confirmed: boolean; confirmation_sent_at: string | null }

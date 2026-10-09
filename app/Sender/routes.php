@@ -11,6 +11,7 @@ use App\Sender\Http\Controllers\Admin\SuppressionController;
 use App\Sender\Http\Controllers\Admin\TemplateController;
 use App\Sender\Http\Controllers\Admin\TemplateFolderController;
 use App\Sender\Http\Controllers\Admin\VariableController;
+use App\Sender\Http\Controllers\ConfirmSenderAddressController;
 use App\Sender\Http\Controllers\MessageController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
@@ -45,6 +46,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::get('sender-addresses', [SenderAddressController::class, 'index'])->name('sender-addresses.index');
             Route::post('sender-addresses', [SenderAddressController::class, 'store'])->name('sender-addresses.store');
             Route::put('sender-addresses/{address}', [SenderAddressController::class, 'update'])->name('sender-addresses.update');
+            Route::post('sender-addresses/{address}/resend', [SenderAddressController::class, 'resend'])->middleware('throttle:10,1')->name('sender-addresses.resend');
             Route::delete('sender-addresses/{address}', [SenderAddressController::class, 'destroy'])->name('sender-addresses.destroy');
 
             Route::post('assets', [AssetController::class, 'store'])->middleware('throttle:60,1')->name('assets.store');
@@ -76,6 +78,10 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
         });
     });
 });
+
+// Подтверждение адреса отправителя по ссылке из письма (страница без входа в админку)
+Route::get('sender/confirm-address/{token}', ConfirmSenderAddressController::class)
+    ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.confirm-address');
 
 // Админ-интерфейс (sender-ui): сборка лежит в public/sender-static, любой путь под /sender отдаёт её index.html.
 Route::get('sender/{path?}', function () {
