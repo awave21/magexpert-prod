@@ -705,3 +705,31 @@ button { font: inherit; color: inherit; }
 .pw .input { width: 100%; padding-right: 48px; }
 .pw-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
 .pw-eye:hover { background: var(--fill-hover); color: var(--ink); }
+
+/* подписчики и рассылки */
+.list-ic { width: 32px; height: 32px; flex: none; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-ink); }
+.num-cell { font-variant-numeric: tabular-nums; font-weight: 500; }
+.dropzone { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding: 28px 20px; border: 1.5px dashed var(--control); border-radius: 12px; background: var(--surface); color: var(--ink-2); font: inherit; text-align: center; cursor: pointer; transition: border-color .12s, background .12s; }
+.dropzone:hover, .dropzone.over { border-color: var(--accent); background: var(--accent-soft); }
+.dropzone.has { border-style: solid; border-color: var(--accent); }
+.dropzone svg { color: var(--accent); }
+.dropzone b { color: var(--ink); font-weight: 500; }
+.dropzone span { font-size: 13px; color: var(--muted); }
+.import-result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+.import-result > div { padding: 14px 16px; border-radius: 12px; background: var(--surface); display: flex; flex-direction: column; }
+.import-result b { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.import-result span { font-size: 13px; color: var(--muted); }
+.warn-num { color: var(--warn); }
+.campaign-step { display: flex; gap: 14px; align-items: flex-start; }
+.step-num { width: 26px; height: 26px; flex: none; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-size: 13px; font-weight: 600; }
+.step-info { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding: 12px 14px; border-radius: 10px; background: var(--surface); font-size: 14px; }
+.step-info > div { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.step-info > div > .muted:first-child { width: 64px; flex: none; font-size: 13px; }
+.step-info a { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: 13px; margin-top: 2px; }
+.progress { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--fill); }
+.progress i { display: block; height: 100%; transition: width .4s ease; }
+.progress i.ok { background: var(--ok); } .progress i.err { background: var(--err); } .progress i.neutral { background: var(--control); }
+.report-info { display: flex; gap: 40px; flex-wrap: wrap; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); }
+.report-info > div { display: flex; flex-direction: column; gap: 2px; }
+.report-info .muted { font-size: 12px; }
+@media (max-width: 640px) { .import-result b { font-size: 22px; } }

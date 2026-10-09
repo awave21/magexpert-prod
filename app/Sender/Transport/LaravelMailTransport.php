@@ -28,6 +28,14 @@ class LaravelMailTransport implements Transport
                 if ($message->reply_to) {
                     $mail->replyTo($message->reply_to);
                 }
+
+                $unsubscribe = $message->campaign_id ? ($message->data['unsubscribe_url'] ?? null) : null;
+
+                if (is_string($unsubscribe)) {
+                    $headers = $mail->getSymfonyMessage()->getHeaders();
+                    $headers->addTextHeader('List-Unsubscribe', '<'.$unsubscribe.'>');
+                    $headers->addTextHeader('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click');
+                }
             },
         );
     }

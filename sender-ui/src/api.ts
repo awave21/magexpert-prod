@@ -75,3 +75,26 @@ export type Stats = {
 }
 
 export type SenderAddress = { id: number; email: string; name: string; domain: string | null; verified: boolean; confirmed: boolean; confirmation_sent_at: string | null }
+
+export type ContactList = { id: number; name: string; description: string | null; contacts_count: number; subscribed_count: number; created_at: string; updated_at: string }
+export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; created_at: string }
+export type ImportResult = { added: number; updated: number; skipped: number; columns: string[] }
+export type CampaignStats = { queued: number; sent: number; failed: number; blocked: number }
+export type Campaign = {
+  id: number; name: string; status: 'draft' | 'sending' | 'sent'
+  template: { id: number; name: string } | null; list: { id: number; name: string } | null
+  recipients_count: number; stats: CampaignStats | null; subscribed_count: number | null
+  started_at: string | null; finished_at: string | null; created_at: string
+}
+
+// загрузка файла: api() отправляет только JSON
+export async function upload<T>(path: string, body: FormData): Promise<T> {
+  const token = tokenStore.get()
+  const res = await fetch(BASE + path, { method: 'POST', headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    if (res.status === 401) onUnauthorized()
+    throw new ApiError(res.status, data.message ?? 'Не удалось загрузить файл', data.errors ?? {})
+  }
+  return data as T
+}

@@ -271,7 +271,7 @@ export default function BlockEditor() {
 
   const onEditorReady = useCallback((e: Editor | null) => setEditor(e), [])
 
-  if (q.isError) return <div className="be-center"><div className="callout err"><div><b>Шаблон не найден</b><span><Link to="/templates">К списку шаблонов</Link></span></div></div></div>
+  if (q.isError) return <div className="be-center"><div className="callout err"><div><b>Письмо не найдено</b><span><Link to="/templates">К списку шаблонов</Link></span></div></div></div>
   if (!template) return <div className="be-center muted">Загрузка…</div>
 
   // ---------- выбор, с чего начать (шаблон пока в коде) ----------
@@ -444,7 +444,7 @@ export default function BlockEditor() {
     <div className="be">
       {/* верхняя панель */}
       <header className="be-top">
-        <Link to={`/templates/${id}`} className="btn ghost be-back"><ArrowLeft size={16} />Шаблон</Link>
+        <Link to={`/templates/${id}`} className="btn ghost be-back"><ArrowLeft size={16} />Карточка письма</Link>
         <span className="be-sep" />
         <div className="be-title">
           <b>{template.name}</b>

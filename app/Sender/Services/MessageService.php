@@ -3,12 +3,14 @@
 namespace App\Sender\Services;
 
 use App\Sender\Jobs\SendMessageJob;
+use App\Sender\Models\Campaign;
 use App\Sender\Models\Domain;
 use App\Sender\Models\Message;
 use App\Sender\Models\Organization;
 use App\Sender\Models\SenderAddress;
 use App\Sender\Models\Suppression;
 use App\Sender\Models\Template;
+use App\Sender\Support\SenderUi;
 use Illuminate\Support\Str;
 
 class MessageService
@@ -27,9 +29,17 @@ class MessageService
         ?string $fromEmail = null,
         ?string $fromName = null,
         array $data = [],
+        ?Campaign $campaign = null,
     ): Message {
         $to = Str::lower(trim($to));
+        $uuid = (string) Str::uuid();
         $data = array_merge($this->defaults($organization), $data);
+
+        // письма рассылки получают ссылку отписки: её можно вставить в текст как {{ unsubscribe_url }}
+        if ($campaign !== null) {
+            $data['unsubscribe_url'] = SenderUi::url('unsubscribe/'.$uuid);
+        }
+
         // настройки отправителя в шаблоне главнее значений из запроса: приложению достаточно передать шаблон
         $sender = $template->senderAddress;
         $fromEmail = Str::lower(trim((string) ($sender?->email ?: $fromEmail)));
@@ -40,9 +50,10 @@ class MessageService
             ->first();
 
         $message = $organization->messages()->make([
-            'uuid' => (string) Str::uuid(),
+            'uuid' => $uuid,
             'domain_id' => $domain?->id,
             'template_id' => $template->id,
+            'campaign_id' => $campaign?->id,
             'to_email' => $to,
             'from_email' => $fromEmail,
             'from_name' => $fromName,

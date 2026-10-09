@@ -52,8 +52,8 @@ export default function Templates() {
       qc.setQueryData<{ data: Template[] }>(['templates'], (old) => old && { data: old.data.map((t) => (t.id === id ? { ...t, folder_id: folderId } : t)) })
       return { prev }
     },
-    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['templates'], ctx.prev); toast('Не удалось перенести шаблон', true) },
-    onSuccess: (_r, { folderId }) => toast(folderId ? `Перенесён в «${folderName(folderId)}»` : 'Шаблон убран из папки'),
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['templates'], ctx.prev); toast('Не удалось перенести письмо', true) },
+    onSuccess: (_r, { folderId }) => toast(folderId ? `Перенесён в «${folderName(folderId)}»` : 'Письмо убрано из папки'),
     onSettled: () => refresh(),
   })
   const canDrop = (f: Filter) => {
@@ -83,17 +83,17 @@ export default function Templates() {
 
   return (
     <main className="page">
-      <PageHead title={current ? current.name : 'Шаблоны'} sub={current ? 'Шаблоны проекта' : 'Тексты писем, которые приложение отправляет по ключу шаблона'}
+      <PageHead title={current ? current.name : 'Контент'} sub={current ? 'Письма проекта' : 'Письма для рассылок по базам и для отправки из приложения через API'}
         actions={<>
           {current && <button className="btn" onClick={() => { setError(null); setEditing({ id: current.id, name: current.name }) }}><Pencil size={15} />Переименовать</button>}
           {current && <button className="btn danger" onClick={() => setRemoving(current)}><Trash2 size={15} />Удалить папку</button>}
-          <button className="btn primary" onClick={newTemplate}><Plus size={16} />Новый шаблон</button>
+          <button className="btn primary" onClick={newTemplate}><Plus size={16} />Новое письмо</button>
         </>} />
 
       <div className="folders-layout">
-        <nav className="folders" aria-label="Папки шаблонов">
+        <nav className="folders" aria-label="Папки контента">
           {dragId !== null && <div className="hint" style={{ padding: '0 12px 6px' }}>Отпустите на папке</div>}
-          {item('all', 'Все шаблоны', all.length)}
+          {item('all', 'Весь контент', all.length)}
           {folders.map((f) => <div key={f.id}>{item(f.id, f.name, f.templates_count)}</div>)}
           {item('none', 'Без папки', all.filter((t) => !t.folder_id).length)}
           <button type="button" className="btn sm text" style={{ justifyContent: 'flex-start', marginTop: 6 }} onClick={() => { setError(null); setEditing({ name: '' }) }}><FolderPlus size={15} />Новая папка</button>
@@ -101,8 +101,8 @@ export default function Templates() {
 
         <div style={{ minWidth: 0 }}>
           {q.isSuccess && list.length === 0 ? (
-            <Empty title={filter === 'all' ? 'Шаблонов пока нет' : 'В этой папке пусто'} text="Создайте шаблон: он появится здесь."
-              action={<button className="btn primary" onClick={newTemplate}><Plus size={16} />Новый шаблон</button>} />
+            <Empty title={filter === 'all' ? 'Писем пока нет' : 'В этой папке пусто'} text="Создайте письмо: оно появится здесь и его можно будет выбрать в рассылке."
+              action={<button className="btn primary" onClick={newTemplate}><Plus size={16} />Новое письмо</button>} />
           ) : (
             <div className="table-wrap">
               <table className="table">
@@ -147,7 +147,7 @@ export default function Templates() {
 
       {removing && (
         <Modal title="Удалить папку?" onClose={() => setRemoving(null)}>
-          <p style={{ color: 'var(--ink-2)' }}>Папка «{removing.name}» будет удалена. Шаблоны из неё не удаляются, а переходят в «Без папки».</p>
+          <p style={{ color: 'var(--ink-2)' }}>Папка «{removing.name}» будет удалена. Письма из неё не удаляются, а переходят в «Без папки».</p>
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setRemoving(null)}>Отмена</button>
             <button className="btn danger" onClick={() => remove.mutate(removing)}>Удалить</button>

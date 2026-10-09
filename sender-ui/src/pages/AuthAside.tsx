@@ -8,7 +8,7 @@ export function AuthAside() {
     <section className="auth-aside" aria-hidden="true">
       <div>
         <h2>Каждое письмо <em>под контролем</em></h2>
-        <p style={{ marginTop: 16 }}>Подключайте свои домены, настраивайте шаблоны и смотрите, что произошло с каждым письмом: отправлено, ждёт в очереди или не дошло и почему.</p>
+        <p style={{ marginTop: 16 }}>Подключайте свои домены, собирайте письма, загружайте базы подписчиков и смотрите, что произошло с каждым письмом: отправлено, ждёт в очереди или не дошло и почему.</p>
       </div>
       <div style={{ maxWidth: 540 }}>
         <div className="row" style={{ justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1px solid var(--accent-soft-2)' }}>

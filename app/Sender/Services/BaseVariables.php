@@ -29,6 +29,8 @@ class BaseVariables
             ['key' => 'end_date', 'label' => 'Дата окончания', 'description' => 'Формат дд.мм.гггг', 'sample' => '15.11.2026'],
             ['key' => 'end_time', 'label' => 'Время окончания', 'description' => 'Формат чч:мм', 'sample' => '18:00'],
             ['key' => 'speakers', 'label' => 'Спикеры', 'description' => 'Список спикеров через точку с запятой', 'sample' => 'Иванов И. И., профессор'],
+            ['key' => 'email', 'label' => 'Email подписчика', 'description' => 'Адрес подписчика из базы (рассылки)', 'sample' => 'anna@example.com'],
+            ['key' => 'unsubscribe_url', 'label' => 'Ссылка отписки', 'description' => 'Только в рассылках. Если её нет в письме, ссылка добавится внизу сама', 'sample' => 'https://mail.mag-expert.ru/unsubscribe/example'],
             ['key' => 'generated_at', 'label' => 'Дата создания', 'description' => 'Когда сформировано письмо (письмо про API)', 'sample' => '09.10.2026 18:30'],
         ];
     }

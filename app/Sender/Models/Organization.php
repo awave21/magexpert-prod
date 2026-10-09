@@ -57,4 +57,19 @@ class Organization extends SenderModel
     {
         return $this->hasMany(Message::class, 'organization_id');
     }
+
+    public function lists(): HasMany
+    {
+        return $this->hasMany(ContactList::class, 'organization_id');
+    }
+
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(Contact::class, 'organization_id');
+    }
+
+    public function campaigns(): HasMany
+    {
+        return $this->hasMany(Campaign::class, 'organization_id');
+    }
 }

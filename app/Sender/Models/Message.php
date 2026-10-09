@@ -23,6 +23,7 @@ class Message extends SenderModel
         'organization_id',
         'domain_id',
         'template_id',
+        'campaign_id',
         'to_email',
         'from_email',
         'from_name',
@@ -60,5 +61,10 @@ class Message extends SenderModel
     public function template(): BelongsTo
     {
         return $this->belongsTo(Template::class, 'template_id');
+    }
+
+    public function campaign(): BelongsTo
+    {
+        return $this->belongsTo(Campaign::class, 'campaign_id');
     }
 }

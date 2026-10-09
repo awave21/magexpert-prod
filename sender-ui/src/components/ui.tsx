@@ -137,3 +137,14 @@ export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>
     </div>
   )
 }
+
+// статус рассылки: черновик, идёт отправка (пока есть письма в очереди) или отправлена
+export function CampaignStatus({ campaign }: { campaign: { status: string; stats: { queued: number; sent: number; failed: number; blocked: number } | null } }) {
+  const s = campaign.stats
+  if (campaign.status === 'draft') return <span className="status neutral"><i />Черновик</span>
+  if (campaign.status === 'sending' || (s?.queued ?? 0) > 0) return <span className="status warn"><i />Отправляется</span>
+  const missed = (s?.failed ?? 0) + (s?.blocked ?? 0)
+  if (missed > 0 && (s?.sent ?? 0) === 0) return <span className="status err"><i />Не отправлена</span>
+  if (missed > 0) return <span className="status warn"><i />Отправлена с ошибками</span>
+  return <span className="status ok"><i />Отправлена</span>
+}

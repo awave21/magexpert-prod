@@ -28,7 +28,7 @@ export default function Login() {
           <span className="logo" style={{ width: 40, height: 40, borderRadius: 12 }}><Mail size={20} /></span>
           <div>
             <h1>Вход</h1>
-            <p className="muted" style={{ marginTop: 10, fontSize: 15, color: 'var(--ink-2)' }}>Домены, шаблоны и журнал отправки вашей организации.</p>
+            <p className="muted" style={{ marginTop: 10, fontSize: 15, color: 'var(--ink-2)' }}>Рассылки, подписчики, контент и журнал отправки вашей организации.</p>
           </div>
           <form className="stack" onSubmit={submit} noValidate>
             <div className="field">

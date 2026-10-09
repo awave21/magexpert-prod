@@ -51,7 +51,7 @@ export default function Messages() {
         <div className="table-wrap">
           {q.isSuccess && list.length === 0 ? <Empty title="Писем не найдено" text={qs || status ? 'Измените фильтр или поиск.' : 'Здесь появятся письма, когда приложение начнёт отправку.'} /> : (
             <table className="table">
-              <thead><tr><th>Статус</th><th>Получатель и тема</th><th>Шаблон</th><th className="r">Создано</th></tr></thead>
+              <thead><tr><th>Статус</th><th>Получатель и тема</th><th>Письмо</th><th className="r">Создано</th></tr></thead>
               <tbody>
                 {list.map((x) => (
                   <tr key={x.id} className={`click${openId === x.id ? ' selected' : ''}`} onClick={() => setOpenId(x.id)}>
@@ -86,7 +86,7 @@ export default function Messages() {
                 <dl style={{ display: 'grid', gridTemplateColumns: '110px minmax(0,1fr)', gap: '10px 16px', margin: 0 }}>
                   <dt className="muted">Кому</dt><dd className="mono" style={{ margin: 0 }}>{m.to}</dd>
                   <dt className="muted">От кого</dt><dd className="mono" style={{ margin: 0 }}>{m.from}</dd>
-                  <dt className="muted">Шаблон</dt><dd style={{ margin: 0 }}>{m.template ?? '—'}</dd>
+                  <dt className="muted">Письмо</dt><dd style={{ margin: 0 }}>{m.template ?? '—'}</dd>
                   <dt className="muted">Попыток</dt><dd style={{ margin: 0 }}>{m.attempts}</dd>
                   <dt className="muted">Создано</dt><dd style={{ margin: 0 }}>{fmtDate(m.created_at)}</dd>
                   <dt className="muted">Отправлено</dt><dd style={{ margin: 0 }}>{fmtDate(m.sent_at)}</dd>

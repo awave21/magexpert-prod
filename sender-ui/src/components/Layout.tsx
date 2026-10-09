@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Globe, LayoutDashboard, LogOut, Mail, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, ShieldBan, Sun, KeyRound, FileText, Braces, Code2 } from 'lucide-react'
+import { Bell, Globe, LayoutDashboard, LogOut, Mail, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, ShieldBan, Sun, KeyRound, FileText, Braces, Code2, Send, Users } from 'lucide-react'
 import { api, type Domain } from '../api'
 import { useAuth } from '../auth'
 
 const TITLES: Record<string, string> = {
-  '/': 'Обзор', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Шаблоны', '/variables': 'Переменные', '/api': 'API', '/api-keys': 'API-ключи', '/blocked': 'Блокировки',
+  '/': 'Обзор', '/campaigns': 'Рассылки', '/subscribers': 'Подписчики', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Контент', '/variables': 'Переменные', '/api': 'API', '/api-keys': 'API-ключи', '/blocked': 'Блокировки',
 }
 
 function useTheme() {
@@ -65,13 +65,15 @@ export function Layout() {
           </button>
           <button className="btn icon sm ghost close-btn" onClick={() => setOpen(false)} aria-label="Закрыть меню"><PanelLeftClose size={17} /></button>
         </div>
-        <Link to="/templates/new" className="btn primary new-btn" onClick={() => setOpen(false)} title={collapsed ? 'Новый шаблон' : undefined} aria-label="Новый шаблон"><Plus size={16} /><span className="nav-text">Новый шаблон</span></Link>
+        <Link to="/campaigns/new" className="btn primary new-btn" onClick={() => setOpen(false)} title={collapsed ? 'Новая рассылка' : undefined} aria-label="Новая рассылка"><Plus size={16} /><span className="nav-text">Новая рассылка</span></Link>
         <div className="nav-title">Работа</div>
         {item('/', <LayoutDashboard size={20} />, 'Обзор')}
+        {item('/campaigns', <Send size={20} />, 'Рассылки')}
+        {item('/subscribers', <Users size={20} />, 'Подписчики')}
+        {item('/templates', <FileText size={20} />, 'Контент')}
         {item('/messages', <ScrollText size={20} />, 'Журнал')}
         <div className="nav-title">Настройка</div>
         {item('/domains', <Globe size={20} />, 'Домены', unverified)}
-        {item('/templates', <FileText size={20} />, 'Шаблоны')}
         {item('/variables', <Braces size={20} />, 'Переменные')}
         {item('/api', <Code2 size={20} />, 'API')}
         {item('/api-keys', <KeyRound size={20} />, 'API-ключи')}

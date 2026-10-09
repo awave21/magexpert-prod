@@ -103,14 +103,14 @@ export default function TemplateEditor() {
       qc.invalidateQueries({ queryKey: ['templates'] })
       qc.invalidateQueries({ queryKey: ['template-folders'] })
       qc.setQueryData(['template', String(r.data.id)], r)
-      toast('Шаблон сохранён')
+      toast('Письмо сохранено')
       if (isNew) nav(`/templates/${r.data.id}`, { replace: true })
     },
     onError: (e) => { if (e instanceof ApiError) { setErrors(e.errors); toast(e.message, true) } },
   })
   const remove = useMutation({
     mutationFn: () => api(`/templates/${id}`, { method: 'DELETE' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['templates'] }); toast('Шаблон удалён'); nav('/templates') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['templates'] }); toast('Письмо удалено'); nav('/templates') },
   })
   const duplicate = useMutation({
     mutationFn: () => api<{ data: Template }>('/templates', { method: 'POST', body: { ...payload(form), name: `${form.name} (копия)`, slug: `${form.slug}-copy-${Date.now().toString(36).slice(-4)}` } }),
@@ -145,7 +145,7 @@ export default function TemplateEditor() {
   const folderName = fq.data?.data.find((f) => f.id === form.folder_id)?.name
   const previewHtml = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${FRAME_CSS}</style>${render(form.body_html, data)}`
 
-  if (!isNew && q.isError) return <main className="page"><div className="callout err"><div><b>Шаблон не найден</b></div></div></main>
+  if (!isNew && q.isError) return <main className="page"><div className="callout err"><div><b>Письмо не найдено</b></div></div></main>
   if (!isNew && !saved) return <main className="page muted">Загрузка…</main>
 
   return (
@@ -154,10 +154,10 @@ export default function TemplateEditor() {
         {/* шапка: путь, название, состояние сохранения, действия */}
         <div className="tpl-head">
           <div className="tpl-title">
-            <Link to={backTo} className="back"><ArrowLeft size={15} />{folderName ?? 'Все шаблоны'}</Link>
-            <h1>{isNew ? 'Новый шаблон' : form.name || 'Без названия'}</h1>
+            <Link to={backTo} className="back"><ArrowLeft size={15} />{folderName ?? 'Весь контент'}</Link>
+            <h1>{isNew ? 'Новое письмо' : form.name || 'Без названия'}</h1>
             <div className="tpl-meta">
-              {!isNew && <span className="chip mono id-chip" title="ID шаблона: его передаёт приложение при отправке">ID {id}<CopyButton text={String(id)} label="Скопировать ID шаблона" /></span>}
+              {!isNew && <span className="chip mono id-chip" title="ID письма: его передаёт приложение при отправке">ID {id}<CopyButton text={String(id)} label="Скопировать ID шаблона" /></span>}
               <span className={`save-state${dirty ? ' dirty' : ''}`}>
                 {dirty ? <><i />Есть несохранённые изменения</> : isNew ? 'Ещё не сохранён' : <><Check size={13} />Сохранено {ago(q.data?.data.updated_at ?? null)}</>}
               </span>
@@ -194,7 +194,7 @@ export default function TemplateEditor() {
             <section className="tpl-section">
               <div className="tpl-sub"><h2>Письмо</h2></div>
               {isNew ? (
-                <div className="hint">Сохраните шаблон, затем соберите письмо в редакторе.</div>
+                <div className="hint">Сохраните письмо, затем соберите письмо в редакторе.</div>
               ) : (
                 <div className="tpl-open">
                   <div className="tpl-open-head">
@@ -257,7 +257,7 @@ export default function TemplateEditor() {
                   </select>
                 </div>
                 <div className="field span2">
-                  <label htmlFor="slug">Ключ шаблона</label>
+                  <label htmlFor="slug">Ключ для API</label>
                   <div className="row" style={{ flexWrap: 'nowrap', gap: 8 }}>
                     <input id="slug" className={`input mono${err('slug') ? ' err' : ''}`} value={form.slug} onChange={set('slug')} readOnly={slugLocked} placeholder="event-registration" />
                     {!isNew && (
@@ -319,7 +319,7 @@ export default function TemplateEditor() {
       )}
 
       {confirmDelete && (
-        <Modal title="Удалить шаблон?" onClose={() => setConfirmDelete(false)}>
+        <Modal title="Удалить письмо?" onClose={() => setConfirmDelete(false)}>
           <p style={{ color: 'var(--ink-2)' }}>Приложение не сможет отправлять письма по ключу <span className="mono">{form.slug}</span>. Журнал отправленных писем сохранится.</p>
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setConfirmDelete(false)}>Отмена</button>

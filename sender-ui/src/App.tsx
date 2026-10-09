@@ -14,6 +14,10 @@ import ApiKeys from './pages/ApiKeys'
 import Blocked from './pages/Blocked'
 import VariablesPage from './pages/Variables'
 import ApiDocs from './pages/ApiDocs'
+import Subscribers from './pages/Subscribers'
+import ListDetail from './pages/ListDetail'
+import Campaigns from './pages/Campaigns'
+import CampaignEditor from './pages/CampaignEditor'
 // редактор блоков тяжёлый (TipTap), грузится только когда его открывают
 const BlockEditor = lazy(() => import('./pages/BlockEditor'))
 
@@ -33,6 +37,10 @@ export default function App() {
       <Route path="templates/:id/blocks" element={<Suspense fallback={<div className="be-center muted">Загрузка редактора…</div>}><BlockEditor /></Suspense>} />
       <Route element={<Layout />}>
         <Route index element={<Overview />} />
+        <Route path="campaigns" element={<Campaigns />} />
+        <Route path="campaigns/:id" element={<CampaignEditor />} />
+        <Route path="subscribers" element={<Subscribers />} />
+        <Route path="subscribers/:id" element={<ListDetail />} />
         <Route path="messages" element={<Messages />} />
         <Route path="domains" element={<Domains />} />
         <Route path="domains/:id" element={<DomainDetail />} />

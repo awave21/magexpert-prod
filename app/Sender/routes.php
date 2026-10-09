@@ -3,6 +3,9 @@
 use App\Sender\Http\Controllers\Admin\ApiKeyController;
 use App\Sender\Http\Controllers\Admin\AssetController;
 use App\Sender\Http\Controllers\Admin\AuthController;
+use App\Sender\Http\Controllers\Admin\CampaignController;
+use App\Sender\Http\Controllers\Admin\ContactController;
+use App\Sender\Http\Controllers\Admin\ContactListController;
 use App\Sender\Http\Controllers\Admin\DomainController;
 use App\Sender\Http\Controllers\Admin\MessageController as AdminMessageController;
 use App\Sender\Http\Controllers\Admin\SenderAddressController;
@@ -13,6 +16,7 @@ use App\Sender\Http\Controllers\Admin\TemplateFolderController;
 use App\Sender\Http\Controllers\Admin\VariableController;
 use App\Sender\Http\Controllers\ConfirmSenderAddressController;
 use App\Sender\Http\Controllers\MessageController;
+use App\Sender\Http\Controllers\UnsubscribeController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
 use App\Sender\Support\SenderUi;
@@ -70,6 +74,23 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::put('variables/{variable}', [VariableController::class, 'update'])->name('variables.update');
             Route::delete('variables/{variable}', [VariableController::class, 'destroy'])->name('variables.destroy');
 
+            Route::get('lists', [ContactListController::class, 'index'])->name('lists.index');
+            Route::post('lists', [ContactListController::class, 'store'])->name('lists.store');
+            Route::get('lists/{list}', [ContactListController::class, 'show'])->name('lists.show');
+            Route::put('lists/{list}', [ContactListController::class, 'update'])->name('lists.update');
+            Route::delete('lists/{list}', [ContactListController::class, 'destroy'])->name('lists.destroy');
+            Route::get('lists/{list}/contacts', [ContactController::class, 'index'])->name('contacts.index');
+            Route::post('lists/{list}/contacts', [ContactController::class, 'store'])->name('contacts.store');
+            Route::post('lists/{list}/import', [ContactController::class, 'import'])->middleware('throttle:30,1')->name('contacts.import');
+            Route::delete('lists/{list}/contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');
+
+            Route::get('campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
+            Route::post('campaigns', [CampaignController::class, 'store'])->name('campaigns.store');
+            Route::get('campaigns/{campaign}', [CampaignController::class, 'show'])->name('campaigns.show');
+            Route::put('campaigns/{campaign}', [CampaignController::class, 'update'])->name('campaigns.update');
+            Route::post('campaigns/{campaign}/send', [CampaignController::class, 'send'])->name('campaigns.send');
+            Route::delete('campaigns/{campaign}', [CampaignController::class, 'destroy'])->name('campaigns.destroy');
+
             Route::get('messages', [AdminMessageController::class, 'index'])->name('messages.index');
             Route::get('messages/{uuid}', [AdminMessageController::class, 'show'])->name('messages.show');
 
@@ -86,6 +107,8 @@ if ($uiHost = SenderUi::host()) {
     Route::domain($uiHost)->group(function (): void {
         Route::get('confirm-address/{token}', ConfirmSenderAddressController::class)
             ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.ui-host.confirm-address');
+        Route::get('unsubscribe/{uuid}', [UnsubscribeController::class, 'show'])->whereUuid('uuid')->name('sender.ui-host.unsubscribe');
+        Route::post('unsubscribe/{uuid}', [UnsubscribeController::class, 'store'])->middleware('throttle:30,1')->whereUuid('uuid');
         Route::get('{path?}', fn () => SenderUi::indexResponse())
             ->where('path', '(?!api/|sender-static/|storage/).*')->name('sender.ui-host');
     });
@@ -94,6 +117,10 @@ if ($uiHost = SenderUi::host()) {
 // Подтверждение адреса отправителя по ссылке из письма (страница без входа в админку)
 Route::get('sender/confirm-address/{token}', ConfirmSenderAddressController::class)
     ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.confirm-address');
+
+// Отписка от рассылки по ссылке из письма
+Route::get('sender/unsubscribe/{uuid}', [UnsubscribeController::class, 'show'])->whereUuid('uuid')->name('sender.unsubscribe');
+Route::post('sender/unsubscribe/{uuid}', [UnsubscribeController::class, 'store'])->middleware('throttle:30,1')->whereUuid('uuid');
 
 // Админка по /sender на домене приложения. Если у неё свой поддомен, старый адрес ведёт туда.
 Route::get('sender/{path?}', function (?string $path = null) {
