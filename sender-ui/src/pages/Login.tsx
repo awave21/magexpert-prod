@@ -4,6 +4,7 @@ import { Mail } from 'lucide-react'
 import { ApiError } from '../api'
 import { useAuth } from '../auth'
 import { AuthAside } from './AuthAside'
+import { PasswordInput } from '../components/ui'
 
 export default function Login() {
   const { login } = useAuth()
@@ -36,7 +37,7 @@ export default function Login() {
             </div>
             <div className="field">
               <label htmlFor="password">Пароль</label>
-              <input id="password" type="password" autoComplete="current-password" className={`input${error ? ' err' : ''}`} placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <PasswordInput id="password" autoComplete="current-password" className={`input${error ? ' err' : ''}`} placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} required />
               {error && <div className="hint err" role="alert">{error}</div>}
             </div>
             <button className="btn primary lg" disabled={busy || !email || !password}>{busy ? 'Входим…' : 'Войти'}</button>

@@ -4,6 +4,7 @@ import { Mail } from 'lucide-react'
 import { ApiError } from '../api'
 import { useAuth } from '../auth'
 import { AuthAside } from './AuthAside'
+import { PasswordInput } from '../components/ui'
 
 type Field = 'organization' | 'name' | 'email' | 'password'
 
@@ -51,16 +52,28 @@ export default function Register() {
             {FIELDS.map(([id, label, type, ph, autoComplete]) => (
               <div className="field" key={id}>
                 <label htmlFor={id}>{label}</label>
-                <input
-                  id={id}
-                  type={type}
-                  autoComplete={autoComplete}
-                  className={`input${errors[id] ? ' err' : ''}`}
-                  placeholder={ph}
-                  value={form[id]}
-                  onChange={(e) => setForm({ ...form, [id]: e.target.value })}
-                  required
-                />
+                {type === 'password' ? (
+                  <PasswordInput
+                    id={id}
+                    autoComplete={autoComplete}
+                    className={`input${errors[id] ? ' err' : ''}`}
+                    placeholder={ph}
+                    value={form[id]}
+                    onChange={(e) => setForm({ ...form, [id]: e.target.value })}
+                    required
+                  />
+                ) : (
+                  <input
+                    id={id}
+                    type={type}
+                    autoComplete={autoComplete}
+                    className={`input${errors[id] ? ' err' : ''}`}
+                    placeholder={ph}
+                    value={form[id]}
+                    onChange={(e) => setForm({ ...form, [id]: e.target.value })}
+                    required
+                  />
+                )}
                 {errors[id] && <div className="hint err" role="alert">{errors[id]}</div>}
               </div>
             ))}

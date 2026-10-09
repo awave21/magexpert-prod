@@ -699,3 +699,9 @@ button { font: inherit; color: inherit; }
 .be-presets button:hover { box-shadow: 0 0 0 2px var(--accent); }
 .be-presets b { font-weight: 600; }
 .be-presets span { font-size: 13px; color: var(--ink-2); }
+
+/* поле пароля с «глазиком» */
+.pw { position: relative; }
+.pw .input { width: 100%; padding-right: 48px; }
+.pw-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.pw-eye:hover { background: var(--fill-hover); color: var(--ink); }

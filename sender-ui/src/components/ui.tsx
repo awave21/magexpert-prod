@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Check, Copy } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Eye, EyeOff } from 'lucide-react'
 
 const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'err' | 'neutral' }> = {
   sent: { label: 'Отправлено', tone: 'ok' },
@@ -122,4 +122,18 @@ export function ago(iso: string | null): string {
 
 export function fmtDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
+}
+
+// поле пароля с кнопкой «Показать пароль»
+export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="pw">
+      <input {...props} type={shown ? 'text' : 'password'} />
+      <button type="button" className="pw-eye" onClick={() => setShown((s) => !s)}
+        aria-label={shown ? 'Скрыть пароль' : 'Показать пароль'} title={shown ? 'Скрыть пароль' : 'Показать пароль'} aria-pressed={shown}>
+        {shown ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  )
 }
