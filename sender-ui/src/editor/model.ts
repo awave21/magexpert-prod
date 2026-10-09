@@ -4,7 +4,9 @@ export type Align = 'left' | 'center' | 'right'
 export type Show = 'all' | 'desktop' | 'mobile'
 export type Padding = { t: number; r: number; b: number; l: number }
 
-type Base = { id: string; padding: Padding; bg: string; show: Show }
+// cond: блок попадает в письмо, только если переменная заполнена (пусто — всегда)
+// inset: фон блока карточкой с полями письма по бокам, а не на всю ширину
+type Base = { id: string; padding: Padding; bg: string; inset: boolean; show: Show; cond: string }
 
 export type HeadingBlock = Base & { type: 'heading'; html: string; align: Align; size: number | null; color: string | null }
 export type TextBlock = Base & { type: 'text'; html: string; align: Align; size: number | null; color: string | null }
@@ -69,7 +71,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const uid = () => Math.random().toString(36).slice(2, 10)
 const pad = (t: number, r: number, b: number, l: number): Padding => ({ t, r, b, l })
-const base = (p: Padding = pad(12, 40, 12, 40)) => ({ id: uid(), padding: p, bg: '', show: 'all' as Show })
+const base = (p: Padding = pad(12, 40, 12, 40)) => ({ id: uid(), padding: p, bg: '', inset: false, show: 'all' as Show, cond: '' })
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
   heading: 'Заголовок', text: 'Текст', image: 'Картинка', button: 'Кнопка', columns: 'Колонки',

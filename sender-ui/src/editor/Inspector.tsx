@@ -147,9 +147,10 @@ type InspectorProps = {
   onRemove: () => void
   onError: (m: string) => void
   varHint: string
+  variables: { key: string; label: string }[]
 }
 
-export function BlockInspector({ block: b, position, settings: s, onChange, onRemove, onError, varHint }: InspectorProps) {
+export function BlockInspector({ block: b, position, settings: s, onChange, onRemove, onError, varHint, variables }: InspectorProps) {
   const set = onChange as (p: Record<string, unknown>) => void
   let body: ReactNode = null
 
@@ -278,11 +279,24 @@ export function BlockInspector({ block: b, position, settings: s, onChange, onRe
       {body}
       <Group title="Блок">
         <Row label="Фон"><ColorField label="Фон блока" value={b.bg || null} allowEmpty emptyLabel="Прозрачный" onChange={(v) => onChange({ bg: v ?? '' })} /></Row>
+        {b.bg && (
+          <Row label="Фон занимает">
+            <Seg label="Ширина фона" value={b.inset ? 'card' : 'full'} onChange={(v) => onChange({ inset: v === 'card' })} options={[{ value: 'full', label: 'Всю ширину' }, { value: 'card', label: 'Карточку' }]} />
+          </Row>
+        )}
         <span className="be-lab">Отступы, px</span>
         <PaddingFields value={b.padding} onChange={(p) => onChange({ padding: p })} />
         <Row label="Показывать">
           <Seg<Show> label="Где показывать" value={b.show} onChange={(v) => onChange({ show: v })} options={[{ value: 'all', label: 'Везде' }, { value: 'desktop', label: 'ПК' }, { value: 'mobile', label: 'Тел.' }]} />
         </Row>
+        <div className="field">
+          <label className="be-lab" htmlFor="be-cond">Условие</label>
+          <select id="be-cond" className="select be-select wide" value={b.cond ?? ''} onChange={(e) => onChange({ cond: e.target.value })}>
+            <option value="">Показывать всегда</option>
+            {variables.map((v) => <option key={v.key} value={v.key}>Только если заполнено: {v.label}</option>)}
+          </select>
+          <div className="hint">{b.cond ? `Блок попадёт в письмо, только если приложение передало {{ ${b.cond} }}.` : 'Например, пароль показывать только новым участникам.'}</div>
+        </div>
       </Group>
       <button type="button" className="btn sm text danger-text" style={{ alignSelf: 'flex-start' }} onClick={onRemove}><Trash2 size={14} />Удалить блок</button>
     </div>

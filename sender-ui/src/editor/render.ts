@@ -32,7 +32,10 @@ export function inlineRichText(html: string, s: Settings, opts: { color: string;
 
 function cellTop(b: Block, inner: string, extra = '', top = true): string {
   const bg = b.bg ? `background-color:${b.bg};` : ''
-  return `<tr><td class="${top ? 'px' : ''}${showClass(b)}" style="${padCss(b.padding)};${bg}${extra}">${inner}</td></tr>`
+  const row = b.bg && b.inset
+    ? `<tr><td class="${top ? 'px' : ''}${showClass(b)}" style="padding:0 ${top ? 40 : 0}px"><div style="${padCss(b.padding)};${bg}${extra}">${inner}</div></td></tr>`
+    : `<tr><td class="${top ? 'px' : ''}${showClass(b)}" style="${padCss(b.padding)};${bg}${extra}">${inner}</td></tr>`
+  return b.cond ? `{{#if ${b.cond}}}${row}{{/if}}` : row
 }
 
 function renderBlock(b: Block, s: Settings, width: number, top = true): string {

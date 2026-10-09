@@ -186,3 +186,15 @@ it('renders conditional blocks', function (): void {
         ->and($renderer->render($template, [])['html'])->toBe('Привет!')
         ->and($renderer->render($template, ['name' => '', 'password' => false])['html'])->toBe('Привет!');
 });
+
+it('renders nested conditional blocks', function (): void {
+    $template = new App\Sender\Models\Template([
+        'subject' => 'Тема',
+        'body_html' => '{{#if password}}<p>Пароль: {{ password }}{{#if name}}, {{ name }}{{/if}}</p>{{/if}}<p>Конец</p>',
+    ]);
+    $renderer = new App\Sender\Services\TemplateRenderer;
+
+    expect($renderer->render($template, ['password' => 'x1', 'name' => 'Анна'])['html'])->toBe('<p>Пароль: x1, Анна</p><p>Конец</p>')
+        ->and($renderer->render($template, ['password' => 'x1'])['html'])->toBe('<p>Пароль: x1</p><p>Конец</p>')
+        ->and($renderer->render($template, ['name' => 'Анна'])['html'])->toBe('<p>Конец</p>');
+});

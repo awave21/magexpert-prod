@@ -17,10 +17,13 @@ const EMPTY: Form = {
 const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
 
 // те же правила, что в TemplateRenderer на сервере: {{#if x}}…{{/if}} выводится, если x заполнена
-const render = (src: string, data: Record<string, string>, escape = true) =>
-  src
-    .replace(/\{\{#if\s+([a-zA-Z0-9_.]+)\s*\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, k: string, body: string) => (data[k] ? body : ''))
-    .replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, k: string) => (escape ? esc(data[k] ?? '') : (data[k] ?? '')))
+// условия раскрываются изнутри наружу, как в TemplateRenderer на сервере
+const IF_RE = /\{\{#if\s+([a-zA-Z0-9_.]+)\s*\}\}((?:(?!\{\{#if\s)[\s\S])*?)\{\{\/if\}\}/g
+const render = (src: string, data: Record<string, string>, escape = true) => {
+  let out = src
+  for (let prev = ''; prev !== out;) { prev = out; out = out.replace(IF_RE, (_, k: string, body: string) => (data[k] ? body : '')) }
+  return out.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, k: string) => (escape ? esc(data[k] ?? '') : (data[k] ?? '')))
+}
 
 const payload = (f: Form) => ({ ...f, body_text: f.body_text || null, reply_to: f.reply_to || null, preheader: f.preheader || null })
 

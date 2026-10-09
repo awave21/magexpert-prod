@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Editor } from '@tiptap/react'
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, Code2, Columns2, Copy, FileCode2, Footprints, GripVertical, Heading, Image as ImageIcon,
+  ArrowDown, ArrowLeft, ArrowUp, Blocks, Check, Code2, Columns2, Copy, FileCode2, Footprints, GripVertical, Heading, Image as ImageIcon,
   LayoutTemplate, Minus, Monitor, MoveVertical, Redo2, RectangleHorizontal, Send, Share2, Smartphone, Trash2, Type, Undo2,
 } from 'lucide-react'
 import { api, ApiError, type Domain, type Message, type Template, type Variables } from '../api'
@@ -11,9 +11,11 @@ import { useAuth } from '../auth'
 import { CopyButton, Modal, useToast } from '../components/ui'
 import {
   BLOCK_LABELS, ROOT, normalizeDesign, cloneBlock, countBlocks, createBlock, emptyDesign, findBlock, insertBlock, locate, moveBlockTo,
-  removeBlock, shiftBlock, starterDesign, updateBlock, type Block, type BlockType, type Container, type Design, type Settings,
+  removeBlock, shiftBlock, updateBlock, type Block, type BlockType, type Container, type Design, type Settings,
 } from '../editor/model'
 import { designToHtml, htmlToText } from '../editor/render'
+import { htmlToDesign } from '../editor/import'
+import { PRESETS } from '../editor/presets'
 import { FormatToolbar, RichText, highlightVars } from '../editor/RichText'
 import { BlockInspector, StylesPanel, UploadButton } from '../editor/Inspector'
 
@@ -97,15 +99,52 @@ export default function BlockEditor() {
     }
   }, [template, ready])
 
-  const start = (kind: 'starter' | 'empty' | 'wrap') => {
-    let d = kind === 'starter' ? starterDesign() : emptyDesign()
+  const start = (kind: 'convert' | 'empty' | 'wrap' | string) => {
+    let d = emptyDesign()
     if (kind === 'wrap' && template) {
       const html = createBlock('html')
       d = { ...d, blocks: [{ ...html, html: template.body_html } as Block] }
+    } else if (kind === 'convert' && template) {
+      const r = htmlToDesign(template.body_html)
+      d = r.design
+      toast(r.raw ? `Блоков: ${r.converted}. Фрагментов, оставленных как «Свой HTML»: ${r.raw}` : `Письмо разобрано на ${r.converted} блоков`)
+    } else {
+      const preset = PRESETS.find((p) => p.key === kind)
+      if (preset) d = preset.design()
     }
     dispatch({ type: 'reset', design: d })
     setSavedJson('')
     setReady(true)
+  }
+
+  // макет поверх текущего письма: стили и логотип сохраняются, отменить можно через Cmd+Z
+  const [presetsOpen, setPresetsOpen] = useState(false)
+  const applyPreset = (key: string) => {
+    const preset = PRESETS.find((p) => p.key === key)
+    if (!preset) return
+    const next = preset.design()
+    const oldLogo = design.blocks[0]
+    const newLogo = next.blocks[0]
+    if (oldLogo?.type === 'image' && oldLogo.src && newLogo?.type === 'image' && !newLogo.src) {
+      next.blocks[0] = { ...newLogo, src: oldLogo.src, name: oldLogo.name, meta: oldLogo.meta, alt: oldLogo.alt || newLogo.alt }
+    }
+    setDesign({ ...next, settings: design.settings })
+    setSelected(null)
+    setPresetsOpen(false)
+    toast(`Применён макет «${preset.title}». Отменить можно через Cmd+Z`)
+  }
+
+  // замена письма своим HTML (например, из другого сервиса рассылок)
+  const [importHtml, setImportHtml] = useState('')
+  const [htmlTab, setHtmlTab] = useState<'view' | 'import'>('view')
+  const applyImport = () => {
+    const r = htmlToDesign(importHtml)
+    if (!r.design.blocks.length) { toast('В этом HTML не нашлось содержимого', true); return }
+    setDesign({ ...r.design, settings: design.settings })
+    setSelected(null)
+    setHtmlOpen(false)
+    setImportHtml('')
+    toast(`Письмо заменено: ${r.converted} блоков${r.raw ? `, ${r.raw} как «Свой HTML»` : ''}. Отменить можно через Cmd+Z`)
   }
 
   const setDesign = useCallback((d: Design, key?: string) => dispatch({ type: 'set', design: d, key }), [])
@@ -238,14 +277,26 @@ export default function BlockEditor() {
   // ---------- выбор, с чего начать (шаблон пока в коде) ----------
 
   if (!ready) {
+    const hasBody = template.body_html.replace(/<[^>]+>/g, '').trim().length > 0
     return (
       <div className="be-start">
         <Link to={`/templates/${id}`} className="back"><ArrowLeft size={15} />{template.name}</Link>
         <h1>Собрать письмо из блоков</h1>
-        <p className="muted">Сейчас письмо «{template.name}» написано кодом. Выберите, с чего начать. Пока вы не сохраните, письмо в шаблоне не изменится.</p>
+        <p className="muted">Выберите, с чего начать. Пока вы не сохраните, письмо в шаблоне не изменится.</p>
+        {hasBody && (
+          <>
+            <div className="be-start-title">Текущее письмо</div>
+            <div className="be-start-grid">
+              <button type="button" className="rec" onClick={() => start('convert')}><Blocks size={22} /><b>Преобразовать в блоки</b><span>Заголовки, текст, картинки, кнопки и условия станут отдельными блоками. Рекомендуем.</span></button>
+              <button type="button" onClick={() => start('wrap')}><Code2 size={22} /><b>Оставить кодом в одном блоке</b><span>Код целиком станет блоком «Свой HTML», вокруг можно добавлять новые блоки.</span></button>
+            </div>
+          </>
+        )}
+        <div className="be-start-title">Готовый макет</div>
         <div className="be-start-grid">
-          <button type="button" onClick={() => start('starter')}><LayoutTemplate size={22} /><b>Заготовка</b><span>Заголовок, текст, кнопка и подвал. Останется заменить слова.</span></button>
-          <button type="button" onClick={() => start('wrap')}><Code2 size={22} /><b>Текущее письмо одним блоком</b><span>Код письма станет блоком «Свой HTML». Вокруг можно добавлять новые блоки.</span></button>
+          {PRESETS.map((p) => (
+            <button type="button" key={p.key} onClick={() => start(p.key)}><LayoutTemplate size={22} /><b>{p.title}</b><span>{p.text}</span></button>
+          ))}
           <button type="button" onClick={() => start('empty')}><Type size={22} /><b>Пустое письмо</b><span>Начать с чистого листа.</span></button>
         </div>
       </div>
@@ -363,7 +414,7 @@ export default function BlockEditor() {
     return (
       <div
         className={`be-blk${isSel ? ' sel' : ''}${hiddenHere ? ' hidden-here' : ''}${drag?.kind === 'move' && drag.id === b.id ? ' dragging' : ''}`}
-        style={{ padding: pad, background: b.bg || undefined }}
+        style={b.bg && b.inset ? { padding: `0 ${side(40)}px` } : { padding: pad, background: b.bg || undefined }}
         onClick={(e) => { e.stopPropagation(); if (!isSel) setSelected(b.id) }}
       >
         {isSel && (
@@ -381,7 +432,8 @@ export default function BlockEditor() {
           onDragStart={(e: DragEvent) => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', b.id); setDrag({ kind: 'move', id: b.id }) }}
           onDragEnd={() => { setDrag(null); setDropAt(null) }}><GripVertical size={14} /></span>
         {hiddenHere && <span className="be-hidden-note">{b.show === 'desktop' ? 'Только на компьютере' : 'Только на телефоне'}</span>}
-        {inner}
+        {b.cond && <span className="be-cond-note" title={`Блок попадёт в письмо, только если заполнено {{ ${b.cond} }}`}>если {b.cond}</span>}
+        {b.bg && b.inset ? <div style={{ padding: `${b.padding.t}px ${b.padding.r}px ${b.padding.b}px ${b.padding.l}px`, background: b.bg }}>{inner}</div> : inner}
       </div>
     )
   }
@@ -407,6 +459,7 @@ export default function BlockEditor() {
           <button type="button" role="radio" aria-checked={device === 'mobile'} className={device === 'mobile' ? 'on' : ''} title="Телефон" onClick={() => setDevice('mobile')}><Smartphone size={15} /></button>
         </div>
         <span className="be-sep" />
+        <button type="button" className="btn ghost" onClick={() => setPresetsOpen(true)}><LayoutTemplate size={15} />Макеты</button>
         <button type="button" className="btn ghost" onClick={() => setHtmlOpen(true)}><Code2 size={15} />HTML</button>
         <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>
         <button type="button" className="btn primary" disabled={save.isPending || (!dirty && !!savedJson)} onClick={() => save.mutate()} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
@@ -463,6 +516,7 @@ export default function BlockEditor() {
           {selectedBlock ? (
             <BlockInspector block={selectedBlock} position={position} settings={s}
               varHint="Можно вставить переменную, например {{ event_url }}: ссылка станет своей для каждого получателя."
+              variables={variables}
               onChange={(p) => patchBlock(selectedBlock.id, p)} onRemove={removeSelected} onError={(m) => toast(m, true)} />
           ) : (
             <div className="be-inspector">
@@ -486,9 +540,38 @@ export default function BlockEditor() {
 
       {htmlOpen && (
         <Modal title="HTML письма" onClose={() => setHtmlOpen(false)}>
-          <p className="muted" style={{ margin: 0 }}>Этот код уходит получателю. Он собирается из блоков автоматически, менять его здесь не нужно.</p>
-          <div className="code-block" style={{ maxHeight: 360, overflow: 'auto' }}><pre className="mono">{html}</pre><CopyButton text={html} label="Скопировать HTML" /></div>
-          <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn" onClick={() => setHtmlOpen(false)}>Закрыть</button></div>
+          <div className="tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={htmlTab === 'view'} className={`tab${htmlTab === 'view' ? ' active' : ''}`} onClick={() => setHtmlTab('view')}>Готовый HTML</button>
+            <button type="button" role="tab" aria-selected={htmlTab === 'import'} className={`tab${htmlTab === 'import' ? ' active' : ''}`} onClick={() => setHtmlTab('import')}>Вставить свой</button>
+          </div>
+          {htmlTab === 'view' ? (
+            <>
+              <p className="muted" style={{ margin: 0 }}>Этот код уходит получателю. Он собирается из блоков автоматически.</p>
+              <div className="code-block" style={{ maxHeight: 360, overflow: 'auto' }}><pre className="mono">{html}</pre><CopyButton text={html} label="Скопировать HTML" /></div>
+              <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn" onClick={() => setHtmlOpen(false)}>Закрыть</button></div>
+            </>
+          ) : (
+            <>
+              <p className="muted" style={{ margin: 0 }}>Вставьте HTML письма, например из другого сервиса рассылок. Он заменит текущее письмо и будет разобран на блоки. Стили письма сохранятся.</p>
+              <textarea className="textarea code" rows={10} value={importHtml} onChange={(e) => setImportHtml(e.target.value)} placeholder="<html>…</html>" aria-label="HTML для импорта" />
+              <div className="row" style={{ justifyContent: 'flex-end' }}>
+                <button className="btn" onClick={() => setHtmlOpen(false)}>Отмена</button>
+                <button className="btn primary" disabled={!importHtml.trim()} onClick={applyImport}>Преобразовать в блоки</button>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {presetsOpen && (
+        <Modal title="Готовые макеты" onClose={() => setPresetsOpen(false)}>
+          <p className="muted" style={{ margin: 0 }}>Макет заменит блоки письма. Стили письма и логотип останутся, отменить замену можно через Cmd+Z.</p>
+          <div className="be-presets">
+            {PRESETS.map((p) => (
+              <button type="button" key={p.key} onClick={() => applyPreset(p.key)}><b>{p.title}</b><span>{p.text}</span></button>
+            ))}
+          </div>
+          <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn" onClick={() => setPresetsOpen(false)}>Закрыть</button></div>
         </Modal>
       )}
 

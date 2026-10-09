@@ -8,7 +8,7 @@ class TemplateRenderer
 {
     /**
      * Подставляет переменные {{ name }} в тему, HTML и текст письма.
-     * Блок {{#if name}}...{{/if}} выводится, если переменная заполнена (вложенность не поддерживается).
+     * Блок {{#if name}}...{{/if}} выводится, если переменная заполнена; блоки можно вкладывать.
      * В HTML значения экранируются, отсутствующие переменные заменяются пустой строкой.
      *
      * @param  array<string, mixed>  $data
@@ -34,11 +34,18 @@ class TemplateRenderer
      */
     private function replace(string $source, array $data, bool $escape): string
     {
-        $source = preg_replace_callback(
-            '/\{\{#if\s+([a-zA-Z0-9_.]+)\s*\}\}(.*?)\{\{\/if\}\}/s',
-            fn (array $match): string => filled(data_get($data, $match[1])) && data_get($data, $match[1]) !== false ? $match[2] : '',
-            $source,
-        );
+        // условия раскрываются изнутри наружу, поэтому блоки {{#if}} можно вкладывать друг в друга
+        $pattern = '/\{\{#if\s+([a-zA-Z0-9_.]+)\s*\}\}((?:(?!\{\{#if\s).)*?)\{\{\/if\}\}/s';
+
+        do {
+            $source = preg_replace_callback(
+                $pattern,
+                fn (array $match): string => filled(data_get($data, $match[1])) && data_get($data, $match[1]) !== false ? $match[2] : '',
+                $source,
+                -1,
+                $count,
+            );
+        } while ($count > 0);
 
         return preg_replace_callback(
             '/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/',
