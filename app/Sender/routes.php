@@ -1,6 +1,7 @@
 <?php
 
 use App\Sender\Http\Controllers\Admin\ApiKeyController;
+use App\Sender\Http\Controllers\Admin\AssetController;
 use App\Sender\Http\Controllers\Admin\AuthController;
 use App\Sender\Http\Controllers\Admin\DomainController;
 use App\Sender\Http\Controllers\Admin\MessageController as AdminMessageController;
@@ -39,6 +40,8 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::post('template-folders', [TemplateFolderController::class, 'store'])->name('template-folders.store');
             Route::put('template-folders/{folder}', [TemplateFolderController::class, 'update'])->name('template-folders.update');
             Route::delete('template-folders/{folder}', [TemplateFolderController::class, 'destroy'])->name('template-folders.destroy');
+
+            Route::post('assets', [AssetController::class, 'store'])->middleware('throttle:60,1')->name('assets.store');
 
             Route::get('templates', [TemplateController::class, 'index'])->name('templates.index');
             Route::post('templates', [TemplateController::class, 'store'])->name('templates.store');

@@ -16,7 +16,21 @@ class Template extends SenderModel
         'subject',
         'body_html',
         'body_text',
+        'editor',
+        'design',
     ];
+
+    public const EDITOR_HTML = 'html';
+
+    public const EDITOR_BLOCKS = 'blocks';
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return ['design' => 'array'];
+    }
 
     public function folder(): BelongsTo
     {

@@ -23,6 +23,8 @@ class TemplateResource extends JsonResource
             'subject' => $this->subject,
             'body_html' => $this->body_html,
             'body_text' => $this->body_text,
+            'editor' => $this->editor ?? 'html',
+            'design' => $this->design,
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }

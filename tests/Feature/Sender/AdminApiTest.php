@@ -264,3 +264,39 @@ it('sends a test email from the first verified domain', function (): void {
 
     Illuminate\Support\Facades\Queue::assertPushed(App\Sender\Jobs\SendMessageJob::class);
 });
+
+it('stores a block design together with the rendered html', function (): void {
+    $design = ['settings' => ['width' => 600], 'blocks' => [['id' => 'a1', 'type' => 'text', 'html' => '<p>Привет</p>']]];
+
+    $id = $this->withToken($this->token)->postJson(adminApi().'/templates', [
+        'slug' => 'blocks', 'name' => 'Блоки', 'subject' => 'Тема', 'body_html' => '<table><tr><td>Привет</td></tr></table>',
+        'editor' => 'blocks', 'design' => $design,
+    ])->assertCreated()
+        ->assertJsonPath('data.editor', 'blocks')
+        ->assertJsonPath('data.design.blocks.0.type', 'text')
+        ->json('data.id');
+
+    $this->withToken($this->token)->getJson(adminApi()."/templates/{$id}")->assertJsonPath('data.design.settings.width', 600);
+
+    $this->withToken($this->token)->postJson(adminApi().'/templates', [
+        'slug' => 'broken', 'name' => 'X', 'subject' => 'X', 'body_html' => 'X', 'editor' => 'blocks',
+    ])->assertJsonValidationErrors('design');
+});
+
+it('uploads an image for an email and rejects other files', function (): void {
+    Illuminate\Support\Facades\Storage::fake('public');
+
+    $url = $this->withToken($this->token)->post(adminApi().'/assets', [
+        'file' => Illuminate\Http\UploadedFile::fake()->image('cover.jpg', 1200, 500),
+    ], ['Accept' => 'application/json'])
+        ->assertCreated()
+        ->assertJsonPath('data.width', 1200)
+        ->assertJsonPath('data.name', 'cover.jpg')
+        ->json('data.url');
+
+    expect($url)->toContain('/storage/sender/'.$this->organization->id.'/');
+
+    $this->withToken($this->token)->post(adminApi().'/assets', [
+        'file' => Illuminate\Http\UploadedFile::fake()->create('virus.exe', 10),
+    ], ['Accept' => 'application/json'])->assertJsonValidationErrors('file');
+});

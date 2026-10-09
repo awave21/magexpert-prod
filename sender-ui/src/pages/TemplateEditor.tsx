@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, Check, Code2, Copy, Lock, Monitor, MoreHorizontal, Send, Smartphone, Trash2, Type, Unlock } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Blocks, Check, Code2, Copy, Lock, Monitor, MoreHorizontal, PencilRuler, Send, Smartphone, Trash2, Type, Unlock } from 'lucide-react'
 import { api, ApiError, type Domain, type Folder, type Message, type Template, type Variables } from '../api'
 import { useAuth } from '../auth'
 import { CopyButton, Modal, ago, useToast } from '../components/ui'
@@ -92,6 +92,7 @@ export default function TemplateEditor() {
     return { ...d, ...sample }
   }, [known, sample])
 
+  const isBlocks = q.data?.data.editor === 'blocks'
   const dirty = isNew ? form.name !== '' || form.subject !== '' : saved !== null && JSON.stringify(saved) !== JSON.stringify(form)
   const verified = dq.data?.data.find((d) => d.status === 'verified')
   const fromLine = verified ? `noreply@${verified.domain}` : 'адрес из подтверждённого домена'
@@ -188,8 +189,9 @@ export default function TemplateEditor() {
             </div>
           </div>
           <div className="row">
+            {!isNew && isBlocks && <Link to={`/templates/${id}/blocks`} className="btn primary"><PencilRuler size={15} />Редактировать письмо</Link>}
             {!isNew && <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>}
-            <button className="btn primary" disabled={save.isPending || (!dirty && !isNew)} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
+            <button className={`btn${isBlocks ? '' : ' primary'}`} disabled={save.isPending || (!dirty && !isNew)} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
             {!isNew && (
               <div className="menu-wrap">
                 <button type="button" className="btn icon ghost" aria-label="Ещё" aria-expanded={menu} onClick={() => setMenu((m) => !m)}><MoreHorizontal size={18} /></button>
@@ -225,8 +227,17 @@ export default function TemplateEditor() {
                 {tab === 'text' && (
                   <button type="button" className="btn sm text" onClick={() => setForm((f) => ({ ...f, body_text: htmlToText(f.body_html) }))}>Собрать из HTML</button>
                 )}
+                {tab === 'html' && !isNew && !isBlocks && (
+                  <Link to={`/templates/${id}/blocks`} className="btn sm text"><Blocks size={14} />Собрать из блоков</Link>
+                )}
               </div>
-              {tab === 'html' ? (
+              {tab === 'html' && isBlocks ? (
+                <div className="tpl-blocks-card">
+                  <Blocks size={22} />
+                  <div><b>Письмо собрано из блоков</b><span>Текст, картинки и кнопки меняются в редакторе блоков. HTML собирается из них автоматически.</span></div>
+                  <Link to={`/templates/${id}/blocks`} className="btn primary"><PencilRuler size={15} />Открыть редактор</Link>
+                </div>
+              ) : tab === 'html' ? (
                 <textarea ref={refs.body_html} className={`textarea code tpl-code${err('body_html') ? ' err' : ''}`} aria-label="HTML письма" value={form.body_html}
                   onChange={set('body_html')} onFocus={() => { lastField.current = 'body_html' }} spellCheck={false} />
               ) : (

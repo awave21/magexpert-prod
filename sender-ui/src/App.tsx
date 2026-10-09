@@ -12,6 +12,7 @@ import Messages from './pages/Messages'
 import ApiKeys from './pages/ApiKeys'
 import Blocked from './pages/Blocked'
 import VariablesPage from './pages/Variables'
+import BlockEditor from './pages/BlockEditor'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -26,6 +27,7 @@ export default function App() {
   }
   return (
     <Routes>
+      <Route path="templates/:id/blocks" element={<BlockEditor />} />
       <Route element={<Layout />}>
         <Route index element={<Overview />} />
         <Route path="messages" element={<Messages />} />

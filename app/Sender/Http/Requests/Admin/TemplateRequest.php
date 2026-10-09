@@ -34,6 +34,10 @@ class TemplateRequest extends FormRequest
             'subject' => ['required', 'string', 'max:255'],
             'body_html' => ['required', 'string'],
             'body_text' => ['nullable', 'string'],
+            'editor' => ['sometimes', 'string', Rule::in(['html', 'blocks'])],
+            'design' => ['nullable', 'array', 'required_if:editor,blocks'],
+            'design.blocks' => ['required_with:design', 'array', 'max:200'],
+            'design.settings' => ['nullable', 'array'],
             'folder_id' => [
                 'nullable', 'integer',
                 Rule::exists(config('sender.connection').'.sender_template_folders', 'id')->where('organization_id', $organizationId),
@@ -54,6 +58,8 @@ class TemplateRequest extends FormRequest
             'subject.required' => 'Укажите тему письма',
             'folder_id.exists' => 'Такой папки нет',
             'body_html.required' => 'Укажите текст письма',
+            'design.required_if' => 'Письмо из блоков не передано',
+            'design.blocks.max' => 'В письме слишком много блоков',
         ];
     }
 }
