@@ -2,6 +2,7 @@
 
 namespace App\Sender\Http\Controllers\Admin;
 
+use App\Sender\Http\Requests\Admin\MoveTemplateRequest;
 use App\Sender\Http\Requests\Admin\TemplateRequest;
 use App\Sender\Http\Resources\TemplateResource;
 use App\Sender\Services\TemplateRenderer;
@@ -35,6 +36,17 @@ class TemplateController extends Controller
     {
         $model = $this->organization($request)->templates()->findOrFail($template);
         $model->update($request->validated());
+
+        return new TemplateResource($model);
+    }
+
+    /**
+     * Переносит шаблон в другую папку; folder_id = null убирает его из папки.
+     */
+    public function move(MoveTemplateRequest $request, int $template): TemplateResource
+    {
+        $model = $this->organization($request)->templates()->findOrFail($template);
+        $model->update(['folder_id' => $request->validated('folder_id')]);
 
         return new TemplateResource($model);
     }

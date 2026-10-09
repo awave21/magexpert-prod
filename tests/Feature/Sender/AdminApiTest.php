@@ -191,3 +191,57 @@ it('returns overview stats for the own organization only', function (): void {
         ->assertJsonPath('days.6.sent', 2)
         ->assertJsonCount(4, 'recent');
 });
+
+it('moves a template between folders and out of a folder', function (): void {
+    $template = $this->organization->templates()->create(['slug' => 'welcome', 'name' => 'Привет', 'subject' => 'Тема', 'body_html' => '<p>Текст</p>']);
+    $folder = $this->organization->templateFolders()->create(['name' => 'Сложный пациент']);
+
+    $this->withToken($this->token)->patchJson(adminApi()."/templates/{$template->id}/folder", ['folder_id' => $folder->id])
+        ->assertOk()
+        ->assertJsonPath('data.folder_id', $folder->id);
+
+    $this->withToken($this->token)->getJson(adminApi().'/template-folders')
+        ->assertJsonPath('data.0.templates_count', 1);
+
+    $this->withToken($this->token)->patchJson(adminApi()."/templates/{$template->id}/folder", ['folder_id' => null])
+        ->assertOk()
+        ->assertJsonPath('data.folder_id', null);
+});
+
+it('does not move a template into a folder of another organization', function (): void {
+    $template = $this->organization->templates()->create(['slug' => 'welcome', 'name' => 'Привет', 'subject' => 'Тема', 'body_html' => 'X']);
+    $foreignFolder = $this->other->templateFolders()->create(['name' => 'Чужая']);
+    $foreignTemplate = $this->other->templates()->create(['slug' => 'secret', 'name' => 'X', 'subject' => 'X', 'body_html' => 'X']);
+
+    $this->withToken($this->token)->patchJson(adminApi()."/templates/{$template->id}/folder", ['folder_id' => $foreignFolder->id])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('folder_id');
+
+    $this->withToken($this->token)->patchJson(adminApi()."/templates/{$foreignTemplate->id}/folder", ['folder_id' => null])
+        ->assertNotFound();
+
+    $this->withToken($this->token)->patchJson(adminApi()."/templates/{$template->id}/folder", [])
+        ->assertJsonValidationErrors('folder_id');
+});
+
+it('registers an organization with its first user', function (): void {
+    $this->postJson(adminApi().'/register', [
+        'organization' => 'Клиника Здоровье', 'name' => 'Анна', 'email' => 'Anna@Clinic.ru', 'password' => 'long-password',
+    ])->assertCreated()->assertJsonStructure(['token', 'user' => ['id', 'email', 'organization']])
+        ->assertJsonPath('user.email', 'anna@clinic.ru');
+
+    $this->postJson(adminApi().'/register', [
+        'organization' => 'Другая', 'name' => 'Анна', 'email' => 'admin@example.com', 'password' => 'long-password',
+    ])->assertJsonValidationErrors('email');
+});
+
+it('applies default values of custom variables when sending', function (): void {
+    $this->withToken($this->token)->postJson(adminApi().'/variables', ['key' => 'clinic', 'label' => 'Клиника', 'default_value' => 'МедАльянс'])
+        ->assertCreated();
+    $template = $this->organization->templates()->create(['slug' => 'v', 'name' => 'V', 'subject' => 'Из {{ clinic }}', 'body_html' => 'X']);
+
+    $this->withToken($this->token)->postJson(adminApi()."/templates/{$template->id}/preview", ['data' => []])
+        ->assertJsonPath('data.subject', 'Из МедАльянс');
+    $this->withToken($this->token)->postJson(adminApi()."/templates/{$template->id}/preview", ['data' => ['clinic' => 'Другая']])
+        ->assertJsonPath('data.subject', 'Из Другая');
+});

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Folder as FolderIcon, FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, Folder as FolderIcon, FolderPlus, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { api, ApiError, type Folder, type Template } from '../api'
 import { Empty, Modal, PageHead, ago, useToast } from '../components/ui'
 
@@ -40,12 +40,43 @@ export default function Templates() {
     onSuccess: () => { setRemoving(null); toast('Папка удалена'); refresh(); setParams({}) },
   })
 
+  // перетаскивание: шаблон из таблицы бросают на папку слева
+  const [dragId, setDragId] = useState<number | null>(null)
+  const [dropTarget, setDropTarget] = useState<Filter | null>(null)
+  const move = useMutation({
+    mutationFn: ({ id, folderId }: { id: number; folderId: number | null }) =>
+      api<{ data: Template }>(`/templates/${id}/folder`, { method: 'PATCH', body: { folder_id: folderId } }),
+    onMutate: async ({ id, folderId }) => {
+      await qc.cancelQueries({ queryKey: ['templates'] })
+      const prev = qc.getQueryData<{ data: Template[] }>(['templates'])
+      qc.setQueryData<{ data: Template[] }>(['templates'], (old) => old && { data: old.data.map((t) => (t.id === id ? { ...t, folder_id: folderId } : t)) })
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['templates'], ctx.prev); toast('Не удалось перенести шаблон', true) },
+    onSuccess: (_r, { folderId }) => toast(folderId ? `Перенесён в «${folderName(folderId)}»` : 'Шаблон убран из папки'),
+    onSettled: () => refresh(),
+  })
+  const canDrop = (f: Filter) => {
+    if (dragId === null || f === 'all') return false
+    const t = all.find((x) => x.id === dragId)
+    return (f === 'none' ? null : f) !== (t?.folder_id ?? null)
+  }
+  const dropProps = (f: Filter) => ({
+    onDragOver: (e: React.DragEvent) => { if (canDrop(f)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget(f) } },
+    onDragLeave: () => setDropTarget((d) => (d === f ? null : d)),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault()
+      if (dragId !== null && canDrop(f)) move.mutate({ id: dragId, folderId: f === 'none' ? null : (f as number) })
+      setDragId(null); setDropTarget(null)
+    },
+  })
+
   const select = (f: Filter) => setParams(f === 'all' ? {} : { folder: String(f) })
   const newTemplate = () => nav(typeof filter === 'number' ? `/templates/new?folder=${filter}` : '/templates/new')
   const submit = (e: FormEvent) => { e.preventDefault(); if (editing) save.mutate(editing) }
 
   const item = (f: Filter, label: string, count: number) => (
-    <button type="button" className={`folder-item${filter === f ? ' active' : ''}`} onClick={() => select(f)}>
+    <button type="button" className={`folder-item${filter === f ? ' active' : ''}${dropTarget === f ? ' drop' : ''}${dragId !== null && canDrop(f) ? ' droppable' : ''}`} onClick={() => select(f)} {...dropProps(f)}>
       <FolderIcon size={16} /><span className="grow">{label}</span><span className="sub">{count}</span>
     </button>
   )
@@ -61,6 +92,7 @@ export default function Templates() {
 
       <div className="folders-layout">
         <nav className="folders" aria-label="Папки шаблонов">
+          {dragId !== null && <div className="hint" style={{ padding: '0 12px 6px' }}>Отпустите на папке</div>}
           {item('all', 'Все шаблоны', all.length)}
           {folders.map((f) => <div key={f.id}>{item(f.id, f.name, f.templates_count)}</div>)}
           {item('none', 'Без папки', all.filter((t) => !t.folder_id).length)}
@@ -74,10 +106,14 @@ export default function Templates() {
           ) : (
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>Название</th><th>Ключ</th>{filter === 'all' && <th>Папка</th>}<th>Тема письма</th><th>Изменён</th><th /></tr></thead>
+                <thead><tr><th style={{ width: 28 }} aria-label="Перетащить" /><th>Название</th><th>Ключ</th>{filter === 'all' && <th>Папка</th>}<th>Тема письма</th><th>Изменён</th><th /></tr></thead>
                 <tbody>
                   {list.map((t) => (
-                    <tr key={t.id} className="click" onClick={() => nav(`/templates/${t.id}`)}>
+                    <tr key={t.id} className={`click${dragId === t.id ? ' dragging' : ''}`} onClick={() => nav(`/templates/${t.id}`)}
+                      draggable onDragStart={(e) => { setDragId(t.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.name) }}
+                      onDragEnd={() => { setDragId(null); setDropTarget(null) }}
+                      title="Перетащите на папку слева, чтобы перенести">
+                      <td className="drag-handle"><GripVertical size={16} /></td>
                       <td style={{ fontWeight: 500 }}>{t.name}</td>
                       <td><span className="chip mono">{t.slug}</span></td>
                       {filter === 'all' && <td className="sub">{folderName(t.folder_id) ?? '—'}</td>}

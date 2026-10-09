@@ -43,6 +43,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::get('templates', [TemplateController::class, 'index'])->name('templates.index');
             Route::post('templates', [TemplateController::class, 'store'])->name('templates.store');
             Route::get('templates/{template}', [TemplateController::class, 'show'])->name('templates.show');
+            Route::patch('templates/{template}/folder', [TemplateController::class, 'move'])->name('templates.move');
             Route::put('templates/{template}', [TemplateController::class, 'update'])->name('templates.update');
             Route::delete('templates/{template}', [TemplateController::class, 'destroy'])->name('templates.destroy');
             Route::post('templates/{template}/preview', [TemplateController::class, 'preview'])->name('templates.preview');
