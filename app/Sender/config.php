@@ -15,4 +15,6 @@ return [
         'from_name' => env('SENDER_FROM_NAME', 'МедАльянсГрупп Expert'),
     ],
     'mail_host' => env('SENDER_MAIL_HOST', 'mail.mag-expert.ru'),
+    // адрес админки на своём поддомене; пусто — админка открывается по /sender
+    'ui_url' => env('SENDER_UI_URL'),
 ];

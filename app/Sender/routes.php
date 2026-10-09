@@ -15,6 +15,7 @@ use App\Sender\Http\Controllers\ConfirmSenderAddressController;
 use App\Sender\Http\Controllers\MessageController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
+use App\Sender\Support\SenderUi;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
@@ -79,15 +80,26 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
     });
 });
 
+// Админ-интерфейс на своём поддомене (SENDER_UI_URL): весь поддомен отдаёт админку,
+// кроме API выше и статики (её отдаёт nginx).
+if ($uiHost = SenderUi::host()) {
+    Route::domain($uiHost)->group(function (): void {
+        Route::get('confirm-address/{token}', ConfirmSenderAddressController::class)
+            ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.ui-host.confirm-address');
+        Route::get('{path?}', fn () => SenderUi::indexResponse())
+            ->where('path', '(?!api/|sender-static/|storage/).*')->name('sender.ui-host');
+    });
+}
+
 // Подтверждение адреса отправителя по ссылке из письма (страница без входа в админку)
 Route::get('sender/confirm-address/{token}', ConfirmSenderAddressController::class)
     ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.confirm-address');
 
-// Админ-интерфейс (sender-ui): сборка лежит в public/sender-static, любой путь под /sender отдаёт её index.html.
-Route::get('sender/{path?}', function () {
-    $index = public_path('sender-static/index.html');
+// Админка по /sender на домене приложения. Если у неё свой поддомен, старый адрес ведёт туда.
+Route::get('sender/{path?}', function (?string $path = null) {
+    if (SenderUi::host() !== null) {
+        return redirect()->away(SenderUi::url($path ?? ''), 301);
+    }
 
-    abort_unless(is_file($index), 404, 'Интерфейс Sender не собран: npm --prefix sender-ui run build');
-
-    return response()->file($index, ['Cache-Control' => 'no-cache']);
+    return SenderUi::indexResponse();
 })->where('path', '.*')->name('sender.ui');

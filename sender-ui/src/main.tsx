@@ -7,12 +7,15 @@ import { AuthProvider } from './auth'
 import { ToastProvider } from './components/ui'
 import './styles.css'
 
+// на своём поддомене (mail.mag-expert.ru) админка живёт в корне, на домене сайта — по /sender
+const basename = window.location.pathname === '/sender' || window.location.pathname.startsWith('/sender/') ? '/sender' : '/'
+
 const client = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
-      <BrowserRouter basename="/sender">
+      <BrowserRouter basename={basename}>
         <ToastProvider>
           <AuthProvider>
             <App />

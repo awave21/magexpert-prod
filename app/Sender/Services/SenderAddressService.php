@@ -6,6 +6,7 @@ use App\Sender\Mail\SenderAddressConfirmationMail;
 use App\Sender\Models\Domain;
 use App\Sender\Models\Organization;
 use App\Sender\Models\SenderAddress;
+use App\Sender\Support\SenderUi;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -46,7 +47,7 @@ class SenderAddressService
             'confirmation_sent_at' => now(),
         ])->save();
 
-        $url = url('/sender/confirm-address/'.$plain);
+        $url = SenderUi::url('confirm-address/'.$plain);
         Mail::to($address->email)->send(new SenderAddressConfirmationMail($address, $url, $this->letterHtml($address, $url)));
     }
 

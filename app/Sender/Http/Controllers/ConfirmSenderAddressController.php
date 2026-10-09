@@ -3,6 +3,7 @@
 namespace App\Sender\Http\Controllers;
 
 use App\Sender\Services\SenderAddressService;
+use App\Sender\Support\SenderUi;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 
@@ -18,7 +19,7 @@ class ConfirmSenderAddressController extends Controller
 
         $color = $ok ? '#147F0A' : '#A92321';
         $icon = $ok ? '✓' : '!';
-        $panel = e(url('/sender/domains'));
+        $panel = e(SenderUi::url('domains'));
 
         $html = <<<HTML
 <!doctype html>
