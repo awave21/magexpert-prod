@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, Blocks, Check, Code2, Copy, Lock, Monitor, MoreHorizontal, PencilRuler, Send, Smartphone, Trash2, Type, Unlock } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Blocks, Braces, Check, Code2, Copy, Lock, Monitor, MoreHorizontal, PencilRuler, Send, Smartphone, Trash2, Type, Unlock } from 'lucide-react'
 import { api, ApiError, type Domain, type Folder, type Message, type Template, type Variables } from '../api'
 import { useAuth } from '../auth'
 import { CopyButton, Modal, ago, useToast } from '../components/ui'
@@ -59,6 +59,7 @@ export default function TemplateEditor() {
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop')
   const [slugLocked, setSlugLocked] = useState(!isNew)
   const [menu, setMenu] = useState(false)
+  const [varsOpen, setVarsOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [testOpen, setTestOpen] = useState(false)
   const [testTo, setTestTo] = useState('')
@@ -251,13 +252,20 @@ export default function TemplateEditor() {
             <section className="tpl-section">
               <div className="tpl-sub">
                 <h2>Переменные</h2>
-                <span className="sub">Нажмите, чтобы вставить туда, где стоит курсор</span>
+                <div className="menu-wrap">
+                  <button type="button" className="btn sm" onMouseDown={(e) => e.preventDefault()} onClick={() => setVarsOpen((o) => !o)} aria-expanded={varsOpen}><Braces size={14} />Вставить переменную</button>
+                  {varsOpen && (
+                    <div className="menu vars-menu" role="menu" onMouseLeave={() => setVarsOpen(false)}>
+                      {[...known.entries()].map(([key, v]) => (
+                        <button type="button" role="menuitem" key={key} onMouseDown={(e) => e.preventDefault()} onClick={() => { insertVar(key); setVarsOpen(false) }}>
+                          <span className="mono">{key}</span><span className="sub">{v.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="var-chips">
-                {[...known.entries()].map(([key, v]) => (
-                  <button type="button" key={key} className={`chip mono${used.includes(key) ? ' accent' : ''}`} title={v.label} onMouseDown={(e) => e.preventDefault()} onClick={() => insertVar(key)}>{key}</button>
-                ))}
-              </div>
+              {used.length === 0 && <div className="hint">В письме пока нет переменных. Вставьте нужную туда, где стоит курсор.</div>}
               {used.length > 0 && (
                 <table className="table vars-table">
                   <thead><tr><th>В письме</th><th>Что это</th><th>Значение для предпросмотра</th></tr></thead>

@@ -432,14 +432,6 @@ export default function BlockEditor() {
                 ))}
               </div>
               <div className="hint">Перетащите блок в письмо или нажмите, чтобы добавить его под выбранным.</div>
-              <div className="be-ov" style={{ marginTop: 6 }}>Переменные</div>
-              <div className="be-vars">
-                {variables.map((v) => (
-                  <button type="button" key={v.key} className="chip mono" title={v.label} disabled={!editor}
-                    onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.chain().focus().insertContent(`{{ ${v.key} }}`).run()}>{v.key}</button>
-                ))}
-              </div>
-              <div className="hint">{editor ? 'Нажмите, чтобы вставить туда, где курсор.' : 'Выберите текстовый блок, чтобы вставить переменную.'}</div>
             </>
           ) : (
             <StylesPanel settings={s} onChange={patchSettings} />
