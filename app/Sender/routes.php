@@ -1,0 +1,63 @@
+<?php
+
+use App\Sender\Http\Controllers\Admin\ApiKeyController;
+use App\Sender\Http\Controllers\Admin\AuthController;
+use App\Sender\Http\Controllers\Admin\DomainController;
+use App\Sender\Http\Controllers\Admin\MessageController as AdminMessageController;
+use App\Sender\Http\Controllers\Admin\StatsController;
+use App\Sender\Http\Controllers\Admin\SuppressionController;
+use App\Sender\Http\Controllers\Admin\TemplateController;
+use App\Sender\Http\Controllers\MessageController;
+use App\Sender\Http\Middleware\AuthenticateApiKey;
+use App\Sender\Http\Middleware\AuthenticateUser;
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
+    Route::middleware(AuthenticateApiKey::class)->group(function (): void {
+        Route::post('messages', [MessageController::class, 'store']);
+        Route::get('messages/{uuid}', [MessageController::class, 'show']);
+    });
+
+    Route::prefix('admin')->name('sender.admin.')->group(function (): void {
+        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
+
+        Route::middleware(AuthenticateUser::class)->group(function (): void {
+            Route::get('me', [AuthController::class, 'me'])->name('me');
+            Route::get('stats', StatsController::class)->name('stats');
+            Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+
+            Route::get('domains', [DomainController::class, 'index'])->name('domains.index');
+            Route::post('domains', [DomainController::class, 'store'])->name('domains.store');
+            Route::get('domains/{domain}', [DomainController::class, 'show'])->name('domains.show');
+            Route::post('domains/{domain}/verify', [DomainController::class, 'verify'])->name('domains.verify');
+            Route::delete('domains/{domain}', [DomainController::class, 'destroy'])->name('domains.destroy');
+
+            Route::get('templates', [TemplateController::class, 'index'])->name('templates.index');
+            Route::post('templates', [TemplateController::class, 'store'])->name('templates.store');
+            Route::get('templates/{template}', [TemplateController::class, 'show'])->name('templates.show');
+            Route::put('templates/{template}', [TemplateController::class, 'update'])->name('templates.update');
+            Route::delete('templates/{template}', [TemplateController::class, 'destroy'])->name('templates.destroy');
+            Route::post('templates/{template}/preview', [TemplateController::class, 'preview'])->name('templates.preview');
+
+            Route::get('api-keys', [ApiKeyController::class, 'index'])->name('api-keys.index');
+            Route::post('api-keys', [ApiKeyController::class, 'store'])->name('api-keys.store');
+            Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->name('api-keys.destroy');
+
+            Route::get('messages', [AdminMessageController::class, 'index'])->name('messages.index');
+            Route::get('messages/{uuid}', [AdminMessageController::class, 'show'])->name('messages.show');
+
+            Route::get('suppressions', [SuppressionController::class, 'index'])->name('suppressions.index');
+            Route::post('suppressions', [SuppressionController::class, 'store'])->name('suppressions.store');
+            Route::delete('suppressions/{suppression}', [SuppressionController::class, 'destroy'])->name('suppressions.destroy');
+        });
+    });
+});
+
+// Админ-интерфейс (sender-ui): сборка лежит в public/sender-static, любой путь под /sender отдаёт её index.html.
+Route::get('sender/{path?}', function () {
+    $index = public_path('sender-static/index.html');
+
+    abort_unless(is_file($index), 404, 'Интерфейс Sender не собран: npm --prefix sender-ui run build');
+
+    return response()->file($index, ['Cache-Control' => 'no-cache']);
+})->where('path', '.*')->name('sender.ui');

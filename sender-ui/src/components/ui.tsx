@@ -1,0 +1,120 @@
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { Check, Copy } from 'lucide-react'
+
+const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'err' | 'neutral' }> = {
+  sent: { label: 'Отправлено', tone: 'ok' },
+  verified: { label: 'Подтверждён', tone: 'ok' },
+  queued: { label: 'В очереди', tone: 'warn' },
+  sending: { label: 'Отправляется', tone: 'warn' },
+  pending: { label: 'Ожидает', tone: 'warn' },
+  failed: { label: 'Ошибка', tone: 'err' },
+  blocked: { label: 'Заблокировано', tone: 'neutral' },
+}
+
+export function Status({ value }: { value: string }) {
+  const s = STATUS[value] ?? { label: value, tone: 'neutral' as const }
+  return <span className={`status ${s.tone}`}><i />{s.label}</span>
+}
+export const statusLabel = (v: string) => STATUS[v]?.label ?? v
+
+export const REASONS: Record<string, string> = {
+  bounce: 'Отказ доставки',
+  complaint: 'Жалоба',
+  unsubscribe: 'Отписка',
+  manual: 'Вручную',
+}
+
+type Toast = { id: number; text: string; err?: boolean }
+const ToastCtx = createContext<(text: string, err?: boolean) => void>(() => {})
+export const useToast = () => useContext(ToastCtx)
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<Toast[]>([])
+  const push = useCallback((text: string, err?: boolean) => {
+    const id = Date.now() + Math.random()
+    setItems((x) => [...x, { id, text, err }])
+    setTimeout(() => setItems((x) => x.filter((t) => t.id !== id)), 3500)
+  }, [])
+  return (
+    <ToastCtx.Provider value={push}>
+      {children}
+      <div className="toasts" role="status" aria-live="polite">
+        {items.map((t) => <div key={t.id} className={`toast${t.err ? ' err' : ''}`}>{t.text}</div>)}
+      </div>
+    </ToastCtx.Provider>
+  )
+}
+
+export function CopyButton({ text, label = 'Скопировать' }: { text: string; label?: string }) {
+  const [done, setDone] = useState(false)
+  const toast = useToast()
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setDone(true)
+      setTimeout(() => setDone(false), 1500)
+    } catch {
+      toast('Не удалось скопировать, выделите текст вручную', true)
+    }
+  }
+  return (
+    <button type="button" className="btn icon sm" onClick={copy} aria-label={label} title={label}>
+      {done ? <Check size={15} /> : <Copy size={15} />}
+    </button>
+  )
+}
+
+export function CopyField({ value }: { value: string }) {
+  return (
+    <div className="copyfield">
+      <span>{value}</span>
+      <CopyButton text={value} />
+    </div>
+  )
+}
+
+export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="modal-bg" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+        <h2>{title}</h2>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export function PageHead({ title, sub, actions }: { title: string; sub?: string; actions?: ReactNode }) {
+  return (
+    <div className="page-head">
+      <div>
+        <h1>{title}</h1>
+        {sub && <p>{sub}</p>}
+      </div>
+      {actions && <div className="row">{actions}</div>}
+    </div>
+  )
+}
+
+export function Empty({ title, text, action }: { title: string; text?: string; action?: ReactNode }) {
+  return (
+    <div className="empty">
+      <b>{title}</b>
+      {text && <div>{text}</div>}
+      {action && <div style={{ marginTop: 16 }}>{action}</div>}
+    </div>
+  )
+}
+
+export function ago(iso: string | null): string {
+  if (!iso) return '—'
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return 'только что'
+  if (s < 3600) return `${Math.floor(s / 60)} мин назад`
+  if (s < 86400) return `${Math.floor(s / 3600)} ч назад`
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}
+
+export function fmtDate(iso: string | null): string {
+  return iso ? new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
+}

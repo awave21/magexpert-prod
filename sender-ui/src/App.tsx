@@ -1,0 +1,41 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { useAuth } from './auth'
+import { Layout } from './components/Layout'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Overview from './pages/Overview'
+import Domains from './pages/Domains'
+import DomainDetail from './pages/DomainDetail'
+import Templates from './pages/Templates'
+import TemplateEditor from './pages/TemplateEditor'
+import Messages from './pages/Messages'
+import ApiKeys from './pages/ApiKeys'
+import Blocked from './pages/Blocked'
+
+export default function App() {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/register" element={<Register />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    )
+  }
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Overview />} />
+        <Route path="messages" element={<Messages />} />
+        <Route path="domains" element={<Domains />} />
+        <Route path="domains/:id" element={<DomainDetail />} />
+        <Route path="templates" element={<Templates />} />
+        <Route path="templates/:id" element={<TemplateEditor />} />
+        <Route path="api-keys" element={<ApiKeys />} />
+        <Route path="blocked" element={<Blocked />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  )
+}

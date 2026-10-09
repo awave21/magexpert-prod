@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Services\SendsayService;
+use App\Services\SenderMailService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,7 +43,7 @@ class NewPasswordController extends Controller
         // Генерируем новый сильный пароль (c fallback на Str::random)
         $generatedPassword = method_exists(Str::class, 'password')
             ? Str::password(12)
-            : Str::random(16) . 'aA1!';
+            : Str::random(16).'aA1!';
 
         $resetUser = null;
 
@@ -68,12 +68,12 @@ class NewPasswordController extends Controller
         // the application's home authenticated view. If there is an error we can
         // redirect them back to where they came from with their error message.
         if ($status == Password::PASSWORD_RESET) {
-            // Пытаемся отправить письмо с новым паролем через Sendsay
+            // Пытаемся отправить письмо с новым паролем через Sender
             try {
-                /** @var SendsayService $sendsay */
-                $sendsay = app(SendsayService::class);
+                /** @var SenderMailService $sender */
+                $sender = app(SenderMailService::class);
                 $name = $resetUser?->full_name ?? '';
-                $sendsay->sendPasswordResetEmail($request->email, $generatedPassword, $name);
+                $sender->sendPasswordResetEmail($request->email, $generatedPassword, $name);
             } catch (\Throwable $e) {
                 // Игнорируем ошибку отправки письма, пароль уже сброшен
             }

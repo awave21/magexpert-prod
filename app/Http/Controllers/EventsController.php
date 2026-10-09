@@ -2,25 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Event;
 use App\Models\Category;
+use App\Models\Event;
 use App\Models\Speaker;
 use App\Models\User;
-use App\Services\PaymentService;
 use App\Services\Bitrix24RegistrationService;
+use App\Services\PaymentService;
+use App\Services\SenderMailService;
 use App\Services\SendsayService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class EventsController extends Controller
 {
     protected PaymentService $paymentService;
+
     protected SendsayService $sendsayService;
+
     protected Bitrix24RegistrationService $bitrix24RegistrationService;
 
     public function __construct(
@@ -44,7 +46,7 @@ class EventsController extends Controller
                 },
                 'speakers' => function ($query) {
                     $query->where('is_active', true)->select('speakers.*');
-                }
+                },
             ])
             ->where('is_active', true);
 
@@ -53,15 +55,15 @@ class EventsController extends Controller
             $query->where('is_archived', false)
                 ->where(function ($q) {
                     $q->where('end_date', '>=', now()->format('Y-m-d'))
-                      ->orWhere('is_on_demand', true);
+                        ->orWhere('is_on_demand', true);
                 });
         } elseif ($filter === 'archive') {
             $query->where(function ($q) {
                 $q->where('is_archived', true)
-                  ->orWhere(function ($q2) {
-                      $q2->where('is_on_demand', false)
-                         ->where('end_date', '<', now()->format('Y-m-d'));
-                  });
+                    ->orWhere(function ($q2) {
+                        $q2->where('is_on_demand', false)
+                            ->where('end_date', '<', now()->format('Y-m-d'));
+                    });
             });
         }
 
@@ -69,8 +71,8 @@ class EventsController extends Controller
             $search = Str::lower(trim($request->search));
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('LOWER(title) LIKE ?', ["%{$search}%"])
-                  ->orWhereRaw('LOWER(short_description) LIKE ?', ["%{$search}%"])
-                  ->orWhereRaw('LOWER(location) LIKE ?', ["%{$search}%"]);
+                    ->orWhereRaw('LOWER(short_description) LIKE ?', ["%{$search}%"])
+                    ->orWhereRaw('LOWER(location) LIKE ?', ["%{$search}%"]);
             });
         }
 
@@ -95,9 +97,9 @@ class EventsController extends Controller
         $allowedSortFields = [
             'title', 'start_date', 'end_date', 'price',
             'event_type', 'format', 'location', 'sort_order',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at',
         ];
-        if (!in_array($sortField, $allowedSortFields)) {
+        if (! in_array($sortField, $allowedSortFields)) {
             $sortField = 'start_date';
         }
 
@@ -110,16 +112,12 @@ class EventsController extends Controller
         \Log::info('Events sort params:', ['sort' => $sortField, 'direction' => $sortDirection]);
 
         // 🔹 сортировка по дате с NULL в начале или в конце
-            if (in_array($sortField, ['start_date', 'end_date'])) {
+        if (in_array($sortField, ['start_date', 'end_date'])) {
             $query->orderByRaw("$sortField IS NULL ASC")
                 ->orderBy($sortField, $sortDirection);
         } else {
             $query->orderBy($sortField, $sortDirection);
         }
-
-
-
-
 
         $perPage = $request->input('per_page', 12);
         $events = $query->paginate($perPage)->withQueryString();
@@ -149,7 +147,7 @@ class EventsController extends Controller
     /** Детали мероприятия */
     public function show(Event $event)
     {
-        if (!$event->is_active) {
+        if (! $event->is_active) {
             abort(404);
         }
 
@@ -163,14 +161,14 @@ class EventsController extends Controller
                     ->orderBy('pivot_sort_order', 'asc')
                     ->orderBy('last_name', 'asc')
                     ->select('speakers.*');
-            }
+            },
         ]);
 
         $user = auth()->user();
         $hasAccess = $user ? $event->hasUserAccess($user) : false;
 
         $eventData = $event->toArray();
-        if (!$hasAccess) {
+        if (! $hasAccess) {
             unset($eventData['kinescope_id'], $eventData['kinescope_playlist_id']);
             $eventData['has_recording'] = $event->hasKinescopeRecord();
             $eventData['recording_type'] = $event->hasKinescopeRecord() ? $event->getKinescopeTypeLabel() : null;
@@ -187,7 +185,7 @@ class EventsController extends Controller
         }
 
         $relatedEvents = collect();
-        if (!empty($categoryIds)) {
+        if (! empty($categoryIds)) {
             $relatedEvents = Event::query()
                 ->where('id', '!=', $event->id)
                 ->where('is_active', true)
@@ -201,9 +199,9 @@ class EventsController extends Controller
         }
         // Считаем активные регистрации (кто реально занял место)
         $registeredCount = $event->users()
-        ->wherePivot('is_active', true)
+            ->wherePivot('is_active', true)
         // при желании можно сузить: ->wherePivotIn('payment_status', ['free','completed','unpaid'])
-        ->count();
+            ->count();
 
         $eventData['registered_count'] = $registeredCount;
         $eventData['available_spots'] = $event->max_quantity !== null
@@ -219,14 +217,14 @@ class EventsController extends Controller
     /** Просмотр мероприятия (для авторизованных) */
     public function view(Event $event)
     {
-        if (!$event->is_active) {
+        if (! $event->is_active) {
             abort(404);
         }
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return redirect()->route('login');
         }
         $user = auth()->user();
-        if (!$event->hasUserAccess($user)) {
+        if (! $event->hasUserAccess($user)) {
             return redirect()->route('events.show', $event->slug)
                 ->with('info', 'Для просмотра мероприятия необходимо зарегистрироваться');
         }
@@ -241,7 +239,7 @@ class EventsController extends Controller
                     ->orderBy('pivot_sort_order', 'asc')
                     ->orderBy('last_name', 'asc')
                     ->select('speakers.*');
-            }
+            },
         ]);
 
         $eventData = $event->toArray();
@@ -256,7 +254,7 @@ class EventsController extends Controller
                 'id' => $user->id,
                 'first_name' => $user->first_name,
                 'last_name' => $user->last_name,
-                'full_name' => trim($user->first_name . ' ' . $user->last_name),
+                'full_name' => trim($user->first_name.' '.$user->last_name),
             ],
         ]);
     }
@@ -273,9 +271,10 @@ class EventsController extends Controller
             return response()->json([
                 'success' => true,
                 'exists' => true,
-                'user' => ['id' => $user->id, 'email' => $user->email]
+                'user' => ['id' => $user->id, 'email' => $user->email],
             ]);
         }
+
         return response()->json(['success' => true, 'exists' => false]);
     }
 
@@ -285,22 +284,23 @@ class EventsController extends Controller
         // Игнорируем event_id от фронта
         $request->request->remove('event_id');
         //  внешняя ссылка
-         if ($event->external_url) {
-        if ($request->wantsJson()) {
-            return response()->json(['redirect' => $event->external_url]);
+        if ($event->external_url) {
+            if ($request->wantsJson()) {
+                return response()->json(['redirect' => $event->external_url]);
+            }
+
+            return redirect($event->external_url);
         }
-        return redirect($event->external_url);
-    }
-        if (!$event->is_active) {
+        if (! $event->is_active) {
             return $this->errorResponse($request, 'Мероприятие недоступно');
         }
-        if (!$event->registration_enabled) {
+        if (! $event->registration_enabled) {
             return $this->errorResponse($request, 'Регистрация на мероприятие отключена');
         }
-        if ($event->is_archived && !$event->hasKinescopeRecord()) {
+        if ($event->is_archived && ! $event->hasKinescopeRecord()) {
             return $this->errorResponse($request, 'Запись мероприятия пока недоступна');
         }
-        if (!$event->is_archived && $event->format === 'offline' && !$event->isRegistrationAvailable()) {
+        if (! $event->is_archived && $event->format === 'offline' && ! $event->isRegistrationAvailable()) {
             return $this->errorResponse($request, 'Мероприятие уже прошло');
         }
 
@@ -315,33 +315,34 @@ class EventsController extends Controller
 
                 $this->syncWithBitrix24Safe($event, $user, $request);
 
-                if ($event->isPaid() && !$event->is_on_demand) {
+                if ($event->isPaid() && ! $event->is_on_demand) {
                     return $this->handlePaidEventRegistration($event, $user, $request, '', false);
                 }
 
                 // on_demand ведём как бесплатное участие
                 $event->users()->syncWithoutDetaching([
                     $user->id => [
-                        'access_type'       => 'free',
-                        'payment_status'    => 'free',
+                        'access_type' => 'free',
+                        'payment_status' => 'free',
                         'access_granted_at' => now(),
-                        'is_active'         => true,
-                    ]
+                        'is_active' => true,
+                    ],
                 ]);
 
                 try {
-                    $this->sendsayService->sendEventRegistrationEmail($event, $user, '', false);
+                    app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, '', false);
                 } catch (\Throwable $e) {
                     \Log::warning('Не удалось отправить email при быстрой регистрации', [
                         'event_id' => $event->id,
-                        'user_id'  => $user->id,
-                        'error'    => $e->getMessage()
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage(),
                     ]);
                 }
 
                 return $this->successResponse($request, 'Регистрация прошла успешно!');
             } catch (\Throwable $e) {
                 \Log::error('Ошибка быстрой регистрации: '.$e->getMessage(), ['event_id' => $event->id]);
+
                 return $this->errorResponse($request, 'Ошибка при регистрации');
             }
         }
@@ -352,12 +353,12 @@ class EventsController extends Controller
             $validator = Validator::make($request->all(), ['email' => 'required|email|max:255']);
         } else {
             $validator = Validator::make($request->all(), [
-                'first_name'     => 'required|string|max:255',
-                'last_name'      => 'required|string|max:255',
-                'middle_name'    => 'nullable|string|max:255',
-                'email'          => 'required|email|max:255',
-                'phone'          => 'required|string|max:20',
-                'city'           => 'required|string|max:255',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'middle_name' => 'nullable|string|max:255',
+                'email' => 'required|email|max:255',
+                'phone' => 'required|string|max:20',
+                'city' => 'required|string|max:255',
                 'specialization' => 'nullable|string|max:255',
                 'privacy_consent' => 'required|accepted',
                 'oferta_consent' => 'required|accepted',
@@ -374,7 +375,7 @@ class EventsController extends Controller
             $generatedPassword = '';
 
             if ($isExistingUser) {
-                if (!$user) {
+                if (! $user) {
                     return $this->errorResponse($request, 'Пользователь с таким email не найден');
                 }
             } else {
@@ -384,21 +385,21 @@ class EventsController extends Controller
                 $generatedPassword = Str::random(12);
                 $isNewUser = true;
                 $user = User::create([
-                    'first_name'       => $request->first_name,
-                    'last_name'        => $request->last_name,
-                    'middle_name'      => $request->middle_name,
-                    'email'            => $request->email,
-                    'phone'            => $request->phone,
-                    'city'             => $request->city,
-                    'specialization'   => $request->specialization,
-                    'password'         => Hash::make($generatedPassword),
-                    'email_verified_at'=> now(),
+                    'first_name' => $request->first_name,
+                    'last_name' => $request->last_name,
+                    'middle_name' => $request->middle_name,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'city' => $request->city,
+                    'specialization' => $request->specialization,
+                    'password' => Hash::make($generatedPassword),
+                    'email_verified_at' => now(),
                     'newsletter_consent' => $request->boolean('newsletter_consent', false),
                     'privacy_consent' => $request->boolean('privacy_consent'),
                     'oferta_consent' => $request->boolean('oferta_consent'),
                 ]);
                 // по желанию можно логинить
-                 Auth::login($user);
+                Auth::login($user);
                 $request->session()->regenerate();
             }
 
@@ -412,32 +413,32 @@ class EventsController extends Controller
                 // как бесплатное участие
                 $event->users()->syncWithoutDetaching([
                     $user->id => [
-                        'access_type'       => 'free',
-                        'payment_status'    => 'free',
+                        'access_type' => 'free',
+                        'payment_status' => 'free',
                         'access_granted_at' => now(),
-                        'is_active'         => true,
-                    ]
+                        'is_active' => true,
+                    ],
                 ]);
             } elseif ($event->isPaid()) {
                 return $this->handlePaidEventRegistration($event, $user, $request, $generatedPassword, $isNewUser);
             } else {
                 $event->users()->syncWithoutDetaching([
                     $user->id => [
-                        'access_type'       => 'free',
-                        'payment_status'    => 'free',
+                        'access_type' => 'free',
+                        'payment_status' => 'free',
                         'access_granted_at' => now(),
-                        'is_active'         => true,
-                    ]
+                        'is_active' => true,
+                    ],
                 ]);
             }
 
             try {
-                $this->sendsayService->sendEventRegistrationEmail($event, $user, $generatedPassword, $isNewUser);
+                app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, $generatedPassword, $isNewUser);
             } catch (\Throwable $e) {
                 \Log::warning('Не удалось отправить email о регистрации', [
                     'event_id' => $event->id,
-                    'user_id'  => $user->id,
-                    'error'    => $e->getMessage()
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
                 ]);
             }
 
@@ -445,8 +446,9 @@ class EventsController extends Controller
         } catch (\Throwable $e) {
             \Log::error('Ошибка при регистрации: '.$e->getMessage(), [
                 'event_id' => $event->id,
-                'email'    => $request->email,
+                'email' => $request->email,
             ]);
+
             return $this->errorResponse($request, 'Ошибка регистрации. Попробуйте позже.');
         }
     }
@@ -457,6 +459,7 @@ class EventsController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => $message]);
         }
+
         return back()->with('success', $message);
     }
 
@@ -465,6 +468,7 @@ class EventsController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['success' => false, 'message' => $message], 422);
         }
+
         return back()->withErrors(['event' => $message]);
     }
 
@@ -472,7 +476,7 @@ class EventsController extends Controller
     protected function handlePaidEventRegistration(Event $event, User $user, Request $request, string $generatedPassword = '', bool $isNewUser = false)
     {
         try {
-            if ($isNewUser && !auth()->check()) {
+            if ($isNewUser && ! auth()->check()) {
                 Auth::login($user);
                 $request->session()->regenerate();
             }
@@ -492,12 +496,14 @@ class EventsController extends Controller
                 'is_new_user' => $isNewUser,
             ]);
 
-            if (!$result['success']) {
+            if (! $result['success']) {
                 return back()->withErrors(['event' => $result['error']]);
             }
+
             return \Inertia\Inertia::location($result['payment_url']);
         } catch (\Throwable $e) {
             \Log::error('Ошибка платежа: '.$e->getMessage());
+
             return back()->withErrors(['event' => 'Ошибка при создании платежа']);
         }
     }
@@ -508,7 +514,7 @@ class EventsController extends Controller
         try {
             $payload = [
                 'utm' => $request->only([
-                    'utm_source','utm_medium','utm_campaign','utm_content','utm_term',
+                    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
                 ]),
                 // on_demand теперь тоже "Зарегистрирован"
                 'event_status' => $request->input('event_status', 'Зарегистрирован'),
@@ -517,8 +523,8 @@ class EventsController extends Controller
         } catch (\Throwable $e) {
             \Log::warning('Bitrix24 sync failed', [
                 'event_id' => $event->id,
-                'user_id'  => $user->id,
-                'error'    => $e->getMessage(),
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
             ]);
         }
     }

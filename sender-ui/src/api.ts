@@ -1,0 +1,71 @@
+const TOKEN_KEY = 'sender.token'
+
+export const tokenStore = {
+  get: () => {
+    try { return localStorage.getItem(TOKEN_KEY) } catch { return null }
+  },
+  set: (t: string) => {
+    try { localStorage.setItem(TOKEN_KEY, t) } catch { /* без хранилища токен живёт до перезагрузки */ }
+  },
+  clear: () => {
+    try { localStorage.removeItem(TOKEN_KEY) } catch { /* ничего */ }
+  },
+}
+
+export class ApiError extends Error {
+  status: number
+  errors: Record<string, string[]>
+  constructor(status: number, message: string, errors: Record<string, string[]> = {}) {
+    super(message)
+    this.status = status
+    this.errors = errors
+  }
+}
+
+let onUnauthorized: () => void = () => {}
+export const setUnauthorizedHandler = (fn: () => void) => { onUnauthorized = fn }
+
+const BASE = '/api/sender/v1/admin'
+
+export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const token = tokenStore.get()
+  const res = await fetch(BASE + path, {
+    method: init.method ?? 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(init.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    if (res.status === 401 && path !== '/login') onUnauthorized()
+    throw new ApiError(res.status, data.message ?? 'Не удалось выполнить запрос', data.errors ?? {})
+  }
+  return data as T
+}
+
+export type User = { id: number; name: string; email: string; organization: string | null }
+export type DnsRecord = { key: 'verification' | 'dkim' | 'spf' | 'dmarc'; type: string; host: string; value: string; required: boolean }
+export type Domain = {
+  id: number; domain: string; status: 'pending' | 'verified' | 'failed'; dkim_selector: string
+  verified_at: string | null; last_checked_at: string | null; created_at: string
+  dns_records?: DnsRecord[]
+}
+export type Template = { id: number; slug: string; name: string; subject: string; body_html: string; body_text: string | null; updated_at: string }
+export type Message = {
+  id: string; status: 'queued' | 'sending' | 'sent' | 'failed' | 'blocked'; to: string; from: string; subject: string
+  template: string | null; attempts: number; error: string | null; sent_at: string | null; created_at: string
+  variables?: Record<string, unknown> | null
+}
+export type ApiKey = { id: number; name: string; key_prefix: string; last_used_at: string | null; revoked_at: string | null; created_at: string }
+export type Suppression = { id: number; email: string; reason: 'bounce' | 'complaint' | 'unsubscribe' | 'manual'; created_at: string }
+export type Paged<T> = { data: T[]; meta: { current_page: number; last_page: number; total: number } }
+export type VerifyReport = Record<'verification' | 'dkim' | 'spf' | 'dmarc', boolean>
+export type Stats = {
+  totals: { sent: number; queued: number; failed: number; blocked: number }
+  days: { date: string; label: string; sent: number; failed: number }[]
+  unverified_domains: number
+  recent: Message[]
+}

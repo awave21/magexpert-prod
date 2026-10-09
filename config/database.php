@@ -1,7 +1,5 @@
 <?php
 
-use Illuminate\Support\Str;
-
 return [
 
     /*
@@ -90,6 +88,20 @@ return [
             'database' => env('DB_DATABASE', 'laravel'),
             'username' => env('DB_USERNAME', 'root'),
             'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+        'sender' => [
+            'driver' => 'pgsql',
+            'host' => env('SENDER_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('SENDER_DB_PORT', env('DB_PORT', '5432')),
+            'database' => env('SENDER_DB_DATABASE', 'magexpert_sender'),
+            'username' => env('SENDER_DB_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('SENDER_DB_PASSWORD', env('DB_PASSWORD', '')),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,

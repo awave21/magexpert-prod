@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SenderMailService;
 use App\Services\SendsayService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Http\JsonResponse;
 
 class UserController extends Controller
 {
@@ -42,7 +43,7 @@ class UserController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -77,23 +78,23 @@ class UserController extends Controller
                 'success' => true,
                 'message' => 'User created successfully',
                 'data' => $user->only([
-                    'id', 'first_name', 'last_name', 'middle_name', 
-                    'email', 'phone', 'position', 'specialization', 
-                    'company', 'city', 'privacy_consent', 'oferta_consent', 
-                    'newsletter_consent', 'created_at'
-                ])
+                    'id', 'first_name', 'last_name', 'middle_name',
+                    'email', 'phone', 'position', 'specialization',
+                    'company', 'city', 'privacy_consent', 'oferta_consent',
+                    'newsletter_consent', 'created_at',
+                ]),
             ], 201);
 
         } catch (\Exception $e) {
             \Log::error('API user creation failed', [
                 'email' => $request->email,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create user',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -102,29 +103,28 @@ class UserController extends Controller
      * Отправка приветственного письма с паролем
      */
     protected function sendWelcomeEmailWithPassword(User $user, string $password): void
-{
-    $fullName = trim($user->first_name . ' ' . $user->last_name);
+    {
+        $fullName = trim($user->first_name.' '.$user->last_name);
 
-    try {
-        // Используем специальный метод для API регистрации
-        $this->sendsayService->sendApiRegistrationEmail(
-            $user->email,
-            $password,
-            $fullName
-        );
+        try {
+            // Используем специальный метод для API регистрации
+            app(SenderMailService::class)->sendApiRegistrationEmail(
+                $user->email,
+                $password,
+                $fullName
+            );
 
-        \Log::info('API registration email with password sent', [
-            'email' => $user->email,
-            'user_id' => $user->id
-        ]);
+            \Log::info('API registration email with password sent', [
+                'email' => $user->email,
+                'user_id' => $user->id,
+            ]);
 
-    } catch (\Exception $e) {
-        \Log::warning('Failed to send API registration email with password', [
-            'email' => $user->email,
-            'user_id' => $user->id,
-            'error' => $e->getMessage()
-        ]);
+        } catch (\Exception $e) {
+            \Log::warning('Failed to send API registration email with password', [
+                'email' => $user->email,
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
-}
-
 }

@@ -4,14 +4,13 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\SendsayService;
+use App\Services\SenderMailService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -44,21 +43,22 @@ class PasswordResetLinkController extends Controller
 
         // Прогрессивный кулдаун: 60 сек при первом успешном запросе, далее 2 минуты
         $emailKey = Str::lower($request->email);
-        $cooldownKey = 'password_reset_cooldown:' . $emailKey;
-        $stageKey = 'password_reset_stage:' . $emailKey; // 0 — не было, 1 — после первого, 2 — после второго и далее
+        $cooldownKey = 'password_reset_cooldown:'.$emailKey;
+        $stageKey = 'password_reset_stage:'.$emailKey; // 0 — не было, 1 — после первого, 2 — после второго и далее
 
         $stage = (int) Cache::get($stageKey, 0);
         if (Cache::has($cooldownKey)) {
             $cooldownMessage = $stage <= 1
                 ? 'Повторный запрос возможен через 60 секунд.'
                 : 'Повторный запрос возможен через 2 минуты.';
+
             return back()->with('status', $cooldownMessage);
         }
 
         // Ищем пользователя по email
         $user = User::where('email', strtolower($request->email))->first();
 
-        if (!$user) {
+        if (! $user) {
             // Ставим кулдаун даже если пользователь не найден (согласно стадии)
             if ($stage < 1) {
                 Cache::put($cooldownKey, true, now()->addSeconds(60));
@@ -67,13 +67,14 @@ class PasswordResetLinkController extends Controller
                 Cache::put($cooldownKey, true, now()->addMinutes(2));
                 Cache::put($stageKey, 2, now()->addHours(1));
             }
+
             return back()->with('status', $genericStatus);
         }
 
         // Генерируем новый пароль
         $generatedPassword = method_exists(Str::class, 'password')
             ? Str::password(12)
-            : Str::random(16) . 'aA1!';
+            : Str::random(16).'aA1!';
 
         // Обновляем пароль пользователя и инвалидируем remember_token
         $user->forceFill([
@@ -83,12 +84,12 @@ class PasswordResetLinkController extends Controller
 
         event(new PasswordReset($user));
 
-        // Пытаемся отправить письмо через Sendsay
+        // Пытаемся отправить письмо через Sender
         try {
-            /** @var SendsayService $sendsay */
-            $sendsay = app(SendsayService::class);
+            /** @var SenderMailService $sender */
+            $sender = app(SenderMailService::class);
             $name = $user->full_name ?? '';
-            $sendsay->sendPasswordResetEmail($user->email, $generatedPassword, $name);
+            $sender->sendPasswordResetEmail($user->email, $generatedPassword, $name);
         } catch (\Throwable $e) {
             // Игнорируем ошибку отправки, пароль уже обновлён
         }

@@ -1,0 +1,146 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, ApiError, type Template } from '../api'
+import { Modal, PageHead, useToast } from '../components/ui'
+
+type Form = { slug: string; name: string; subject: string; body_html: string; body_text: string }
+const EMPTY: Form = { slug: '', name: '', subject: '', body_html: '<p>Здравствуйте, {{ name }}!</p>\n', body_text: '' }
+
+const varsOf = (f: Form) => {
+  const set = new Set<string>()
+  for (const src of [f.subject, f.body_html, f.body_text]) {
+    for (const m of src.matchAll(/\{\{\s*(?:#if\s+)?([a-zA-Z0-9_.]+)\s*\}\}/g)) set.add(m[1])
+  }
+  return [...set]
+}
+
+export default function TemplateEditor() {
+  const { id } = useParams()
+  const isNew = id === 'new'
+  const nav = useNavigate()
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [form, setForm] = useState<Form>(EMPTY)
+  const [errors, setErrors] = useState<Record<string, string[]>>({})
+  const [sample, setSample] = useState<Record<string, string>>({})
+  const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null)
+  const [confirm, setConfirm] = useState(false)
+
+  const q = useQuery({ queryKey: ['template', id], queryFn: () => api<{ data: Template }>(`/templates/${id}`), enabled: !isNew })
+  useEffect(() => {
+    const t = q.data?.data
+    if (t) setForm({ slug: t.slug, name: t.name, subject: t.subject, body_html: t.body_html, body_text: t.body_text ?? '' })
+  }, [q.data])
+
+  const vars = useMemo(() => varsOf(form), [form])
+  const set = (k: keyof Form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  const save = useMutation({
+    mutationFn: () => api<{ data: Template }>(isNew ? '/templates' : `/templates/${id}`, { method: isNew ? 'POST' : 'PUT', body: { ...form, body_text: form.body_text || null } }),
+    onSuccess: (r) => {
+      setErrors({})
+      qc.invalidateQueries({ queryKey: ['templates'] })
+      qc.setQueryData(['template', String(r.data.id)], r)
+      toast('Шаблон сохранён')
+      if (isNew) nav(`/templates/${r.data.id}`, { replace: true })
+    },
+    onError: (e) => { if (e instanceof ApiError) { setErrors(e.errors); toast(e.message, true) } },
+  })
+  const remove = useMutation({
+    mutationFn: () => api(`/templates/${id}`, { method: 'DELETE' }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['templates'] }); toast('Шаблон удалён'); nav('/templates') },
+  })
+
+  // предпросмотр: для сохранённого шаблона через API (те же правила подстановки, что при отправке)
+  useEffect(() => {
+    if (isNew) return
+    const t = setTimeout(() => {
+      api<{ data: { subject: string; html: string } }>(`/templates/${id}/preview`, { method: 'POST', body: { data: sample } })
+        .then((r) => setPreview(r.data)).catch(() => {})
+    }, 300)
+    return () => clearTimeout(t)
+  }, [id, isNew, sample, q.data])
+
+  const submit = (e: FormEvent) => { e.preventDefault(); save.mutate() }
+  const err = (k: string) => errors[k]?.[0]
+  const dirty = q.data?.data && (q.data.data.body_html !== form.body_html || q.data.data.subject !== form.subject)
+
+  return (
+    <main className="page" style={{ maxWidth: 1320 }}>
+      <form onSubmit={submit}>
+        <PageHead title={isNew ? 'Новый шаблон' : form.name || 'Шаблон'} sub={isNew ? 'Ключ шаблона приложение передаёт при отправке письма' : undefined}
+          actions={<>
+            {!isNew && <button type="button" className="btn danger" onClick={() => setConfirm(true)}>Удалить</button>}
+            <button className="btn primary" disabled={save.isPending}>{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
+          </>} />
+
+        <div className="split">
+          <div className="stack">
+            <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap', gap: 16 }}>
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="name">Название</label>
+                <input id="name" className={`input${err('name') ? ' err' : ''}`} value={form.name} onChange={set('name')} placeholder="Регистрация на мероприятие" />
+                {err('name') && <div className="hint err">{err('name')}</div>}
+              </div>
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="slug">Ключ</label>
+                <input id="slug" className={`input mono${err('slug') ? ' err' : ''}`} value={form.slug} onChange={set('slug')} placeholder="event-registration" />
+                <div className={`hint${err('slug') ? ' err' : ''}`}>{err('slug') ?? 'Латиница, цифры, дефис'}</div>
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="subject">Тема письма</label>
+              <input id="subject" className={`input${err('subject') ? ' err' : ''}`} value={form.subject} onChange={set('subject')} placeholder="Вы зарегистрированы: {{ event }}" />
+              {err('subject') && <div className="hint err">{err('subject')}</div>}
+            </div>
+            <div className="field">
+              <label htmlFor="html">HTML письма</label>
+              <textarea id="html" className={`textarea code${err('body_html') ? ' err' : ''}`} rows={16} value={form.body_html} onChange={set('body_html')} spellCheck={false} />
+              <div className={`hint${err('body_html') ? ' err' : ''}`}>{err('body_html') ?? 'Переменные: {{ name }}. Условный блок: {{#if name}}…{{/if}}'}</div>
+            </div>
+            <div className="field">
+              <label htmlFor="text">Текстовая версия</label>
+              <textarea id="text" className="textarea" rows={5} value={form.body_text} onChange={set('body_text')} placeholder="Необязательно. Помогает доставляемости." />
+            </div>
+          </div>
+
+          <div className="stack" style={{ position: 'sticky', top: 80 }}>
+            <div>
+              <div className="label" style={{ marginBottom: 8 }}>Переменные {vars.length > 0 && <span className="muted">· тестовые значения</span>}</div>
+              {vars.length === 0 ? <div className="hint">В шаблоне нет переменных</div> : (
+                <div className="stack" style={{ gap: 8 }}>
+                  {vars.map((v) => (
+                    <div key={v} className="row" style={{ flexWrap: 'nowrap' }}>
+                      <span className="chip accent mono" style={{ minWidth: 110 }}>{v}</span>
+                      <input className="input" style={{ height: 36 }} aria-label={`Значение ${v}`} value={sample[v] ?? ''} onChange={(e) => setSample((s) => ({ ...s, [v]: e.target.value }))} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="label" style={{ marginBottom: 8 }}>Как увидит получатель {dirty && <span className="muted">· сохраните, чтобы обновить</span>}</div>
+              {isNew ? <div className="hint">Предпросмотр появится после первого сохранения</div> : (
+                <>
+                  <div className="sub" style={{ marginBottom: 6 }}>Тема: <b style={{ color: 'var(--ink)', fontWeight: 500 }}>{preview?.subject}</b></div>
+                  <iframe className="preview-frame" title="Предпросмотр письма" sandbox="allow-same-origin" srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.6 -apple-system,Segoe UI,Arial,sans-serif;color:#1C1F27;margin:24px}</style>${preview?.html ?? ''}`} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </form>
+
+      {confirm && (
+        <Modal title="Удалить шаблон?" onClose={() => setConfirm(false)}>
+          <p style={{ color: 'var(--ink-2)' }}>Приложение не сможет отправлять письма по ключу <span className="mono">{form.slug}</span>.</p>
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={() => setConfirm(false)}>Отмена</button>
+            <button className="btn danger" onClick={() => remove.mutate()}>Удалить</button>
+          </div>
+        </Modal>
+      )}
+    </main>
+  )
+}

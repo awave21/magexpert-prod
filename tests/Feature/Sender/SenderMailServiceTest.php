@@ -1,0 +1,92 @@
+<?php
+
+use App\Models\Event;
+use App\Models\User;
+use App\Sender\Contracts\SenderClient;
+use App\Services\SenderMailService;
+
+beforeEach(function (): void {
+    $this->client = new class implements SenderClient
+    {
+        public array $calls = [];
+
+        public string $status = 'queued';
+
+        public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+        {
+            $this->calls[] = compact('template', 'to', 'from', 'fromName', 'data');
+
+            return ['id' => 'abc', 'status' => $this->status, 'error' => null];
+        }
+    };
+
+    $this->service = new SenderMailService($this->client);
+});
+
+it('sends a password reset email', function (): void {
+    $sent = $this->service->sendPasswordResetEmail('User@Example.com', 'secret', 'Анна');
+
+    expect($sent)->toBeTrue()
+        ->and($this->client->calls[0]['template'])->toBe('password-reset')
+        ->and($this->client->calls[0]['to'])->toBe('User@Example.com')
+        ->and($this->client->calls[0]['data'])->toMatchArray(['user_email' => 'user@example.com', 'password' => 'secret', 'name' => 'Анна'])
+        ->and($this->client->calls[0]['from'])->toBe(config('sender.client.from_address'));
+});
+
+it('sends an api registration email', function (): void {
+    expect($this->service->sendApiRegistrationEmail('a@b.ru', 'pw', 'Анна'))->toBeTrue()
+        ->and($this->client->calls[0]['template'])->toBe('api-registration');
+});
+
+it('sends an event registration email with only filled fields', function (): void {
+    $event = Event::make([
+        'title' => 'Вебинар',
+        'slug' => 'webinar',
+        'event_type' => 'webinar',
+        'format' => 'online',
+        'is_archived' => false,
+        'is_paid' => false,
+        'show_price' => false,
+        'start_date' => '2026-10-16',
+        'start_time' => '12:00:00',
+    ]);
+    $event->setRelation('speakers', collect());
+
+    $user = User::make(['first_name' => 'Анна', 'last_name' => 'Петрова', 'email' => 'anna@example.com']);
+
+    expect($this->service->sendEventRegistrationEmail($event, $user, 'pw', true))->toBeTrue();
+
+    $data = $this->client->calls[0]['data'];
+
+    expect($this->client->calls[0]['template'])->toBe('event-registration')
+        ->and($data)->toMatchArray([
+            'user_name' => 'Анна Петрова',
+            'first_name' => 'Анна',
+            'is_new_user' => true,
+            'password' => 'pw',
+            'event_title' => 'Вебинар',
+            'event_type' => 'Вебинар',
+            'event_format' => 'Онлайн',
+            'start_date' => '16.10.2026',
+            'start_time' => '12:00',
+        ])
+        ->and($data)->not->toHaveKeys(['event_location', 'price', 'speakers', 'end_date']);
+});
+
+it('returns false when the sender rejects the message', function (): void {
+    $this->client->status = 'blocked';
+
+    expect($this->service->sendPasswordResetEmail('a@b.ru', 'pw'))->toBeFalse();
+});
+
+it('returns false instead of throwing when the client fails', function (): void {
+    $service = new SenderMailService(new class implements SenderClient
+    {
+        public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+        {
+            throw new RuntimeException('Sender недоступен');
+        }
+    });
+
+    expect($service->sendPasswordResetEmail('a@b.ru', 'pw'))->toBeFalse();
+});
