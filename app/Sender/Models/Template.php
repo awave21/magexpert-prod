@@ -14,6 +14,9 @@ class Template extends SenderModel
         'slug',
         'name',
         'subject',
+        'sender_address_id',
+        'reply_to',
+        'preheader',
         'body_html',
         'body_text',
         'editor',
@@ -30,6 +33,11 @@ class Template extends SenderModel
     protected function casts(): array
     {
         return ['design' => 'array'];
+    }
+
+    public function senderAddress(): BelongsTo
+    {
+        return $this->belongsTo(SenderAddress::class, 'sender_address_id');
     }
 
     public function folder(): BelongsTo

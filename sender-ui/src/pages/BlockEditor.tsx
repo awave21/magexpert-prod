@@ -479,14 +479,6 @@ export default function BlockEditor() {
                   </div>
                 ))}
               </div>
-              <div className="be-grp">
-                <div className="be-ov">Входящие</div>
-                <div className="field">
-                  <label className="be-lab" htmlFor="preheader">Прехедер</label>
-                  <input id="preheader" className="input sm" value={s.preheader} onChange={(e) => patchSettings({ preheader: e.target.value })} placeholder="Строка после темы в списке писем" />
-                  <div className="hint">Если пусто, почта возьмёт начало текста письма.</div>
-                </div>
-              </div>
             </div>
           )}
         </aside>

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Globe, LayoutDashboard, LogOut, Mail, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, ShieldBan, Sun, KeyRound, FileText, Braces } from 'lucide-react'
+import { Bell, Globe, LayoutDashboard, LogOut, Mail, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, ShieldBan, Sun, KeyRound, FileText, Braces, Code2 } from 'lucide-react'
 import { api, type Domain } from '../api'
 import { useAuth } from '../auth'
 
 const TITLES: Record<string, string> = {
-  '/': 'Обзор', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Шаблоны', '/variables': 'Переменные', '/api-keys': 'API-ключи', '/blocked': 'Блокировки',
+  '/': 'Обзор', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Шаблоны', '/variables': 'Переменные', '/api': 'API', '/api-keys': 'API-ключи', '/blocked': 'Блокировки',
 }
 
 function useTheme() {
@@ -73,6 +73,7 @@ export function Layout() {
         {item('/domains', <Globe size={20} />, 'Домены', unverified)}
         {item('/templates', <FileText size={20} />, 'Шаблоны')}
         {item('/variables', <Braces size={20} />, 'Переменные')}
+        {item('/api', <Code2 size={20} />, 'API')}
         {item('/api-keys', <KeyRound size={20} />, 'API-ключи')}
         {item('/blocked', <ShieldBan size={20} />, 'Блокировки')}
         <div className="spacer" />

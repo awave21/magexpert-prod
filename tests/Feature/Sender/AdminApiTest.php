@@ -300,3 +300,65 @@ it('uploads an image for an email and rejects other files', function (): void {
         'file' => Illuminate\Http\UploadedFile::fake()->create('virus.exe', 10),
     ], ['Accept' => 'application/json'])->assertJsonValidationErrors('file');
 });
+
+it('manages sender addresses on own domains only', function (): void {
+    $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'verified_at' => now(), 'dkim_selector' => 'mail']);
+
+    $id = $this->withToken($this->token)->postJson(adminApi().'/sender-addresses', ['email' => 'Events@Mag-Expert.ru', 'name' => 'МагЭксперт'])
+        ->assertCreated()
+        ->assertJsonPath('data.email', 'events@mag-expert.ru')
+        ->assertJsonPath('data.verified', true)
+        ->json('data.id');
+
+    $this->withToken($this->token)->postJson(adminApi().'/sender-addresses', ['email' => 'events@mag-expert.ru', 'name' => 'Дубль'])
+        ->assertJsonValidationErrors('email');
+    $this->withToken($this->token)->postJson(adminApi().'/sender-addresses', ['email' => 'me@gmail.com', 'name' => 'Чужой'])
+        ->assertJsonValidationErrors('email');
+
+    $this->withToken($this->token)->putJson(adminApi()."/sender-addresses/{$id}", ['name' => 'Команда МагЭксперт', 'email' => 'other@mag-expert.ru'])
+        ->assertOk()
+        ->assertJsonPath('data.name', 'Команда МагЭксперт')
+        ->assertJsonPath('data.email', 'events@mag-expert.ru');
+
+    $this->withToken($this->token)->getJson(adminApi().'/sender-addresses')->assertJsonCount(1, 'data');
+});
+
+it('sends from the sender address chosen in the template', function (): void {
+    Illuminate\Support\Facades\Queue::fake();
+    $domain = $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'verified_at' => now(), 'dkim_selector' => 'mail']);
+    $address = $this->organization->senderAddresses()->create(['domain_id' => $domain->id, 'email' => 'events@mag-expert.ru', 'name' => 'МагЭксперт']);
+    $foreign = $this->other->senderAddresses()->create([
+        'domain_id' => $this->other->domains()->create(['domain' => 'other.ru', 'verification_token' => 't', 'status' => 'verified', 'dkim_selector' => 'mail'])->id,
+        'email' => 'x@other.ru', 'name' => 'X',
+    ]);
+
+    $id = $this->withToken($this->token)->postJson(adminApi().'/templates', [
+        'slug' => 'welcome', 'name' => 'Привет', 'subject' => 'Тема', 'body_html' => '<html><body><p>Текст</p></body></html>',
+        'sender_address_id' => $address->id, 'reply_to' => 'support@mag-expert.ru', 'preheader' => 'Ждём вас, {{ name }}',
+    ])->assertCreated()->assertJsonPath('data.sender_address_id', $address->id)->json('data.id');
+
+    $this->withToken($this->token)->postJson(adminApi().'/templates', [
+        'slug' => 'foreign', 'name' => 'X', 'subject' => 'X', 'body_html' => 'X', 'sender_address_id' => $foreign->id,
+    ])->assertJsonValidationErrors('sender_address_id');
+
+    $plain = app(App\Sender\Services\ApiKeyService::class)->create($this->organization, 'site')['plain'];
+
+    // приложению достаточно ID шаблона, получателя и данных
+    $uuid = $this->withToken($plain)->postJson('/api/sender/v1/messages', ['template' => $id, 'to' => 'anna@example.com', 'data' => ['name' => 'Анна']])
+        ->assertAccepted()
+        ->json('id');
+
+    $message = Message::query()->where('uuid', $uuid)->firstOrFail();
+    expect($message->from_email)->toBe('events@mag-expert.ru')
+        ->and($message->from_name)->toBe('МагЭксперт')
+        ->and($message->reply_to)->toBe('support@mag-expert.ru');
+
+    $html = app(App\Sender\Services\TemplateRenderer::class)->render($message->template, ['name' => 'Анна'])['html'];
+    expect($html)->toContain('<body><div style="display:none')->toContain('Ждём вас, Анна');
+
+    // без адреса в шаблоне и в запросе письмо блокируется с понятной причиной
+    $bare = $this->organization->templates()->create(['slug' => 'bare', 'name' => 'B', 'subject' => 'B', 'body_html' => 'B']);
+    $this->withToken($plain)->postJson('/api/sender/v1/messages', ['template' => $bare->slug, 'to' => 'anna@example.com'])
+        ->assertUnprocessable()
+        ->assertJsonPath('status', 'blocked');
+});

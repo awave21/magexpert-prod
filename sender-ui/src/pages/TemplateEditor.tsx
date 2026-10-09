@@ -1,24 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Blocks, Check, Code2, Copy, Lock, Monitor, MoreHorizontal, PencilRuler, Send, Smartphone, Trash2, Type, Unlock } from 'lucide-react'
-import { api, ApiError, type Domain, type Folder, type Message, type Template, type Variables } from '../api'
+import { ArrowLeft, Blocks, Check, Copy, Lock, Monitor, MoreHorizontal, PencilRuler, Send, Smartphone, Trash2, Unlock } from 'lucide-react'
+import { api, ApiError, type Domain, type SenderAddress, type Folder, type Message, type Template, type Variables } from '../api'
 import { useAuth } from '../auth'
 import { CopyButton, Modal, ago, useToast } from '../components/ui'
 
-type Form = { slug: string; name: string; subject: string; body_html: string; body_text: string; folder_id: number | null }
-type Field = 'subject' | 'body_html' | 'body_text'
+type Form = { slug: string; name: string; subject: string; body_html: string; body_text: string; folder_id: number | null; sender_address_id: number | null; reply_to: string; preheader: string }
 
 const EMPTY: Form = {
+  sender_address_id: null, reply_to: '', preheader: '',
   slug: '', name: '', subject: '', folder_id: null, body_text: '',
   body_html: '<p>Здравствуйте, {{ name }}!</p>\n<p>Текст письма.</p>\n',
-}
-
-const VAR_RE = /\{\{\s*(?:#if\s+)?([a-zA-Z0-9_.]+)\s*\}\}/g
-const varsOf = (f: Form) => {
-  const found = new Set<string>()
-  for (const src of [f.subject, f.body_html, f.body_text]) for (const m of src.matchAll(VAR_RE)) found.add(m[1])
-  return [...found]
 }
 
 const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
@@ -29,16 +22,7 @@ const render = (src: string, data: Record<string, string>, escape = true) =>
     .replace(/\{\{#if\s+([a-zA-Z0-9_.]+)\s*\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, k: string, body: string) => (data[k] ? body : ''))
     .replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, k: string) => (escape ? esc(data[k] ?? '') : (data[k] ?? '')))
 
-// текстовая версия из HTML: переносы на месте блоков, без тегов
-const htmlToText = (html: string) =>
-  html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '• ')
-    .replace(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi, '$2 ($1)')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+const payload = (f: Form) => ({ ...f, body_text: f.body_text || null, reply_to: f.reply_to || null, preheader: f.preheader || null })
 
 const FRAME_CSS = 'body{font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#1C1F27;margin:0;padding:28px 24px;background:#fff;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#3B51D3}'
 
@@ -54,25 +38,23 @@ export default function TemplateEditor() {
   const [form, setForm] = useState<Form>(() => ({ ...EMPTY, folder_id: Number(params.get('folder')) || null }))
   const [saved, setSaved] = useState<Form | null>(null)
   const [errors, setErrors] = useState<Record<string, string[]>>({})
-  const [tab, setTab] = useState<'html' | 'text'>('html')
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop')
   const [slugLocked, setSlugLocked] = useState(!isNew)
   const [menu, setMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [testOpen, setTestOpen] = useState(false)
   const [testTo, setTestTo] = useState('')
-  const lastField = useRef<Field>('body_html')
-  const refs = { subject: useRef<HTMLInputElement>(null), body_html: useRef<HTMLTextAreaElement>(null), body_text: useRef<HTMLTextAreaElement>(null) }
 
   const fq = useQuery({ queryKey: ['template-folders'], queryFn: () => api<{ data: Folder[] }>('/template-folders') })
   const vq = useQuery({ queryKey: ['variables'], queryFn: () => api<Variables>('/variables') })
   const dq = useQuery({ queryKey: ['domains'], queryFn: () => api<{ data: Domain[] }>('/domains') })
+  const aq = useQuery({ queryKey: ['sender-addresses'], queryFn: () => api<{ data: SenderAddress[] }>('/sender-addresses') })
   const q = useQuery({ queryKey: ['template', id], queryFn: () => api<{ data: Template }>(`/templates/${id}`), enabled: !isNew })
 
   useEffect(() => {
     const t = q.data?.data
     if (!t) return
-    const f = { slug: t.slug, name: t.name, subject: t.subject, body_html: t.body_html, body_text: t.body_text ?? '', folder_id: t.folder_id ?? null }
+    const f = { slug: t.slug, name: t.name, subject: t.subject, body_html: t.body_html, body_text: t.body_text ?? '', folder_id: t.folder_id ?? null, sender_address_id: t.sender_address_id ?? null, reply_to: t.reply_to ?? '', preheader: t.preheader ?? '' }
     setForm(f)
     setSaved(f)
   }, [q.data])
@@ -84,7 +66,6 @@ export default function TemplateEditor() {
     for (const v of vq.data?.custom ?? []) m.set(v.key, { label: v.label, sample: v.default_value ?? '', custom: true })
     return m
   }, [vq.data])
-  const used = useMemo(() => varsOf(form), [form])
   const data = useMemo(() => {
     const d: Record<string, string> = {}
     for (const [k, v] of known) d[k] = v.sample
@@ -94,7 +75,10 @@ export default function TemplateEditor() {
   const isBlocks = q.data?.data.editor === 'blocks'
   const dirty = isNew ? form.name !== '' || form.subject !== '' : saved !== null && JSON.stringify(saved) !== JSON.stringify(form)
   const verified = dq.data?.data.find((d) => d.status === 'verified')
-  const fromLine = verified ? `noreply@${verified.domain}` : 'адрес из подтверждённого домена'
+  const addresses = aq.data?.data ?? []
+  const sender = addresses.find((x) => x.id === form.sender_address_id) ?? null
+  const fromLine = sender?.email ?? (verified ? `noreply@${verified.domain}` : 'адрес не выбран')
+  const fromName = sender?.name ?? user?.organization ?? 'Отправитель'
 
   // предупреждение при уходе со страницы с несохранёнными правками
   useEffect(() => {
@@ -109,7 +93,7 @@ export default function TemplateEditor() {
 
 
   const save = useMutation({
-    mutationFn: () => api<{ data: Template }>(isNew ? '/templates' : `/templates/${id}`, { method: isNew ? 'POST' : 'PUT', body: { ...form, body_text: form.body_text || null } }),
+    mutationFn: () => api<{ data: Template }>(isNew ? '/templates' : `/templates/${id}`, { method: isNew ? 'POST' : 'PUT', body: payload(form) }),
     onSuccess: (r) => {
       setErrors({})
       setSaved(form)
@@ -126,7 +110,7 @@ export default function TemplateEditor() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['templates'] }); toast('Шаблон удалён'); nav('/templates') },
   })
   const duplicate = useMutation({
-    mutationFn: () => api<{ data: Template }>('/templates', { method: 'POST', body: { ...form, name: `${form.name} (копия)`, slug: `${form.slug}-copy-${Date.now().toString(36).slice(-4)}`, body_text: form.body_text || null } }),
+    mutationFn: () => api<{ data: Template }>('/templates', { method: 'POST', body: { ...payload(form), name: `${form.name} (копия)`, slug: `${form.slug}-copy-${Date.now().toString(36).slice(-4)}` } }),
     onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['templates'] }); toast('Копия создана'); nav(`/templates/${r.data.id}`) },
     onError: (e) => toast((e as Error).message, true),
   })
@@ -157,7 +141,6 @@ export default function TemplateEditor() {
   const backTo = form.folder_id ? `/templates?folder=${form.folder_id}` : '/templates'
   const folderName = fq.data?.data.find((f) => f.id === form.folder_id)?.name
   const previewHtml = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${FRAME_CSS}</style>${render(form.body_html, data)}`
-  const apiExample = JSON.stringify({ template: form.slug || 'template-key', to: 'anna@example.com', data: Object.fromEntries(used.map((k) => [k, data[k] || '…'])) }, null, 2)
 
   if (!isNew && q.isError) return <main className="page"><div className="callout err"><div><b>Шаблон не найден</b></div></div></main>
   if (!isNew && !saved) return <main className="page muted">Загрузка…</main>
@@ -171,16 +154,15 @@ export default function TemplateEditor() {
             <Link to={backTo} className="back"><ArrowLeft size={15} />{folderName ?? 'Все шаблоны'}</Link>
             <h1>{isNew ? 'Новый шаблон' : form.name || 'Без названия'}</h1>
             <div className="tpl-meta">
-              {form.slug && <span className="chip mono">{form.slug}</span>}
+              {!isNew && <span className="chip mono id-chip" title="ID шаблона: его передаёт приложение при отправке">ID {id}<CopyButton text={String(id)} label="Скопировать ID шаблона" /></span>}
               <span className={`save-state${dirty ? ' dirty' : ''}`}>
                 {dirty ? <><i />Есть несохранённые изменения</> : isNew ? 'Ещё не сохранён' : <><Check size={13} />Сохранено {ago(q.data?.data.updated_at ?? null)}</>}
               </span>
             </div>
           </div>
           <div className="row">
-            {!isNew && isBlocks && <Link to={`/templates/${id}/blocks`} className="btn primary"><PencilRuler size={15} />Редактировать письмо</Link>}
             {!isNew && <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>}
-            <button className={`btn${isBlocks ? '' : ' primary'}`} disabled={save.isPending || (!dirty && !isNew)} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
+            <button className="btn primary" disabled={save.isPending || (!dirty && !isNew)} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
             {!isNew && (
               <div className="menu-wrap">
                 <button type="button" className="btn icon ghost" aria-label="Ещё" aria-expanded={menu} onClick={() => setMenu((m) => !m)}><MoreHorizontal size={18} /></button>
@@ -201,40 +183,57 @@ export default function TemplateEditor() {
             <section className="tpl-section">
               <div className="field">
                 <label htmlFor="subject">Тема письма</label>
-                <input id="subject" ref={refs.subject} className={`input${err('subject') ? ' err' : ''}`} value={form.subject} onChange={set('subject')}
-                  onFocus={() => { lastField.current = 'subject' }} placeholder="Вы зарегистрированы: {{ event_title }}" />
+                <input id="subject" className={`input${err('subject') ? ' err' : ''}`} value={form.subject} onChange={set('subject')} placeholder="Вы зарегистрированы: {{ event_title }}" />
                 {err('subject') && <div className="hint err">{err('subject')}</div>}
               </div>
             </section>
 
             <section className="tpl-section">
-              <div className="tpl-bar">
-                <div className="seg" role="tablist" aria-label="Версия письма">
-                  <button type="button" role="tab" aria-selected={tab === 'html'} className={tab === 'html' ? 'on' : ''} onClick={() => setTab('html')}><Code2 size={14} />HTML</button>
-                  <button type="button" role="tab" aria-selected={tab === 'text'} className={tab === 'text' ? 'on' : ''} onClick={() => setTab('text')}><Type size={14} />Текст</button>
-                </div>
-                {tab === 'text' && (
-                  <button type="button" className="btn sm text" onClick={() => setForm((f) => ({ ...f, body_text: htmlToText(f.body_html) }))}>Собрать из HTML</button>
-                )}
-                {tab === 'html' && !isNew && !isBlocks && (
-                  <Link to={`/templates/${id}/blocks`} className="btn sm text"><Blocks size={14} />Собрать из блоков</Link>
-                )}
-              </div>
-              {tab === 'html' && isBlocks ? (
-                <div className="tpl-blocks-card">
-                  <Blocks size={22} />
-                  <div><b>Письмо собрано из блоков</b><span>Текст, картинки и кнопки меняются в редакторе блоков. HTML собирается из них автоматически.</span></div>
-                  <Link to={`/templates/${id}/blocks`} className="btn primary"><PencilRuler size={15} />Открыть редактор</Link>
-                </div>
-              ) : tab === 'html' ? (
-                <textarea ref={refs.body_html} className={`textarea code tpl-code${err('body_html') ? ' err' : ''}`} aria-label="HTML письма" value={form.body_html}
-                  onChange={set('body_html')} onFocus={() => { lastField.current = 'body_html' }} spellCheck={false} />
+              <div className="tpl-sub"><h2>Письмо</h2></div>
+              {isNew ? (
+                <div className="hint">Сохраните шаблон, затем соберите письмо в редакторе.</div>
               ) : (
-                <textarea ref={refs.body_text} className="textarea tpl-code" aria-label="Текстовая версия" value={form.body_text}
-                  onChange={set('body_text')} onFocus={() => { lastField.current = 'body_text' }}
-                  placeholder="Необязательно. Почтовые программы без HTML покажут этот текст, и письмо реже попадает в спам." />
+                <div className="tpl-open">
+                  <div className="tpl-open-head">
+                    <span className="tpl-open-ic"><Blocks size={22} /></span>
+                    <div>
+                      <b>{isBlocks ? 'Собрано из блоков' : 'Написано кодом'}</b>
+                      <span>{isBlocks ? 'Текст, картинки, кнопки и стили' : 'Перенесите в блоки, чтобы править без кода'}</span>
+                    </div>
+                  </div>
+                  <Link to={`/templates/${id}/blocks`} className="btn primary lg tpl-open-btn"><PencilRuler size={17} />{isBlocks ? 'Открыть редактор' : 'Собрать из блоков'}</Link>
+                </div>
               )}
-              <div className={`hint${err('body_html') ? ' err' : ''}`}>{err('body_html') ?? 'Переменная: {{ name }}. Блок только при заполненной переменной: {{#if name}}…{{/if}}'}</div>
+              {err('body_html') && <div className="hint err">{err('body_html')}</div>}
+            </section>
+
+            <section className="tpl-section">
+              <div className="tpl-sub"><h2>Отправка</h2></div>
+              <div className="tpl-settings">
+                <div className="field span2">
+                  <label htmlFor="sender">Отправитель</label>
+                  <select id="sender" className={`select${err('sender_address_id') ? ' err' : ''}`} value={form.sender_address_id ?? ''}
+                    onChange={(e) => setForm((f) => ({ ...f, sender_address_id: e.target.value ? Number(e.target.value) : null }))}>
+                    <option value="">{addresses.length ? 'Выберите адрес' : 'Адресов пока нет'}</option>
+                    {addresses.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.email}{x.verified ? '' : ' (домен не подтверждён)'}</option>)}
+                  </select>
+                  <div className={`hint${err('sender_address_id') ? ' err' : sender && !sender.verified ? ' warn-text' : ''}`}>
+                    {err('sender_address_id') ?? (sender && !sender.verified
+                      ? 'Домен этого адреса не подтверждён: письма не уйдут, пока не внесены DNS-записи.'
+                      : <>Адреса и имена отправителей задаются в разделе <Link to="/domains">«Домены»</Link>.</>)}
+                  </div>
+                </div>
+                <div className="field span2">
+                  <label htmlFor="reply-to">Ответы приходят на</label>
+                  <input id="reply-to" type="email" className={`input mono${err('reply_to') ? ' err' : ''}`} value={form.reply_to} onChange={set('reply_to')} placeholder={sender?.email ?? 'support@mag-expert.ru'} />
+                  <div className={`hint${err('reply_to') ? ' err' : ''}`}>{err('reply_to') ?? 'Если пусто, ответ уйдёт на адрес отправителя'}</div>
+                </div>
+                <div className="field span2">
+                  <label htmlFor="preheader">Прехедер</label>
+                  <input id="preheader" className={`input${err('preheader') ? ' err' : ''}`} value={form.preheader} onChange={set('preheader')} placeholder="Ссылка на трансляцию придёт за час до начала" maxLength={255} />
+                  <div className={`hint${err('preheader') ? ' err' : ''}`}>{err('preheader') ?? 'Строка после темы в списке писем. Если пусто, почта покажет начало текста.'}</div>
+                </div>
+              </div>
             </section>
 
             <section className="tpl-section">
@@ -269,16 +268,6 @@ export default function TemplateEditor() {
               </div>
             </section>
 
-            {!isNew && (
-              <details className="tpl-section tpl-dev">
-                <summary><h2>Для разработчика</h2><span className="sub">Как отправить письмо по этому шаблону</span></summary>
-                <div className="sub" style={{ margin: '10px 0 8px' }}><span className="mono">POST /api/sender/v1/messages</span> с заголовком <span className="mono">Authorization: Bearer mxs_…</span></div>
-                <div className="code-block">
-                  <pre className="mono">{apiExample}</pre>
-                  <CopyButton text={apiExample} label="Скопировать пример" />
-                </div>
-              </details>
-            )}
           </div>
 
           {/* правая колонка: живой предпросмотр */}
@@ -293,13 +282,13 @@ export default function TemplateEditor() {
             <div className={`inbox ${device}`}>
               <div className="inbox-head">
                 <div className="inbox-from"><span className="avatar sm">{(user?.organization ?? 'S').charAt(0)}</span>
-                  <div><b>{user?.organization ?? 'Отправитель'}</b><span className="sub">{fromLine}</span></div>
+                  <div><b>{fromName}</b><span className="sub">{fromLine}</span></div>
                 </div>
                 <div className="inbox-subject">{render(form.subject, data, false) || <span className="muted">Без темы</span>}</div>
+                {form.preheader && <div className="inbox-pre">{render(form.preheader, data, false)}</div>}
+                {form.reply_to && <div className="sub">Ответ: <span className="mono">{form.reply_to}</span></div>}
               </div>
-              {tab === 'text'
-                ? <pre className="inbox-text">{render(form.body_text, data, false) || 'Текстовой версии нет: получатель без HTML увидит пустое письмо.'}</pre>
-                : <iframe className="inbox-frame" title="Предпросмотр письма" sandbox="allow-same-origin" srcDoc={previewHtml} />}
+              <iframe className="inbox-frame" title="Предпросмотр письма" sandbox="allow-same-origin" srcDoc={previewHtml} />
             </div>
             <div className="hint">Обновляется сразу, без сохранения. Значения переменных подставлены для примера: при отправке их передаёт приложение.</div>
           </aside>
@@ -312,7 +301,7 @@ export default function TemplateEditor() {
             <div className="field">
               <label htmlFor="test-to">Кому</label>
               <input id="test-to" type="email" autoFocus className="input mono" value={testTo} onChange={(e) => setTestTo(e.target.value)} />
-              <div className="hint">Отправим с {fromLine} с теми же значениями переменных, что в предпросмотре. Письмо появится в журнале.</div>
+              <div className="hint">Отправим с {fromLine} от имени «{fromName}» с примерами значений переменных. Письмо появится в журнале.</div>
             </div>
             {dirty && <div className="callout warn"><div><b>Есть несохранённые изменения</b><span>Сначала сохраним шаблон, потом отправим.</span></div></div>}
             {!verified && <div className="callout err"><div><b>Нет подтверждённого домена</b><span>Подтвердите домен в разделе «Домены», иначе тест не отправится.</span></div></div>}

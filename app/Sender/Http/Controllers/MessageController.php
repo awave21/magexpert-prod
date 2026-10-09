@@ -16,7 +16,10 @@ class MessageController extends Controller
     {
         $organization = $this->organization($request);
 
-        $template = $organization->templates()->where('slug', $request->string('template'))->first();
+        $key = (string) $request->input('template');
+        $template = ctype_digit($key)
+            ? $organization->templates()->whereKey((int) $key)->first()
+            : $organization->templates()->where('slug', $key)->first();
 
         if ($template === null) {
             return response()->json(['message' => 'Шаблон не найден'], 404);
@@ -26,7 +29,7 @@ class MessageController extends Controller
             $organization,
             $template,
             $request->string('to')->toString(),
-            $request->string('from')->toString(),
+            $request->input('from'),
             $request->input('from_name'),
             $request->input('data', []),
         );

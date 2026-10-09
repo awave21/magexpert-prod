@@ -17,9 +17,9 @@ class StoreMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'template' => ['required', 'string'],
+            'template' => ['required'],
             'to' => ['required', 'email'],
-            'from' => ['required', 'email'],
+            'from' => ['nullable', 'email'],
             'from_name' => ['nullable', 'string', 'max:255'],
             'data' => ['nullable', 'array'],
         ];
@@ -34,7 +34,6 @@ class StoreMessageRequest extends FormRequest
             'template.required' => 'Укажите шаблон письма',
             'to.required' => 'Укажите адрес получателя',
             'to.email' => 'Адрес получателя некорректен',
-            'from.required' => 'Укажите адрес отправителя',
             'from.email' => 'Адрес отправителя некорректен',
         ];
     }

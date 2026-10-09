@@ -53,7 +53,7 @@ export type Domain = {
   verified_at: string | null; last_checked_at: string | null; created_at: string
   dns_records?: DnsRecord[]
 }
-export type Template = { id: number; folder_id: number | null; slug: string; name: string; subject: string; body_html: string; body_text: string | null; editor: 'html' | 'blocks'; design: import('./editor/model').Design | null; updated_at: string }
+export type Template = { id: number; folder_id: number | null; slug: string; name: string; subject: string; sender_address_id: number | null; reply_to: string | null; preheader: string | null; body_html: string; body_text: string | null; editor: 'html' | 'blocks'; design: import('./editor/model').Design | null; updated_at: string }
 export type Message = {
   id: string; status: 'queued' | 'sending' | 'sent' | 'failed' | 'blocked'; to: string; from: string; subject: string
   template: string | null; attempts: number; error: string | null; sent_at: string | null; created_at: string
@@ -73,3 +73,5 @@ export type Stats = {
   unverified_domains: number
   recent: Message[]
 }
+
+export type SenderAddress = { id: number; email: string; name: string; domain: string | null; verified: boolean }

@@ -26,6 +26,7 @@ class Message extends SenderModel
         'to_email',
         'from_email',
         'from_name',
+        'reply_to',
         'subject',
         'status',
         'attempts',

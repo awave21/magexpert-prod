@@ -62,7 +62,8 @@ it('validates the request', function (): void {
     $this->withToken($this->key)
         ->postJson('/api/sender/v1/messages', ['to' => 'not-an-email'])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['template', 'to', 'from']);
+        ->assertJsonValidationErrors(['template', 'to'])
+        ->assertJsonMissingValidationErrors('from');
 });
 
 it('returns 404 for an unknown template', function (): void {

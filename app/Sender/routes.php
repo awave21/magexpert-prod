@@ -5,6 +5,7 @@ use App\Sender\Http\Controllers\Admin\AssetController;
 use App\Sender\Http\Controllers\Admin\AuthController;
 use App\Sender\Http\Controllers\Admin\DomainController;
 use App\Sender\Http\Controllers\Admin\MessageController as AdminMessageController;
+use App\Sender\Http\Controllers\Admin\SenderAddressController;
 use App\Sender\Http\Controllers\Admin\StatsController;
 use App\Sender\Http\Controllers\Admin\SuppressionController;
 use App\Sender\Http\Controllers\Admin\TemplateController;
@@ -40,6 +41,11 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::post('template-folders', [TemplateFolderController::class, 'store'])->name('template-folders.store');
             Route::put('template-folders/{folder}', [TemplateFolderController::class, 'update'])->name('template-folders.update');
             Route::delete('template-folders/{folder}', [TemplateFolderController::class, 'destroy'])->name('template-folders.destroy');
+
+            Route::get('sender-addresses', [SenderAddressController::class, 'index'])->name('sender-addresses.index');
+            Route::post('sender-addresses', [SenderAddressController::class, 'store'])->name('sender-addresses.store');
+            Route::put('sender-addresses/{address}', [SenderAddressController::class, 'update'])->name('sender-addresses.update');
+            Route::delete('sender-addresses/{address}', [SenderAddressController::class, 'destroy'])->name('sender-addresses.destroy');
 
             Route::post('assets', [AssetController::class, 'store'])->middleware('throttle:60,1')->name('assets.store');
 

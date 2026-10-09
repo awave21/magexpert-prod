@@ -28,6 +28,11 @@ class Organization extends SenderModel
         return $this->hasMany(ApiKey::class, 'organization_id');
     }
 
+    public function senderAddresses(): HasMany
+    {
+        return $this->hasMany(SenderAddress::class, 'organization_id');
+    }
+
     public function templates(): HasMany
     {
         return $this->hasMany(Template::class, 'organization_id');

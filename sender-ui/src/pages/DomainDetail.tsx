@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, RefreshCw, X } from 'lucide-react'
 import { api, type DnsRecord, type Domain, type VerifyReport } from '../api'
 import { BackLink, CopyField, Modal, Status, ago, useToast } from '../components/ui'
+import { SenderAddresses } from '../components/SenderAddresses'
 
 const INFO: Record<DnsRecord['key'], { title: string; text: string }> = {
   verification: { title: 'Подтверждение владения', text: 'Показывает, что домен ваш' },
@@ -70,6 +71,10 @@ export default function DomainDetail() {
         </div>
       )}
 
+
+      <SenderAddresses domain={d.domain} verified={d.status === 'verified'} />
+
+      <div className="section-title" style={{ marginTop: 40 }}>DNS-записи</div>
       <div>
         {records.map((r) => {
           const f = found(r.key)

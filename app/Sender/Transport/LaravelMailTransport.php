@@ -24,6 +24,10 @@ class LaravelMailTransport implements Transport
                 $mail->to($message->to_email)
                     ->from($message->from_email, $message->from_name)
                     ->subject($content['subject']);
+
+                if ($message->reply_to) {
+                    $mail->replyTo($message->reply_to);
+                }
             },
         );
     }

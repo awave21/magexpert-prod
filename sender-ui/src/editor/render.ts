@@ -114,7 +114,6 @@ img{-ms-interpolation-mode:bicubic}
 </style>
 </head>
 <body style="margin:0;padding:0;background-color:${s.outerBg}">
-${s.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">${text(s.preheader)}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>` : ''}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${s.outerBg}" style="background-color:${s.outerBg}">
 <tr><td align="center" style="padding:24px 12px">
 <table role="presentation" class="container" width="${s.width}" cellpadding="0" cellspacing="0" border="0" style="width:${s.width}px;max-width:${s.width}px;background-color:${s.bodyBg};border-radius:${s.radius}px;overflow:hidden">

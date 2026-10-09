@@ -23,13 +23,16 @@ class MessageService
         Organization $organization,
         Template $template,
         string $to,
-        string $fromEmail,
+        ?string $fromEmail = null,
         ?string $fromName = null,
         array $data = [],
     ): Message {
         $to = Str::lower(trim($to));
         $data = array_merge($this->defaults($organization), $data);
-        $fromEmail = Str::lower(trim($fromEmail));
+        // настройки отправителя в шаблоне главнее значений из запроса: приложению достаточно передать шаблон
+        $sender = $template->senderAddress;
+        $fromEmail = Str::lower(trim((string) ($sender?->email ?: $fromEmail)));
+        $fromName = $sender?->name ?: $fromName;
 
         $domain = $organization->domains()
             ->where('domain', Str::after($fromEmail, '@'))
@@ -42,12 +45,13 @@ class MessageService
             'to_email' => $to,
             'from_email' => $fromEmail,
             'from_name' => $fromName,
+            'reply_to' => $template->reply_to,
             'subject' => $this->renderer->render($template, $data)['subject'],
             'status' => Message::STATUS_QUEUED,
             'data' => $data,
         ]);
 
-        $blockReason = $this->blockReason($organization, $domain, $to);
+        $blockReason = $this->blockReason($organization, $domain, $to, $fromEmail);
 
         if ($blockReason !== null) {
             $message->fill(['status' => Message::STATUS_BLOCKED, 'error' => $blockReason])->save();
@@ -72,8 +76,12 @@ class MessageService
         return $organization->variables()->whereNotNull('default_value')->where('default_value', '!=', '')->pluck('default_value', 'key')->all();
     }
 
-    private function blockReason(Organization $organization, ?Domain $domain, string $to): ?string
+    private function blockReason(Organization $organization, ?Domain $domain, string $to, string $fromEmail): ?string
     {
+        if ($fromEmail === '') {
+            return 'Не указан адрес отправителя: задайте его в настройках шаблона';
+        }
+
         if ($domain === null || ! $domain->isVerified()) {
             return 'Домен отправителя не подтверждён';
         }
