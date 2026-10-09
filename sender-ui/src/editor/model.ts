@@ -201,3 +201,21 @@ export function shiftBlock(blocks: Block[], id: string, dir: -1 | 1): Block[] {
 export function countBlocks(blocks: Block[]): number {
   return blocks.reduce((n, b) => n + 1 + (b.type === 'columns' ? countBlocks(b.columns[0]) + countBlocks(b.columns[1]) : 0), 0)
 }
+
+// Сервер превращает пустые строки в null. Возвращаем значения по умолчанию,
+// чтобы поля ввода и сборка HTML всегда получали строки.
+export function normalizeDesign(raw: Partial<Design> | null | undefined): Design {
+  const settings = { ...DEFAULT_SETTINGS } as Record<string, unknown>
+  for (const [k, v] of Object.entries(raw?.settings ?? {})) if (v !== null && v !== undefined) settings[k] = v
+  const fix = (b: Block): Block => {
+    const def = createBlock(b.type) as unknown as Record<string, unknown>
+    const out = { ...b } as unknown as Record<string, unknown>
+    for (const [k, v] of Object.entries(def)) {
+      if (out[k] === undefined || (out[k] === null && typeof v === 'string')) out[k] = k === 'id' ? uid() : v
+    }
+    if (b.type === 'columns') out.columns = [(b.columns?.[0] ?? []).map(fix), (b.columns?.[1] ?? []).map(fix)]
+    if (b.type === 'social') out.links = (b.links ?? []).map((l) => ({ label: l.label ?? '', url: l.url ?? '' }))
+    return out as unknown as Block
+  }
+  return { version: 1, settings: settings as Settings, blocks: (raw?.blocks ?? []).map(fix) }
+}

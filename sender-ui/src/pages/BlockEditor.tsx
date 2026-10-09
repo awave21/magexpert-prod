@@ -10,7 +10,7 @@ import { api, ApiError, type Domain, type Message, type Template, type Variables
 import { useAuth } from '../auth'
 import { CopyButton, Modal, useToast } from '../components/ui'
 import {
-  BLOCK_LABELS, DEFAULT_SETTINGS, ROOT, cloneBlock, countBlocks, createBlock, emptyDesign, findBlock, insertBlock, locate, moveBlockTo,
+  BLOCK_LABELS, ROOT, normalizeDesign, cloneBlock, countBlocks, createBlock, emptyDesign, findBlock, insertBlock, locate, moveBlockTo,
   removeBlock, shiftBlock, starterDesign, updateBlock, type Block, type BlockType, type Container, type Design, type Settings,
 } from '../editor/model'
 import { designToHtml, htmlToText } from '../editor/render'
@@ -90,7 +90,7 @@ export default function BlockEditor() {
   useEffect(() => {
     if (!template || ready) return
     if (template.editor === 'blocks' && template.design) {
-      const d: Design = { version: 1, settings: { ...DEFAULT_SETTINGS, ...template.design.settings }, blocks: template.design.blocks ?? [] }
+      const d = normalizeDesign(template.design)
       dispatch({ type: 'reset', design: d })
       setSavedJson(JSON.stringify(d))
       setReady(true)
