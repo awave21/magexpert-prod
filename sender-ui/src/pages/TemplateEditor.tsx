@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, Blocks, Braces, Check, Code2, Copy, Lock, Monitor, MoreHorizontal, PencilRuler, Send, Smartphone, Trash2, Type, Unlock } from 'lucide-react'
+import { ArrowLeft, Blocks, Check, Code2, Copy, Lock, Monitor, MoreHorizontal, PencilRuler, Send, Smartphone, Trash2, Type, Unlock } from 'lucide-react'
 import { api, ApiError, type Domain, type Folder, type Message, type Template, type Variables } from '../api'
 import { useAuth } from '../auth'
 import { CopyButton, Modal, ago, useToast } from '../components/ui'
@@ -54,12 +54,10 @@ export default function TemplateEditor() {
   const [form, setForm] = useState<Form>(() => ({ ...EMPTY, folder_id: Number(params.get('folder')) || null }))
   const [saved, setSaved] = useState<Form | null>(null)
   const [errors, setErrors] = useState<Record<string, string[]>>({})
-  const [sample, setSample] = useState<Record<string, string>>({})
   const [tab, setTab] = useState<'html' | 'text'>('html')
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop')
   const [slugLocked, setSlugLocked] = useState(!isNew)
   const [menu, setMenu] = useState(false)
-  const [varsOpen, setVarsOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [testOpen, setTestOpen] = useState(false)
   const [testTo, setTestTo] = useState('')
@@ -90,8 +88,8 @@ export default function TemplateEditor() {
   const data = useMemo(() => {
     const d: Record<string, string> = {}
     for (const [k, v] of known) d[k] = v.sample
-    return { ...d, ...sample }
-  }, [known, sample])
+    return d
+  }, [known])
 
   const isBlocks = q.data?.data.editor === 'blocks'
   const dirty = isNew ? form.name !== '' || form.subject !== '' : saved !== null && JSON.stringify(saved) !== JSON.stringify(form)
@@ -108,17 +106,7 @@ export default function TemplateEditor() {
 
   const set = (k: keyof Form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const insertVar = (key: string) => {
-    const field = lastField.current
-    const el = refs[field].current
-    const token = `{{ ${key} }}`
-    const value = form[field]
-    const start = el?.selectionStart ?? value.length
-    const end = el?.selectionEnd ?? start
-    setForm((f) => ({ ...f, [field]: f[field].slice(0, start) + token + f[field].slice(end) }))
-    if (field !== 'subject') setTab(field === 'body_text' ? 'text' : 'html')
-    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(start + token.length, start + token.length) })
-  }
+
 
   const save = useMutation({
     mutationFn: () => api<{ data: Template }>(isNew ? '/templates' : `/templates/${id}`, { method: isNew ? 'POST' : 'PUT', body: { ...form, body_text: form.body_text || null } }),
@@ -247,42 +235,6 @@ export default function TemplateEditor() {
                   placeholder="Необязательно. Почтовые программы без HTML покажут этот текст, и письмо реже попадает в спам." />
               )}
               <div className={`hint${err('body_html') ? ' err' : ''}`}>{err('body_html') ?? 'Переменная: {{ name }}. Блок только при заполненной переменной: {{#if name}}…{{/if}}'}</div>
-            </section>
-
-            <section className="tpl-section">
-              <div className="tpl-sub">
-                <h2>Переменные</h2>
-                <div className="menu-wrap">
-                  <button type="button" className="btn sm" onMouseDown={(e) => e.preventDefault()} onClick={() => setVarsOpen((o) => !o)} aria-expanded={varsOpen}><Braces size={14} />Вставить переменную</button>
-                  {varsOpen && (
-                    <div className="menu vars-menu" role="menu" onMouseLeave={() => setVarsOpen(false)}>
-                      {[...known.entries()].map(([key, v]) => (
-                        <button type="button" role="menuitem" key={key} onMouseDown={(e) => e.preventDefault()} onClick={() => { insertVar(key); setVarsOpen(false) }}>
-                          <span className="mono">{key}</span><span className="sub">{v.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {used.length === 0 && <div className="hint">В письме пока нет переменных. Вставьте нужную туда, где стоит курсор.</div>}
-              {used.length > 0 && (
-                <table className="table vars-table">
-                  <thead><tr><th>В письме</th><th>Что это</th><th>Значение для предпросмотра</th></tr></thead>
-                  <tbody>
-                    {used.map((k) => {
-                      const v = known.get(k)
-                      return (
-                        <tr key={k}>
-                          <td><span className={`chip mono${v ? ' accent' : ' warn'}`}>{k}</span></td>
-                          <td>{v ? <>{v.label}{v.custom && <span className="sub"> · своя</span>}</> : <span className="warn-text"><AlertTriangle size={13} />Неизвестная: приложение должно передать её само</span>}</td>
-                          <td><input className="input sm" aria-label={`Значение ${k}`} value={data[k] ?? ''} onChange={(e) => setSample((s) => ({ ...s, [k]: e.target.value }))} /></td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
             </section>
 
             <section className="tpl-section">
