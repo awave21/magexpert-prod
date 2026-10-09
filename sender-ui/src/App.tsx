@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth'
 import { Layout } from './components/Layout'
@@ -12,7 +13,8 @@ import Messages from './pages/Messages'
 import ApiKeys from './pages/ApiKeys'
 import Blocked from './pages/Blocked'
 import VariablesPage from './pages/Variables'
-import BlockEditor from './pages/BlockEditor'
+// редактор блоков тяжёлый (TipTap), грузится только когда его открывают
+const BlockEditor = lazy(() => import('./pages/BlockEditor'))
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -27,7 +29,7 @@ export default function App() {
   }
   return (
     <Routes>
-      <Route path="templates/:id/blocks" element={<BlockEditor />} />
+      <Route path="templates/:id/blocks" element={<Suspense fallback={<div className="be-center muted">Загрузка редактора…</div>}><BlockEditor /></Suspense>} />
       <Route element={<Layout />}>
         <Route index element={<Overview />} />
         <Route path="messages" element={<Messages />} />
