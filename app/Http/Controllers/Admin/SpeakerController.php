@@ -119,7 +119,8 @@ class SpeakerController extends Controller
                 ->map(fn ($event) => [
                     'id' => $event->id,
                     'title' => $event->title,
-                    'start_date' => $event->start_date?->toDateString(),
+                    // у мероприятия дата уже строкой Y-m-d (аксессор в модели)
+                    'start_date' => $event->start_date,
                 ]),
         ]);
     }

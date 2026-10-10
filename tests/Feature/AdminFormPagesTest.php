@@ -183,3 +183,15 @@ test('менеджер не редактирует администратора'
 
     $this->actingAs(staffWithRole('manager'))->get("/admin/users/{$admin->id}/edit")->assertForbidden();
 });
+
+test('страница спикера открывается со списком его мероприятий', function () {
+    $speaker = Speaker::factory()->create();
+    $event = \App\Models\Event::factory()->create(['start_date' => '2026-11-20']);
+    $event->speakers()->attach($speaker->id, ['sort_order' => 0]);
+
+    $this->actingAs(staffWithRole('editor'))->get("/admin/speakers/{$speaker->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('events.0.id', $event->id)
+            ->where('events.0.start_date', '2026-11-20'));
+});
