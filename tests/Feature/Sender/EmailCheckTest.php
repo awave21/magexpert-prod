@@ -37,6 +37,11 @@ beforeEach(function (): void {
             };
         }
 
+        public function ns(string $domain): ?array
+        {
+            return [];
+        }
+
         public function hasAddress(string $domain): bool
         {
             return in_array($domain, ['dead.ru', 'webonly.ru'], true) ? $domain === 'webonly.ru' : false;

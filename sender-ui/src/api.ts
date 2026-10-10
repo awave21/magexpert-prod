@@ -107,3 +107,14 @@ export async function upload<T>(path: string, body: FormData): Promise<T> {
   }
   return data as T
 }
+
+export type DnsAdviceRecord = {
+  key: 'verification' | 'dkim' | 'spf' | 'dmarc'; type: string; host: string; name: string; value: string; required: boolean
+  current: string[]; action: 'ok' | 'add' | 'replace' | 'keep' | 'conflict'; suggested: string | null; note: string | null
+}
+export type DnsAdvice = {
+  zone: string
+  dns_provider: { key: string; name: string; url: string | null; ns: string[] } | null
+  mail_provider: { key: string; name: string; spf: string | null; dkim: string | null; mx: string[] } | null
+  records: DnsAdviceRecord[]
+}

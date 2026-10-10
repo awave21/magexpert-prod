@@ -42,6 +42,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::post('domains', [DomainController::class, 'store'])->name('domains.store');
             Route::get('domains/{domain}', [DomainController::class, 'show'])->name('domains.show');
             Route::post('domains/{domain}/verify', [DomainController::class, 'verify'])->name('domains.verify');
+            Route::get('domains/{domain}/dns-check', [DomainController::class, 'dnsCheck'])->middleware('throttle:30,1')->name('domains.dns-check');
             Route::delete('domains/{domain}', [DomainController::class, 'destroy'])->name('domains.destroy');
 
             Route::get('template-folders', [TemplateFolderController::class, 'index'])->name('template-folders.index');

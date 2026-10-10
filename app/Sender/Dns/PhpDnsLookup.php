@@ -41,4 +41,18 @@ class PhpDnsLookup implements DnsLookup
     {
         return checkdnsrr($domain, 'A') || checkdnsrr($domain, 'AAAA');
     }
+
+    /**
+     * @return list<string>|null
+     */
+    public function ns(string $domain): ?array
+    {
+        $records = @dns_get_record($domain, DNS_NS);
+
+        if ($records === false) {
+            return null;
+        }
+
+        return array_values(array_map(static fn (array $record): string => strtolower(rtrim((string) ($record['target'] ?? ''), '.')), $records));
+    }
 }

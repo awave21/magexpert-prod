@@ -22,10 +22,26 @@ class DomainService
             'domain' => $domain,
             'verification_token' => Str::random(40),
             'status' => Domain::STATUS_PENDING,
-            'dkim_selector' => config('sender.dkim_selector'),
+            'dkim_selector' => $this->freeSelector($domain),
             'dkim_private_key' => $keys['private'],
             'dkim_public_key' => $keys['public'],
         ]);
+    }
+
+    /**
+     * Имя DKIM-записи, не занятое почтой домена: у Яндекс 360 своя подпись тоже называется mail._domainkey.
+     */
+    private function freeSelector(string $domain): string
+    {
+        foreach ([config('sender.dkim_selector'), 'sender', 'sender2'] as $selector) {
+            $taken = array_filter($this->dns->txt($selector.'._domainkey.'.$domain), fn (string $v): bool => str_contains($v, 'p='));
+
+            if ($taken === []) {
+                return $selector;
+            }
+        }
+
+        return 'sender'.random_int(3, 99);
     }
 
     /**

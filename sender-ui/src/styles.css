@@ -792,3 +792,21 @@ button { font: inherit; color: inherit; }
 .legal-body p { margin: 0 0 10px; }
 .legal-body ul { margin: 0 0 10px; padding-left: 22px; }
 .legal-body b { color: var(--ink); font-weight: 600; }
+
+/* настройка DNS домена */
+.dns-setup { display: flex; flex-direction: column; gap: 20px; }
+.dns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.dns-card { padding: 18px 20px; border-radius: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 12px; }
+.dns-card.dont { background: var(--warn-soft); }
+.dns-card-head { display: flex; flex-direction: column; gap: 2px; }
+.dns-card-head .muted { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.dns-card-head b { font-size: 16px; font-weight: 600; }
+.dns-card-head a { font-size: 13px; font-weight: 500; }
+.dns-steps, .dns-dont { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+.dns-dont b { color: var(--ink); font-weight: 600; }
+.dns-rec.done .rec-head { margin-bottom: 0; }
+.dns-rec.done b { color: var(--ink-2); }
+.dns-current { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: var(--fill); font-size: 13px; text-decoration: none; }
+.dns-current .mono { overflow-wrap: anywhere; color: var(--ink-2); }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.err { background: var(--err-soft); color: var(--err); }

@@ -23,4 +23,11 @@ interface DnsLookup
      * Есть ли у домена A- или AAAA-запись.
      */
     public function hasAddress(string $domain): bool;
+
+    /**
+     * Серверы имён домена (NS): по ним понятно, где управляется DNS. null — DNS не ответил.
+     *
+     * @return list<string>|null
+     */
+    public function ns(string $domain): ?array;
 }

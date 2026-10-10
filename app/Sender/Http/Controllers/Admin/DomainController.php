@@ -4,6 +4,7 @@ namespace App\Sender\Http\Controllers\Admin;
 
 use App\Sender\Http\Requests\Admin\StoreDomainRequest;
 use App\Sender\Http\Resources\DomainResource;
+use App\Sender\Services\DnsAdvisor;
 use App\Sender\Services\DomainService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,6 +30,14 @@ class DomainController extends Controller
     public function show(Request $request, int $domain): DomainResource
     {
         return new DomainResource($this->organization($request)->domains()->findOrFail($domain));
+    }
+
+    /**
+     * Что уже есть в DNS домена и что с каждой записью сделать: подсказки для страницы настройки.
+     */
+    public function dnsCheck(Request $request, int $domain, DnsAdvisor $advisor): JsonResponse
+    {
+        return response()->json(['data' => $advisor->advise($this->organization($request)->domains()->findOrFail($domain))]);
     }
 
     public function verify(Request $request, int $domain, DomainService $domains): JsonResponse

@@ -26,6 +26,11 @@ function fakeDns(array $records): DnsLookup
             return [];
         }
 
+        public function ns(string $domain): ?array
+        {
+            return [];
+        }
+
         public function hasAddress(string $domain): bool
         {
             return false;
