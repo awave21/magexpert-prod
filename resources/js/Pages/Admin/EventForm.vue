@@ -1,10 +1,29 @@
 <template>
-    <SlideOverModal :show="show" @close="requestClose" @backdropClick="requestClose">
-        <template #title>{{ isEdit ? "Редактирование мероприятия" : "Новое мероприятие" }}</template>
+    <Head :title="isEdit ? `Мероприятие: ${event.title}` : 'Новое мероприятие'" />
 
-        <form class="space-y-5" novalidate @submit.prevent="submitForm()">
+    <AdminLayout>
+        <template #header>
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div class="min-w-0">
+                    <Link :href="route('admin.events')" class="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">← Все мероприятия</Link>
+                    <h1 class="mt-1 truncate text-2xl font-semibold text-zinc-900 dark:text-white">{{ isEdit ? event.title : "Новое мероприятие" }}</h1>
+                </div>
+                <a v-if="publicUrl" :href="publicUrl" target="_blank" rel="noopener" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть на сайте ↗</a>
+            </div>
+        </template>
+
+        <div class="flex items-start gap-8 pb-24">
+            <nav aria-label="Разделы формы" class="sticky top-6 hidden w-48 shrink-0 xl:block">
+                <ul class="space-y-1 text-sm">
+                    <li v-for="s in sections" :key="s.id">
+                        <a :href="`#${s.id}`" class="block rounded-md px-3 py-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white">{{ s.label }}</a>
+                    </li>
+                </ul>
+            </nav>
+
+            <form id="event-form" class="min-w-0 flex-1 space-y-5" novalidate @submit.prevent="submitForm()">
             <!-- 1. Основное -->
-            <section :class="box">
+            <section :id="`sec-1`" :class="box" class="scroll-mt-24">
                 <h3 :class="boxTitle">1. Основное</h3>
                 <div>
                     <label for="ev-title" :class="label">Название <span class="text-red-500">*</span></label>
@@ -42,7 +61,7 @@
             </section>
 
             <!-- 2. Дата и место -->
-            <section :class="box">
+            <section :id="`sec-2`" :class="box" class="scroll-mt-24">
                 <h3 :class="boxTitle">2. Дата и место</h3>
                 <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
                     <input v-model="form.is_on_demand" type="checkbox" :class="checkbox" />
@@ -78,7 +97,7 @@
             </section>
 
             <!-- 3. Видео -->
-            <section :class="box">
+            <section :id="`sec-3`" :class="box" class="scroll-mt-24">
                 <h3 :class="boxTitle">3. Видео Kinescope</h3>
                 <div>
                     <label for="ev-video" :class="label">Ссылка или ID из Kinescope</label>
@@ -109,7 +128,7 @@
             </section>
 
             <!-- 4. Доступ и оплата -->
-            <section :class="box">
+            <section :id="`sec-4`" :class="box" class="scroll-mt-24">
                 <h3 :class="boxTitle">4. Доступ и оплата</h3>
                 <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Оплата">
                     <label :class="[pill, !form.is_paid ? pillOn : '']">
@@ -152,7 +171,7 @@
             </section>
 
             <!-- 5. Описание и материалы -->
-            <section :class="box">
+            <section :id="`sec-5`" :class="box" class="scroll-mt-24">
                 <h3 :class="boxTitle">5. Описание и материалы</h3>
                 <div>
                     <label for="ev-short" :class="label">Кратко</label>
@@ -189,7 +208,7 @@
             </section>
 
             <!-- 6. Публикация -->
-            <section :class="box">
+            <section :id="`sec-6`" :class="box" class="scroll-mt-24">
                 <h3 :class="boxTitle">6. Публикация</h3>
                 <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
                     <input v-model="form.is_active" type="checkbox" :class="checkbox" />
@@ -230,42 +249,41 @@
                 </div>
             </details>
         </form>
+        </div>
 
-        <template #footer>
+        <!-- Панель сохранения всегда под рукой -->
+        <div class="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 dark:border-zinc-800 dark:bg-zinc-900/95">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <span v-if="Object.keys(form.errors).length" class="text-sm text-red-600">Проверьте поля, отмеченные красным</span>
-                <span v-else></span>
+                <span v-else-if="form.isDirty" class="text-sm text-zinc-500">Есть несохранённые изменения</span>
+                <span v-else class="text-sm text-zinc-500">{{ isEdit ? "Все изменения сохранены" : "Заполните основное и дату — остальное можно позже" }}</span>
                 <div class="flex gap-3">
-                    <SecondaryButton @click="requestClose">Отмена</SecondaryButton>
-                    <PrimaryButton :processing="form.processing" :disabled="form.processing" @click="submitForm()">
+                    <Link :href="route('admin.events')" class="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800">Назад к списку</Link>
+                    <button type="submit" form="event-form" class="inline-flex items-center rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900" :disabled="form.processing">
                         {{ form.processing ? "Сохраняем…" : isEdit ? "Сохранить" : "Создать мероприятие" }}
-                    </PrimaryButton>
+                    </button>
                 </div>
             </div>
-        </template>
-    </SlideOverModal>
+        </div>
+    </AdminLayout>
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
-import { useForm } from "@inertiajs/vue3";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { Head, Link, router, useForm } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
-import SlideOverModal from "@/Components/Modal/SlideOverModal.vue";
-import PrimaryButton from "@/Components/PrimaryButton.vue";
-import SecondaryButton from "@/Components/SecondaryButton.vue";
+import AdminLayout from "@/Layouts/AdminLayout.vue";
 import MultiSelectInput from "@/Components/Form/MultiSelectInput.vue";
 import ImageUpload from "@/Components/Form/ImageUpload.vue";
 import SpeakerSelector from "@/Components/Form/SpeakerSelector.vue";
 import RichTextEditor from "@/Components/Form/RichTextEditor.vue";
 
 const props = defineProps({
-    show: { type: Boolean, default: false },
     event: { type: Object, default: null },
     categories: { type: Array, default: () => [] },
     speakers: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["close", "created", "updated"]);
 const toast = useToast();
 const isEdit = computed(() => !!props.event);
 
@@ -462,28 +480,42 @@ function fill(event) {
     showPreview.value = false;
 }
 
-watch(
-    () => [props.show, props.event],
-    () => {
-        if (props.event) {
-            fill(props.event);
-        } else {
-            resetForm();
-        }
-    },
-    { immediate: true }
-);
+if (props.event) {
+    fill(props.event);
+}
 
 // ---------- Закрытие и сохранение ----------
+const sections = [
+    { id: "sec-1", label: "Основное" },
+    { id: "sec-2", label: "Дата и место" },
+    { id: "sec-3", label: "Видео" },
+    { id: "sec-4", label: "Доступ и оплата" },
+    { id: "sec-5", label: "Описание и материалы" },
+    { id: "sec-6", label: "Публикация" },
+];
+const publicUrl = computed(() => (props.event?.slug ? route("events.show", props.event.slug) : null));
+
 const hasAdvancedErrors = computed(() => ["slug", "sort_order", "groupsensay", "letter_draft_id"].some((key) => form.errors[key]));
 
-function requestClose() {
-    if (form.isDirty && !window.confirm("Закрыть без сохранения? Введённые данные пропадут.")) {
-        return;
+// Предупреждаем, если уходят со страницы с несохранёнными правками
+let saving = false;
+const removeGuard = router.on("before", (event) => {
+    if (saving || !form.isDirty || event.detail.visit.method !== "get") {
+        return true;
     }
-    resetForm();
-    emit("close");
-}
+    return window.confirm("Уйти без сохранения? Изменения пропадут.");
+});
+const onUnload = (event) => {
+    if (form.isDirty && !saving) {
+        event.preventDefault();
+        event.returnValue = "";
+    }
+};
+onMounted(() => window.addEventListener("beforeunload", onUnload));
+onBeforeUnmount(() => {
+    removeGuard();
+    window.removeEventListener("beforeunload", onUnload);
+});
 
 function submitForm() {
     const url = isEdit.value ? route("admin.events.update", props.event.id) : route("admin.events.store");
@@ -513,16 +545,18 @@ function submitForm() {
     })).post(url, {
         forceFormData: true,
         preserveScroll: true,
-        onSuccess: () => {
-            // сообщение об успехе показывает страница по flash с сервера
-            const wasEdit = isEdit.value;
-            resetForm();
-            emit("close");
-            emit(wasEdit ? "updated" : "created");
+        onBefore: () => { saving = true; },
+        onSuccess: (page) => {
+            const flash = page.props.flash ?? {};
+            toast.success(flash.success || flash.message || "Сохранено");
+            if (props.event) {
+                fill(page.props.event ?? props.event);
+            }
         },
         onError: () => {
             toast.error("Проверьте поля, отмеченные красным");
         },
+        onFinish: () => { saving = false; },
     });
 }
 </script>

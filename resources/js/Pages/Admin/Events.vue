@@ -91,7 +91,7 @@
                             "
                             @click="
                                 activeTab === 'events'
-                                    ? (showCreateEventModal = true)
+                                    ? router.visit(route('admin.events.create'))
                                     : (showCreateCategoryModal = true)
                             "
                             class="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-zinc-800 hover:scale-105 active:scale-95 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shadow-lg hover:shadow-xl"
@@ -326,7 +326,7 @@
                                             scope="col"
                                             class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
                                         >
-                                            Действия
+                                            <span class="sr-only">Действия</span>
                                         </th>
                                     </tr>
                                 </thead>
@@ -336,7 +336,8 @@
                                     <tr
                                         v-for="event in events.data"
                                         :key="`event-${event.id}`"
-                                        class="group transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                                        class="group cursor-pointer transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                                        @click="editEvent(event)"
                                     >
                                         <td
                                             class="whitespace-nowrap px-4 sm:px-6 py-4"
@@ -361,11 +362,13 @@
                                                     </div>
                                                 </div>
                                                 <div class="ml-3 sm:ml-4">
-                                                    <div
-                                                        class="text-sm font-medium text-zinc-900 dark:text-white"
+                                                    <Link
+                                                        :href="route('admin.events.edit', event.id)"
+                                                        class="block whitespace-normal text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white"
+                                                        @click.stop
                                                     >
                                                         {{ event.title }}
-                                                    </div>
+                                                    </Link>
                                                     <div
                                                         class="text-xs text-zinc-500 dark:text-zinc-400"
                                                     >
@@ -561,31 +564,25 @@
                                             <div
                                                 class="flex items-center gap-2"
                                             >
-                                                <button
-                                                    @click="editEvent(event)"
-                                                    class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-zinc-600 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+                                                <a
+                                                    :href="route('events.show', event.slug)"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    class="inline-flex size-9 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+                                                    title="Открыть на сайте"
+                                                    aria-label="Открыть на сайте"
+                                                    @click.stop
                                                 >
-                                                    <PencilIcon
-                                                        class="size-4"
-                                                    />
-                                                    <span
-                                                        class="hidden sm:inline"
-                                                        >Редактировать</span
-                                                    >
-                                                </button>
+                                                    <ArrowTopRightOnSquareIcon class="size-4" />
+                                                </a>
                                                 <button
-                                                    @click="
-                                                        confirmDeleteEvent(
-                                                            event
-                                                        )
-                                                    "
-                                                    class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-red-600 transition-colors duration-150 hover:bg-red-50 hover:text-red-900 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+                                                    type="button"
+                                                    class="inline-flex size-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                    title="Удалить"
+                                                    aria-label="Удалить мероприятие"
+                                                    @click.stop="confirmDeleteEvent(event)"
                                                 >
                                                     <TrashIcon class="size-4" />
-                                                    <span
-                                                        class="hidden sm:inline"
-                                                        >Удалить</span
-                                                    >
                                                 </button>
                                             </div>
                                         </td>
@@ -892,15 +889,7 @@
             </div>
 
             <!-- Модальные окна -->
-            <CreateEventModal
-                :show="showCreateEventModal"
-                :event="selectedEvent"
-                :categories="categories"
-                :speakers="speakers"
-                @close="closeCreateEventModal"
-                @created="handleEventCreated"
-                @updated="handleEventUpdated"
-            />
+
             <CreateCategoryModal
                 :show="showCreateCategoryModal"
                 :category="selectedCategory"
@@ -931,7 +920,6 @@ import AdminLayout from "@/Layouts/AdminLayout.vue";
 import SelectList from "@/Components/SelectList.vue";
 import MultiSelectInput from "@/Components/Form/MultiSelectInput.vue";
 import Pagination from "@/Components/Pagination.vue";
-import CreateEventModal from "@/Components/Modal/CreateEventModal.vue";
 import CreateCategoryModal from "@/Components/Modal/CreateCategoryModal.vue";
 import ConfirmModal from "@/Components/Modal/ConfirmModal.vue";
 import debounce from "lodash/debounce";
@@ -941,6 +929,7 @@ import {
     PhotoIcon,
     PencilIcon,
     TrashIcon,
+    ArrowTopRightOnSquareIcon,
     CalendarDaysIcon,
     XCircleIcon,
     TagIcon,
@@ -985,8 +974,6 @@ const typeFilter = ref(props.filters.type || "");
 const archiveFilter = ref(props.filters.archive || "");
 const registrationFilter = ref(props.filters.registration || "");
 const perPage = ref(props.filters.per_page || 10);
-const showCreateEventModal = ref(false);
-const selectedEvent = ref(null);
 
 // Состояние для вкладки "Категории"
 const categorySearchQuery = ref(props.filters.search || "");
@@ -1230,21 +1217,8 @@ const getNoCategoriesMessage = () =>
 const changeCategoryPerPage = () => applyCategoryFilters();
 
 // CRUD для Мероприятий
-const closeCreateEventModal = () => {
-    showCreateEventModal.value = false;
-    selectedEvent.value = null;
-};
 const editEvent = (event) => {
-    selectedEvent.value = event;
-    showCreateEventModal.value = true;
-};
-const handleEventCreated = () => {
-    router.reload({ only: ["events"] });
-    toast.success("Мероприятие создано");
-};
-const handleEventUpdated = () => {
-    router.reload({ only: ["events"] });
-    toast.success("Мероприятие обновлено");
+    router.visit(route("admin.events.edit", event.id));
 };
 const confirmDeleteEvent = (event) => {
     itemToDelete.value = { type: "event", id: event.id };

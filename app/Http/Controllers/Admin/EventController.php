@@ -339,7 +339,7 @@ class EventController extends Controller
         $this->cleanupUnusedContentImages($event);
         $this->cleanupDraftImagesForRequest($request, (string) ($event->full_description ?? ''));
 
-        return redirect()->route('admin.events')->with('success', 'Мероприятие успешно создано');
+        return redirect()->route('admin.events.edit', $event)->with('success', 'Мероприятие создано');
     }
 
     /**
@@ -563,19 +563,46 @@ class EventController extends Controller
      *
      * @return \Inertia\Response
      */
-    public function show(Event $event)
+    /**
+     * Старый адрес карточки мероприятия ведёт на страницу редактирования.
+     */
+    public function show(Event $event): \Illuminate\Http\RedirectResponse
     {
-        $currentUser = auth()->user();
+        return redirect()->route('admin.events.edit', $event);
+    }
 
-        // Проверяем права на просмотр мероприятия
-        if (! $currentUser->hasAnyRole(['admin', 'manager', 'editor'])) {
-            abort(403, 'У вас нет прав для просмотра мероприятий');
-        }
+    /**
+     * Страница создания мероприятия.
+     */
+    public function create(): \Inertia\Response
+    {
+        return Inertia::render('Admin/EventForm', $this->formOptions() + ['event' => null]);
+    }
 
-        return Inertia::render('Admin/EventShow', [
-            'event' => $event->load(['category', 'categories', 'speakers']),
-            'canManageEvents' => $currentUser->hasAnyRole(['admin', 'manager', 'editor']),
+    /**
+     * Страница редактирования мероприятия.
+     */
+    public function edit(Event $event): \Inertia\Response
+    {
+        return Inertia::render('Admin/EventForm', $this->formOptions() + [
+            'event' => $event->load(['categories', 'speakers']),
         ]);
+    }
+
+    /**
+     * Справочники для формы мероприятия.
+     *
+     * @return array<string, mixed>
+     */
+    private function formOptions(): array
+    {
+        return [
+            'categories' => Category::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
+            'speakers' => Speaker::where('is_active', true)
+                ->orderBy('last_name')
+                ->orderBy('first_name')
+                ->get(['id', 'first_name', 'last_name', 'middle_name', 'position', 'company', 'photo']),
+        ];
     }
 
     /**

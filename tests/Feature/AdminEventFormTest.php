@@ -77,3 +77,33 @@ test('редактирование платного без цены тоже т�
     $this->actingAs(eventEditor())->post("/admin/events/{$event->id}", eventPayload(['_method' => 'PUT', 'is_paid' => true, 'price' => null]))
         ->assertSessionHasErrors('price');
 });
+
+test('страницы создания и редактирования открываются, старый адрес ведёт на редактирование', function () {
+    $editor = eventEditor();
+    $event = Event::factory()->create();
+
+    $this->actingAs($editor)->get('/admin/events/create')->assertOk()->assertInertia(fn ($page) => $page
+        ->component('Admin/EventForm')
+        ->where('event', null)
+        ->has('categories')
+        ->has('speakers'));
+
+    $this->actingAs($editor)->get("/admin/events/{$event->id}/edit")->assertOk()->assertInertia(fn ($page) => $page
+        ->component('Admin/EventForm')
+        ->where('event.id', $event->id));
+
+    $this->actingAs($editor)->get("/admin/events/{$event->id}")->assertRedirect("/admin/events/{$event->id}/edit");
+});
+
+test('после создания открывается страница мероприятия, лимит мест сохраняется', function () {
+    $this->actingAs(eventEditor())->post('/admin/events', eventPayload(['max_quantity' => 40]))
+        ->assertRedirect('/admin/events/'.Event::first()->id.'/edit');
+
+    expect(Event::first()->max_quantity)->toBe(40);
+});
+
+test('врач не может открыть редактор мероприятий', function () {
+    $event = Event::factory()->create();
+
+    $this->actingAs(User::factory()->create())->get("/admin/events/{$event->id}/edit")->assertForbidden();
+});
