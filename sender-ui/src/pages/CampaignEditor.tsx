@@ -107,11 +107,12 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
   const [removing, setRemoving] = useState(false)
   const remove = useMutation({ mutationFn: () => api(`/campaigns/${campaign?.id}`, { method: 'DELETE' }), onSuccess: onDeleted })
 
-  const recipients = list?.subscribed_count ?? 0
+  const recipients = list?.deliverable_count ?? 0
+  const rejected = list ? list.checks.typo + list.checks.disposable + list.checks.no_mx + list.checks.invalid : 0
   const problems = [
     !template && 'Выберите письмо',
     !list && 'Выберите базу',
-    list && recipients === 0 && 'В базе нет подписчиков',
+    list && recipients === 0 && 'В базе нет адресов, которым можно отправить письмо',
     template && !template.sender_address_id && 'У письма не выбран отправитель',
     sender && !sender.confirmed && `Адрес ${sender.email} не подтверждён`,
   ].filter(Boolean) as string[]
@@ -169,14 +170,16 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
                 <label htmlFor="c-list">Кому</label>
                 <select id="c-list" className={`select${errors.list_id ? ' err' : ''}`} value={listId} onChange={(e) => setListId(e.target.value ? Number(e.target.value) : '')}>
                   <option value="">Выберите базу подписчиков</option>
-                  {lists.map((l) => <option key={l.id} value={l.id}>{l.name} · {n(l.subscribed_count)}</option>)}
+                  {lists.map((l) => <option key={l.id} value={l.id}>{l.name} · {n(l.deliverable_count)}</option>)}
                 </select>
                 {errors.list_id && <div className="hint err">{errors.list_id}</div>}
                 {lq.isSuccess && lists.length === 0 && <div className="hint">Баз пока нет. <Link to="/subscribers">Создайте базу и загрузите адреса</Link></div>}
                 {list && (
                   <div className="step-info">
                     <div><span className="muted">Получат</span><b>{n(recipients)}</b>&nbsp;подписчиков</div>
-                    {list.contacts_count > recipients && <div className="muted">{n(list.contacts_count - recipients)} отписались и не получат письмо</div>}
+                    {list.contacts_count > list.subscribed_count && <div className="muted">{n(list.contacts_count - list.subscribed_count)} отписались</div>}
+                    {rejected > 0 && <div className="muted">{n(rejected)} адресов не прошли проверку и не получат письмо</div>}
+                    {list.checks.unchecked > 0 && <div className="muted">{n(list.checks.unchecked)} ещё проверяются</div>}
                     <Link to={`/subscribers/${list.id}`}>Открыть базу <ArrowRight size={13} /></Link>
                   </div>
                 )}

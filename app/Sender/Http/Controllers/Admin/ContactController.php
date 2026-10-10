@@ -4,9 +4,11 @@ namespace App\Sender\Http\Controllers\Admin;
 
 use App\Sender\Http\Requests\Admin\ImportContactsRequest;
 use App\Sender\Http\Requests\Admin\StoreContactRequest;
+use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Models\Contact;
 use App\Sender\Models\ContactList;
 use App\Sender\Services\ContactImportService;
+use App\Sender\Services\EmailChecker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -36,6 +38,12 @@ class ContactController extends Controller
             $query->whereNull('unsubscribed_at');
         }
 
+        if ($request->input('check') === 'unchecked') {
+            $query->whereNull('checked_at');
+        } elseif ($request->filled('check')) {
+            $query->where('check_status', (string) $request->input('check'));
+        }
+
         $page = $query->paginate(50)->withQueryString();
 
         return response()->json([
@@ -52,6 +60,7 @@ class ContactController extends Controller
             ['organization_id' => $model->organization_id, 'name' => $request->validated('name')],
         );
         $model->touch();
+        app(EmailChecker::class)->checkContacts([$contact]);
 
         return response()->json(['data' => $this->present($contact)], $contact->wasRecentlyCreated ? 201 : 200);
     }
@@ -62,7 +71,55 @@ class ContactController extends Controller
             ? (string) file_get_contents($request->file('file')->getRealPath())
             : (string) $request->input('text');
 
-        return response()->json(['data' => $importer->import($this->list($request, $list), $content)]);
+        $model = $this->list($request, $list);
+        $result = $importer->import($model, $content);
+        CheckContactsJob::dispatch($model->id)->onQueue(config('sender.queue'));
+
+        return response()->json(['data' => $result]);
+    }
+
+    /**
+     * Исправляет опечатку в домене по подсказке проверки: gmial.com → gmail.com.
+     */
+    public function fix(Request $request, int $list, int $contact, EmailChecker $checker): JsonResponse
+    {
+        $model = $this->list($request, $list)->contacts()->findOrFail($contact);
+        abort_unless($model->check_status === EmailChecker::STATUS_TYPO && $model->check_hint, 422, 'Для этого адреса нет исправления');
+
+        $this->applyHint($model, $checker);
+
+        return response()->json(['message' => 'Адрес исправлен']);
+    }
+
+    public function fixAll(Request $request, int $list, EmailChecker $checker): JsonResponse
+    {
+        $fixed = 0;
+        $this->list($request, $list)->contacts()->where('check_status', EmailChecker::STATUS_TYPO)->whereNotNull('check_hint')
+            ->chunkById(500, function ($contacts) use ($checker, &$fixed): void {
+                foreach ($contacts as $contact) {
+                    $this->applyHint($contact, $checker);
+                    $fixed++;
+                }
+            });
+
+        return response()->json(['data' => ['fixed' => $fixed]]);
+    }
+
+    /**
+     * Если исправленный адрес уже есть в базе, опечатка просто удаляется.
+     */
+    private function applyHint(Contact $contact, EmailChecker $checker): void
+    {
+        $email = (string) $contact->check_hint;
+
+        if (Contact::query()->where('list_id', $contact->list_id)->where('email', $email)->exists()) {
+            $contact->delete();
+
+            return;
+        }
+
+        $contact->forceFill(['email' => $email, 'check_status' => null, 'check_hint' => null, 'checked_at' => null])->save();
+        $checker->checkContacts([$contact]);
     }
 
     public function destroy(Request $request, int $list, int $contact): JsonResponse
@@ -88,6 +145,8 @@ class ContactController extends Controller
             'name' => $contact->name,
             'data' => $contact->data ?? (object) [],
             'unsubscribed_at' => $contact->unsubscribed_at?->toIso8601String(),
+            'check_status' => $contact->check_status,
+            'check_hint' => $contact->check_hint,
             'created_at' => $contact->created_at?->toIso8601String(),
         ];
     }

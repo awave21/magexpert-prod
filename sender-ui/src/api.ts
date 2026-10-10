@@ -76,9 +76,16 @@ export type Stats = {
 
 export type SenderAddress = { id: number; email: string; name: string; domain: string | null; verified: boolean; confirmed: boolean; confirmation_sent_at: string | null }
 
-export type ContactList = { id: number; name: string; description: string | null; contacts_count: number; subscribed_count: number; created_at: string; updated_at: string }
-export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; created_at: string }
-export type ImportResult = { added: number; updated: number; skipped: number; columns: string[] }
+export type CheckStatus = 'ok' | 'role' | 'typo' | 'disposable' | 'no_mx' | 'invalid'
+export type ContactList = {
+  id: number; name: string; description: string | null; contacts_count: number; subscribed_count: number; deliverable_count: number
+  checks: Record<CheckStatus | 'unchecked', number>; created_at: string; updated_at: string
+}
+export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; check_status: CheckStatus | null; check_hint: string | null; created_at: string }
+export type ImportResult = {
+  rows: number; added: number; updated: number; duplicates: number; skipped: number; columns: string[]
+  skipped_rows: { line: number; value: string }[]; duplicate_rows: { line: number; email: string; first_line: number }[]
+}
 export type CampaignStats = { queued: number; sent: number; failed: number; blocked: number }
 export type Campaign = {
   id: number; name: string; status: 'draft' | 'sending' | 'sent'

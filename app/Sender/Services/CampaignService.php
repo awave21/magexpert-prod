@@ -31,10 +31,10 @@ class CampaignService
             $errors['list_id'] = 'Выберите базу подписчиков';
         }
 
-        $recipients = $campaign->list?->contacts()->subscribed()->count() ?? 0;
+        $recipients = $campaign->list?->contacts()->deliverable()->count() ?? 0;
 
         if ($campaign->list !== null && $recipients === 0) {
-            $errors['list_id'] = 'В базе нет подписчиков, которым можно отправить письмо';
+            $errors['list_id'] = 'В базе нет подписчиков, которым можно отправить письмо: все отписались или адреса не прошли проверку';
         }
 
         if ($errors !== []) {
@@ -65,7 +65,7 @@ class CampaignService
             return;
         }
 
-        $campaign->list->contacts()->subscribed()->chunkById(500, function ($contacts) use ($campaign): void {
+        $campaign->list->contacts()->deliverable()->chunkById(500, function ($contacts) use ($campaign): void {
             $already = Message::query()
                 ->where('campaign_id', $campaign->id)
                 ->whereIn('to_email', $contacts->pluck('email'))

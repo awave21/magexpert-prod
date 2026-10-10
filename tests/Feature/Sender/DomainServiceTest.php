@@ -20,6 +20,16 @@ function fakeDns(array $records): DnsLookup
         {
             return $this->records[$host] ?? [];
         }
+
+        public function mx(string $domain): ?array
+        {
+            return [];
+        }
+
+        public function hasAddress(string $domain): bool
+        {
+            return false;
+        }
     };
 }
 

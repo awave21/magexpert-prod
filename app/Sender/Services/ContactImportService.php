@@ -19,36 +19,59 @@ class ContactImportService
     private const NAME_HEADERS = ['name', 'имя', 'фио', 'first_name', 'firstname', 'имя и фамилия', 'полное имя', 'full_name'];
 
     /**
-     * @return array{added: int, updated: int, skipped: int, columns: list<string>}
+     * Сколько строк с ошибками и повторов показать в отчёте: остальные только считаются.
+     */
+    private const REPORT_LIMIT = 100;
+
+    /**
+     * added — новые адреса, updated — уже были в базе (обновлены имя и переменные),
+     * duplicates — повторы внутри файла (сохраняется последняя строка), skipped — строки без корректного адреса.
+     *
+     * @return array{rows: int, added: int, updated: int, duplicates: int, skipped: int, columns: list<string>,
+     *     skipped_rows: list<array{line: int, value: string}>, duplicate_rows: list<array{line: int, email: string, first_line: int}>}
      */
     public function import(ContactList $list, string $content): array
     {
         $rows = $this->rows($this->toUtf8($content));
-        $result = ['added' => 0, 'updated' => 0, 'skipped' => 0, 'columns' => []];
+        $result = ['rows' => 0, 'added' => 0, 'updated' => 0, 'duplicates' => 0, 'skipped' => 0, 'columns' => [], 'skipped_rows' => [], 'duplicate_rows' => []];
 
         if ($rows === []) {
             return $result;
         }
 
-        [$emailColumn, $nameColumn, $extra, $hasHeader] = $this->columns($rows);
+        [$emailColumn, $nameColumn, $extra, $hasHeader] = $this->columns(array_column($rows, 1));
         $result['columns'] = array_values($extra);
 
         if ($hasHeader) {
             array_shift($rows);
         }
 
+        $result['rows'] = count($rows);
+
         /** @var array<string, array{email: string, name: ?string, data: array<string, string>}> $contacts */
         $contacts = [];
+        /** @var array<string, int> $firstLine */
+        $firstLine = [];
 
-        foreach ($rows as $row) {
+        foreach ($rows as [$line, $row]) {
             $email = Str::lower(trim((string) ($row[$emailColumn] ?? '')));
 
             if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                if (implode('', $row) !== '') {
-                    $result['skipped']++;
+                $result['skipped']++;
+                if (count($result['skipped_rows']) < self::REPORT_LIMIT) {
+                    $result['skipped_rows'][] = ['line' => $line, 'value' => Str::limit(implode('; ', array_filter($row, fn ($v) => $v !== '')), 120)];
                 }
 
                 continue;
+            }
+
+            if (isset($firstLine[$email])) {
+                $result['duplicates']++;
+                if (count($result['duplicate_rows']) < self::REPORT_LIMIT) {
+                    $result['duplicate_rows'][] = ['line' => $line, 'email' => $email, 'first_line' => $firstLine[$email]];
+                }
+            } else {
+                $firstLine[$email] = $line;
             }
 
             $data = [];
@@ -114,29 +137,35 @@ class ContactImportService
     }
 
     /**
-     * @return list<list<string>>
+     * Строки файла с номером строки (с единицы), пустые строки пропускаются.
+     *
+     * @return list<array{0: int, 1: list<string>}>
      */
     private function rows(string $content): array
     {
-        $lines = preg_split('/\r\n|\r|\n/', trim($content)) ?: [];
-        $first = $lines[0] ?? '';
+        $lines = preg_split('/\r\n|\r|\n/', rtrim($content)) ?: [];
+        $first = collect($lines)->first(fn (string $line): bool => trim($line) !== '') ?? '';
         $delimiter = collect([';', ',', "\t"])->sortByDesc(fn (string $d): int => substr_count($first, $d))->first();
+        $rows = [];
 
-        // список адресов без разделителей: по одному или через пробел
-        if (substr_count($first, $delimiter) === 0) {
-            return collect($lines)
-                ->flatMap(fn (string $line): array => preg_split('/\s+/', trim($line)) ?: [])
-                ->filter()
-                ->map(fn (string $email): array => [$email])
-                ->values()
-                ->all();
+        foreach ($lines as $index => $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+
+            // список адресов без разделителей: по одному на строке или через пробел
+            if (substr_count($first, $delimiter) === 0) {
+                foreach (preg_split('/\s+/', trim($line)) ?: [] as $email) {
+                    $rows[] = [$index + 1, [$email]];
+                }
+
+                continue;
+            }
+
+            $rows[] = [$index + 1, array_map(fn ($v): string => trim((string) $v), str_getcsv($line, $delimiter, '"', ''))];
         }
 
-        return collect($lines)
-            ->filter(fn (string $line): bool => trim($line) !== '')
-            ->map(fn (string $line): array => array_map(fn ($v): string => trim((string) $v), str_getcsv($line, $delimiter, '"', '')))
-            ->values()
-            ->all();
+        return $rows;
     }
 
     /**

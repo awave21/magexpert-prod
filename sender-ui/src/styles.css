@@ -733,3 +733,29 @@ button { font: inherit; color: inherit; }
 .report-info > div { display: flex; flex-direction: column; gap: 2px; }
 .report-info .muted { font-size: 12px; }
 @media (max-width: 640px) { .import-result b { font-size: 22px; } }
+
+/* проверка адресов */
+.check-summary { margin-bottom: 24px; padding: 16px 18px; border-radius: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 14px; }
+.check-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.check-head > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.check-head b { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.check-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.check-chip { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.check-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--control); }
+.check-chip.ok i { background: var(--ok); } .check-chip.warn i { background: var(--warn); } .check-chip.err i { background: var(--err); }
+.check-chip b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.check-chip:hover { border-color: var(--control); }
+.check-chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.check-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.check-cell .btn.text { height: 24px; padding: 0 6px; font-size: 12px; }
+
+/* загрузка адресов на странице базы */
+.import-panel { margin-bottom: 24px; padding: 20px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 16px; }
+.import-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.import-head b { font-size: 16px; font-weight: 600; }
+.import-panel .import-result { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; }
+.import-result .ok b { color: var(--ok); } .import-result .warn b { color: var(--warn); } .import-result .err b { color: var(--err); }
+.import-details { border-top: 1px solid var(--line); padding-top: 12px; }
+.import-details summary { cursor: pointer; font-weight: 500; }
+.import-details .table { margin-top: 8px; }
+.import-details[open] { max-height: 420px; overflow: auto; }

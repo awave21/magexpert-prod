@@ -2,6 +2,7 @@
 
 namespace App\Sender\Models;
 
+use App\Sender\Services\EmailChecker;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,7 +13,7 @@ class Contact extends SenderModel
 {
     protected $table = 'sender_contacts';
 
-    protected $fillable = ['organization_id', 'list_id', 'email', 'name', 'data', 'unsubscribed_at'];
+    protected $fillable = ['organization_id', 'list_id', 'email', 'name', 'data', 'unsubscribed_at', 'check_status', 'check_hint', 'checked_at'];
 
     /**
      * @return array<string, string>
@@ -22,6 +23,7 @@ class Contact extends SenderModel
         return [
             'data' => 'array',
             'unsubscribed_at' => 'datetime',
+            'checked_at' => 'datetime',
         ];
     }
 
@@ -33,5 +35,14 @@ class Contact extends SenderModel
     public function scopeSubscribed(Builder $query): void
     {
         $query->whereNull('unsubscribed_at');
+    }
+
+    /**
+     * Кому уйдёт рассылка: подписан и адрес не забракован проверкой (непроверенные тоже получают).
+     */
+    public function scopeDeliverable(Builder $query): void
+    {
+        $query->whereNull('unsubscribed_at')
+            ->where(fn (Builder $q) => $q->whereNull('check_status')->orWhereNotIn('check_status', EmailChecker::UNDELIVERABLE));
     }
 }

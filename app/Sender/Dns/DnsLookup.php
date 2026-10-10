@@ -10,4 +10,17 @@ interface DnsLookup
      * @return list<string>
      */
     public function txt(string $host): array;
+
+    /**
+     * Почтовые серверы домена (MX), по возрастанию приоритета.
+     * Пустой список — у домена нет MX, null — DNS не ответил.
+     *
+     * @return list<string>|null
+     */
+    public function mx(string $domain): ?array;
+
+    /**
+     * Есть ли у домена A- или AAAA-запись.
+     */
+    public function hasAddress(string $domain): bool;
 }

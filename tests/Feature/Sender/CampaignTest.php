@@ -1,5 +1,6 @@
 <?php
 
+use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Jobs\SendCampaignJob;
 use App\Sender\Models\Campaign;
 use App\Sender\Models\Contact;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Queue;
 
 beforeEach(function (): void {
     $this->migrateSenderDatabase();
+    // проверка адресов ходит в DNS: её покрывает EmailCheckTest
+    Queue::fake([CheckContactsJob::class]);
 
     $this->organization = Organization::create(['name' => 'MagExpert', 'slug' => 'magexpert']);
     User::create(['organization_id' => $this->organization->id, 'name' => 'Админ', 'email' => 'admin@example.com', 'password' => 'secret-pass']);
@@ -244,4 +247,34 @@ it('keeps contacts of a deleted campaign but deletes contacts with their base', 
 
     $this->withToken($this->token)->deleteJson(senderAdmin('/lists/'.$this->list->id))->assertOk();
     expect(Contact::query()->count())->toBe(0);
+});
+
+it('reports duplicates in the file and skipped lines with their numbers', function (): void {
+    $this->list->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'old@example.com']);
+
+    $csv = "email;имя\nAnna@Example.com;Анна\n\nnot-an-email;Пётр\nanna@example.com;Анна Иванова\nOLD@example.com;Старый\nANNA@EXAMPLE.COM;Анна И.";
+
+    $this->withToken($this->token)->postJson(senderAdmin('/lists/'.$this->list->id.'/import'), ['text' => $csv])
+        ->assertOk()
+        ->assertJsonPath('data.rows', 5)
+        ->assertJsonPath('data.added', 1)
+        ->assertJsonPath('data.updated', 1)
+        ->assertJsonPath('data.duplicates', 2)
+        ->assertJsonPath('data.skipped', 1)
+        ->assertJsonPath('data.skipped_rows', [['line' => 4, 'value' => 'not-an-email; Пётр']])
+        ->assertJsonPath('data.duplicate_rows', [
+            ['line' => 5, 'email' => 'anna@example.com', 'first_line' => 2],
+            ['line' => 7, 'email' => 'anna@example.com', 'first_line' => 2],
+        ]);
+
+    expect($this->list->contacts()->pluck('email')->sort()->values()->all())->toBe(['anna@example.com', 'old@example.com'])
+        ->and($this->list->contacts()->where('email', 'anna@example.com')->value('name'))->toBe('Анна И.');
+});
+
+it('numbers addresses pasted on one line separated by spaces', function (): void {
+    $this->withToken($this->token)->postJson(senderAdmin('/lists/'.$this->list->id.'/import'), ['text' => "a@example.com b@example.com\nbad a@example.com"])
+        ->assertOk()
+        ->assertJsonPath('data.added', 2)
+        ->assertJsonPath('data.skipped_rows.0.line', 2)
+        ->assertJsonPath('data.duplicate_rows.0', ['line' => 2, 'email' => 'a@example.com', 'first_line' => 1]);
 });

@@ -20,4 +20,25 @@ class PhpDnsLookup implements DnsLookup
             $records,
         ));
     }
+
+    /**
+     * @return list<string>|null
+     */
+    public function mx(string $domain): ?array
+    {
+        $records = @dns_get_record($domain, DNS_MX);
+
+        if ($records === false) {
+            return null;
+        }
+
+        usort($records, static fn (array $a, array $b): int => ($a['pri'] ?? 0) <=> ($b['pri'] ?? 0));
+
+        return array_values(array_map(static fn (array $record): string => rtrim((string) ($record['target'] ?? ''), '.'), $records));
+    }
+
+    public function hasAddress(string $domain): bool
+    {
+        return checkdnsrr($domain, 'A') || checkdnsrr($domain, 'AAAA');
+    }
 }

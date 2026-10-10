@@ -3,7 +3,9 @@
 namespace App\Sender\Http\Controllers\Admin;
 
 use App\Sender\Http\Requests\Admin\ContactListRequest;
+use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Models\ContactList;
+use App\Sender\Services\EmailChecker;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +14,11 @@ use Illuminate\Routing\Controller;
 class ContactListController extends Controller
 {
     use ResolvesOrganization;
+
+    private const CHECKS = [
+        EmailChecker::STATUS_OK, EmailChecker::STATUS_ROLE, EmailChecker::STATUS_TYPO,
+        EmailChecker::STATUS_DISPOSABLE, EmailChecker::STATUS_NO_MX, EmailChecker::STATUS_INVALID,
+    ];
 
     public function index(Request $request): JsonResponse
     {
@@ -43,6 +50,18 @@ class ContactListController extends Controller
     }
 
     /**
+     * Проверить все адреса базы заново, например после обновления списка одноразовых доменов.
+     */
+    public function check(Request $request, int $list): JsonResponse
+    {
+        $model = $this->organization($request)->lists()->findOrFail($list);
+        $model->contacts()->update(['checked_at' => null]);
+        CheckContactsJob::dispatch($model->id)->onQueue(config('sender.queue'));
+
+        return $this->show($request, $model->id);
+    }
+
+    /**
      * Вместе с базой удаляются её подписчики. Отправленные письма остаются в журнале.
      */
     public function destroy(Request $request, int $list): JsonResponse
@@ -58,10 +77,18 @@ class ContactListController extends Controller
      */
     private function withCounts(Builder $query): Builder
     {
-        return $query->withCount([
+        $counts = [
             'contacts',
             'contacts as subscribed_count' => fn (Builder $q) => $q->whereNull('unsubscribed_at'),
-        ]);
+            'contacts as deliverable_count' => fn (Builder $q) => $q->deliverable(),
+            'contacts as unchecked_count' => fn (Builder $q) => $q->whereNull('checked_at'),
+        ];
+
+        foreach (self::CHECKS as $status) {
+            $counts['contacts as '.$status.'_count'] = fn (Builder $q) => $q->where('check_status', $status);
+        }
+
+        return $query->withCount($counts);
     }
 
     /**
@@ -75,6 +102,11 @@ class ContactListController extends Controller
             'description' => $list->description,
             'contacts_count' => (int) ($list->contacts_count ?? 0),
             'subscribed_count' => (int) ($list->subscribed_count ?? 0),
+            'deliverable_count' => (int) ($list->deliverable_count ?? 0),
+            'checks' => [
+                'unchecked' => (int) ($list->unchecked_count ?? 0),
+                ...collect(self::CHECKS)->mapWithKeys(fn (string $status): array => [$status => (int) ($list->{$status.'_count'} ?? 0)])->all(),
+            ],
             'created_at' => $list->created_at?->toIso8601String(),
             'updated_at' => $list->updated_at?->toIso8601String(),
         ];

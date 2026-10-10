@@ -83,6 +83,9 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::post('lists/{list}/contacts', [ContactController::class, 'store'])->name('contacts.store');
             Route::post('lists/{list}/import', [ContactController::class, 'import'])->middleware('throttle:30,1')->name('contacts.import');
             Route::delete('lists/{list}/contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');
+            Route::post('lists/{list}/contacts/{contact}/fix', [ContactController::class, 'fix'])->name('contacts.fix');
+            Route::post('lists/{list}/fix-typos', [ContactController::class, 'fixAll'])->name('contacts.fix-all');
+            Route::post('lists/{list}/check', [ContactListController::class, 'check'])->middleware('throttle:10,1')->name('lists.check');
 
             Route::get('campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
             Route::post('campaigns', [CampaignController::class, 'store'])->name('campaigns.store');

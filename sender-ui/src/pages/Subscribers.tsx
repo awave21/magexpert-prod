@@ -13,7 +13,7 @@ export default function Subscribers() {
   const toast = useToast()
   const q = useQuery({ queryKey: ['lists'], queryFn: () => api<{ data: ContactList[] }>('/lists') })
   const lists = q.data?.data ?? []
-  const total = lists.reduce((s, l) => s + l.subscribed_count, 0)
+  const total = lists.reduce((s, l) => s + l.deliverable_count, 0)
 
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -37,7 +37,7 @@ export default function Subscribers() {
       ) : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>База</th><th className="r">Подписаны</th><th className="r">Отписались</th><th>Изменена</th><th /></tr></thead>
+            <thead><tr><th>База</th><th className="r">Получат рассылку</th><th className="r">Отписались</th><th className="r">Не прошли проверку</th><th>Изменена</th><th /></tr></thead>
             <tbody>
               {lists.map((l) => (
                 <tr key={l.id} className="click" onClick={() => nav(`/subscribers/${l.id}`)}>
@@ -47,8 +47,9 @@ export default function Subscribers() {
                       <div style={{ minWidth: 0 }}><div style={{ fontWeight: 500 }}>{l.name}</div>{l.description && <div className="sub">{l.description}</div>}</div>
                     </div>
                   </td>
-                  <td className="r num-cell">{n(l.subscribed_count)}</td>
+                  <td className="r num-cell">{n(l.deliverable_count)}{l.checks.unchecked > 0 && <div className="sub">проверяется {n(l.checks.unchecked)}</div>}</td>
                   <td className="r num-cell muted">{n(l.contacts_count - l.subscribed_count)}</td>
+                  <td className="r num-cell muted">{n(l.checks.typo + l.checks.disposable + l.checks.no_mx + l.checks.invalid)}</td>
                   <td className="sub">{ago(l.updated_at)}</td>
                   <td className="r"><ChevronRight size={16} className="muted" /></td>
                 </tr>
