@@ -93,8 +93,7 @@ function PasswordRegister() {
             {error && <div className="hint err" role="alert">{error}</div>}
             <button className="btn primary lg" disabled={busy || !ready}>{busy ? 'Создаём…' : 'Создать аккаунт'}</button>
           </form>
-          <div className="divider">или зарегистрируйтесь через</div>
-          <SocialButtons />
+          <SocialButtons divider="или зарегистрируйтесь через" />
           <p style={{ color: 'var(--ink-2)' }}>Уже есть аккаунт? <Link to="/" style={{ fontWeight: 500 }}>Войти</Link></p>
         </div>
       </section>

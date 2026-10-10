@@ -34,6 +34,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
         Route::post('register', [AuthController::class, 'register'])->middleware('throttle:10,60')->name('register');
         Route::post('oauth/exchange', [AuthController::class, 'oauthExchange'])->middleware('throttle:20,1')->name('oauth.exchange');
+        Route::get('oauth/providers', [AuthController::class, 'oauthProviders'])->name('oauth.providers');
         Route::get('oauth/pending', [AuthController::class, 'oauthPending'])->middleware('throttle:30,1')->name('oauth.pending');
         Route::post('oauth/register', [AuthController::class, 'oauthRegister'])->middleware('throttle:10,60')->name('oauth.register');
 

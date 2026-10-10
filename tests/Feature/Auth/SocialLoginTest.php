@@ -198,3 +198,10 @@ it('unlinks a provider and resets phone verification when the number changes', f
     $this->patch('/profile', ['first_name' => $user->first_name, 'last_name' => $user->last_name, 'email' => $user->email, 'phone' => '+7 900 111-22-33']);
     expect($user->fresh()->phone_verified_at)->toBeNull();
 });
+
+test('кнопки входа показываются только для провайдеров с ключами', function () {
+    config(['services.yandex.client_id' => 'yandex-id', 'services.vkid.client_id' => null]);
+
+    $this->get('/login')->assertInertia(fn ($page) => $page->where('socialProviders', ['yandex']));
+    $this->getJson('/api/sender/v1/admin/oauth/providers')->assertOk()->assertExactJson(['data' => ['yandex']]);
+});

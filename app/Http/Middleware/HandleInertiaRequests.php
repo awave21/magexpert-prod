@@ -53,6 +53,8 @@ class HandleInertiaRequests extends Middleware
                     'stats' => $this->getUserStats($request->user()),
                 ] : null,
             ],
+            // кнопки входа показываем только для провайдеров, у которых в .env есть ключи
+            'socialProviders' => fn () => array_values(array_filter(['yandex', 'vkid'], fn (string $p): bool => (bool) config("services.{$p}.client_id"))),
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'error' => fn () => $request->session()->get('error'),

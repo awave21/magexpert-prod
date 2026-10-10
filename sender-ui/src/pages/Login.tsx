@@ -58,8 +58,7 @@ export default function Login() {
             </div>
             <button className="btn primary lg" disabled={busy || !email || !password}>{busy ? 'Входим…' : 'Войти'}</button>
           </form>
-          <div className="divider">или</div>
-          <SocialButtons />
+          <SocialButtons divider="или" />
           <p style={{ color: 'var(--ink-2)' }}>Нет аккаунта? <Link to="/register" style={{ fontWeight: 500 }}>Зарегистрироваться</Link></p>
           <p className="sub"><Link to="/privacy">Политика обработки персональных данных</Link></p>
         </div>
