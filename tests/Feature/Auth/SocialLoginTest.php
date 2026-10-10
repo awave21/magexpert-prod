@@ -166,7 +166,7 @@ it('does not overwrite a different phone and refuses an account linked to someon
     fakeSocialUser('vkid', ['id' => '802'], null);
 
     $this->get('/auth/vkid/link');
-    $this->get('/auth/vkid/callback?code=x')->assertSessionHas('error', fn (string $m): bool => str_contains($m, 'уже привязан к другому аккаунту'));
+    $this->get('/auth/vkid/callback?code=x')->assertSessionHas('phone_result', fn (array $result): bool => $result['move'] === true);
     expect($user->socialAccounts()->where('provider', 'vkid')->exists())->toBeFalse();
 });
 
@@ -263,18 +263,37 @@ it('confirms the phone when the same yandex account is linked again', function (
     expect($user->fresh()->phone_verified_at)->not->toBeNull();
 });
 
-it('explains in the cabinet which account already has this yandex id', function (): void {
+it('offers to move the yandex login here and confirms the phone in one click', function (): void {
     config(['services.yandex.client_id' => 'id', 'services.yandex.phone' => true]);
     $owner = User::factory()->create(['email' => 'moskovec@yandex.ru']);
     $owner->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '841']);
-    $user = User::factory()->create();
+    $user = User::factory()->create(['phone' => '8 999 123-45-67']);
     fakeSocialUser('yandex', ['id' => '841', 'default_phone' => ['number' => '+79991234567']], 'moskovec@yandex.ru');
 
     $this->actingAs($user)->from(route('dashboard'))->get('/auth/yandex/link');
     $this->get('/auth/yandex/callback?code=x')->assertRedirect(route('dashboard'));
 
     $this->get('/dashboard')->assertInertia(fn ($page) => $page
-        ->where('flash.phone_result.ok', false)
+        ->where('flash.phone_result.move', true)
         ->where('flash.phone_result.text', fn (string $text): bool => str_contains($text, 'm***@yandex.ru') && ! str_contains($text, 'moskovec')));
     expect($user->fresh()->phone_verified_at)->toBeNull();
+
+    $this->from(route('dashboard'))->post('/auth/link/move')
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionHas('message', 'Яндекс привязан, телефон подтверждён.');
+
+    expect($user->fresh()->phone_verified_at)->not->toBeNull()
+        ->and($user->socialAccounts()->where('provider_user_id', '841')->exists())->toBeTrue()
+        ->and($owner->socialAccounts()->exists())->toBeFalse()
+        ->and($owner->fresh())->not->toBeNull();
+});
+
+it('does not move a login without a fresh confirmation from yandex', function (): void {
+    $owner = User::factory()->create();
+    $owner->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '851']);
+
+    $this->actingAs(User::factory()->create())->from(route('dashboard'))->post('/auth/link/move')
+        ->assertSessionHas('error', 'Время на перенос вышло. Нажмите «Подтвердить» ещё раз.');
+
+    expect($owner->socialAccounts()->exists())->toBeTrue();
 });

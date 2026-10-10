@@ -16,6 +16,11 @@ const user = computed(() => page.props.auth.user);
 // кнопку подтверждения показываем, только когда Яндекс действительно отдаёт номер
 const phoneCheck = computed(() => (page.props.phoneProviders ?? []).includes('yandex'));
 const phoneResult = computed(() => page.props.flash?.phone_result ?? null);
+const moving = ref(false);
+const moveHere = () => {
+    moving.value = true;
+    router.post(route('social.move'), {}, { preserveScroll: true, onFinish: () => { moving.value = false; } });
+};
 const providers = computed(() => props.social.filter((item) => item.linked || item.available));
 
 // Подтверждение email: новая ссылка в письме
@@ -96,9 +101,10 @@ const destroy = () => {
                             <div class="text-sm text-gray-500 dark:text-gray-400">
                                 {{ phone || 'Номер не указан' }}<template v-if="!phoneVerified && phoneCheck"> — подтвердим номером из Яндекс ID, без СМС. Откроется Яндекс и сразу вернёт сюда</template>
                             </div>
-                            <div v-if="phoneResult && !phoneResult.ok" class="mt-1 text-sm font-semibold text-[#b4361c]" role="alert">{{ phoneResult.text }}</div>
+                            <div v-if="phoneResult && !phoneResult.ok" class="mt-1 text-sm font-semibold" :class="phoneResult.move ? 'text-gray-800 dark:text-gray-100' : 'text-[#b4361c]'" role="alert">{{ phoneResult.text }}</div>
                         </div>
-                        <a v-if="!phoneVerified && phoneCheck" :href="route('social.link', 'yandex')" class="cab-btn-ghost w-full sm:w-auto">
+                        <button v-if="!phoneVerified && phoneResult?.move" type="button" class="cab-btn w-full sm:w-auto" :disabled="moving" @click="moveHere">{{ moving ? 'Переносим…' : 'Перенести сюда и подтвердить' }}</button>
+                        <a v-else-if="!phoneVerified && phoneCheck" :href="route('social.link', 'yandex')" class="cab-btn-ghost w-full sm:w-auto">
                             <span class="flex h-5 w-5 items-center justify-center rounded-full bg-[#fc3f1d] text-xs font-extrabold text-white" aria-hidden="true">Я</span>
                             Подтвердить через Яндекс
                         </a>

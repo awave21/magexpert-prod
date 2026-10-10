@@ -79,4 +79,5 @@ Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback']
 Route::middleware('auth')->group(function () {
     Route::get('auth/{provider}/link', [SocialAuthController::class, 'link'])->whereIn('provider', ['yandex', 'vkid'])->name('social.link');
     Route::delete('auth/{provider}/link', [SocialAuthController::class, 'unlink'])->whereIn('provider', ['yandex', 'vkid'])->name('social.unlink');
+    Route::post('auth/link/move', [SocialAuthController::class, 'move'])->middleware('throttle:10,1')->name('social.move');
 });

@@ -42,6 +42,12 @@ const submit = () => form.post(route('social.store'));
                         </p>
                     </div>
 
+                    <!-- Главная причина двойных аккаунтов: человек уже есть на сайте с рабочей почтой, а в Яндексе — личная -->
+                    <div class="mb-4 rounded-xl border border-brandblue/30 bg-brandblue/5 p-4 text-sm text-gray-800 dark:text-gray-200">
+                        <p class="font-semibold">Уже есть аккаунт на сайте с другой почтой?</p>
+                        <p class="mt-1">Не создавайте новый — <Link :href="route('login')" class="font-semibold text-brandblue hover:underline">войдите по паролю</Link>, и {{ provider }} привяжется к вашему аккаунту: мероприятия и записи останутся при вас.</p>
+                    </div>
+
                     <form @submit.prevent="submit" class="space-y-5 rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
                         <TextInput id="first_name" label="Имя" v-model="form.first_name" :error="form.errors.first_name" required />
                         <TextInput id="last_name" label="Фамилия" v-model="form.last_name" :error="form.errors.last_name" required />
@@ -71,12 +77,6 @@ const submit = () => form.post(route('social.store'));
                                 <span>Хочу получать новости о мероприятиях</span>
                             </label>
                         </div>
-
-                        <p class="rounded-lg bg-gray-50 p-3 text-sm text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
-                            Уже регистрировались на сайте с другим email?
-                            <Link :href="route('login')" class="font-medium text-brandblue hover:underline">Войдите по паролю</Link>
-                            — {{ provider }} привяжется к вашему аккаунту, и второй аккаунт не появится.
-                        </p>
 
                         <div class="flex items-center justify-between pt-2">
                             <Link :href="route('login')" class="text-sm text-brandblue hover:underline">Отмена</Link>

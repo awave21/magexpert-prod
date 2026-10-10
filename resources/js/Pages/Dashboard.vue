@@ -23,6 +23,11 @@ const user = computed(() => page.props.auth.user);
 const phoneCheck = computed(() => (page.props.phoneProviders ?? []).includes('yandex'));
 // итог последней попытки подтверждения (приходит один раз после возврата с Яндекса)
 const phoneResult = computed(() => page.props.flash?.phone_result ?? null);
+const moving = ref(false);
+const moveHere = () => {
+    moving.value = true;
+    router.post(route('social.move'), {}, { preserveScroll: true, onFinish: () => { moving.value = false; } });
+};
 
 const greeting = computed(() => {
     const hour = new Date().getHours();
@@ -120,10 +125,11 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brandblue-soft text-brandblue-dark"><DevicePhoneMobileIcon class="h-6 w-6" aria-hidden="true" /></span>
                             <span class="flex min-w-0 flex-[1_1_160px] flex-col">
                                 <span class="font-bold">Подтвердите телефон</span>
-                                <span v-if="phoneResult && !phoneResult.ok" class="text-[13px] font-semibold text-[#b4361c]" role="alert">{{ phoneResult.text }}</span>
+                                <span v-if="phoneResult && !phoneResult.ok" class="text-[13px] font-semibold" :class="phoneResult.move ? 'text-gray-800 dark:text-gray-100' : 'text-[#b4361c]'" role="alert">{{ phoneResult.text }}</span>
                                 <span v-else class="text-[13px] text-gray-500">Номером из Яндекс ID, без СМС. Откроется Яндекс и сразу вернёт сюда</span>
                             </span>
-                            <a :href="route('social.link', 'yandex')" class="cab-btn !min-h-10 !px-4 !text-[13px]">Подтвердить</a>
+                            <button v-if="phoneResult?.move" type="button" class="cab-btn !min-h-10 !px-4 !text-[13px]" :disabled="moving" @click="moveHere">{{ moving ? 'Переносим…' : 'Перенести сюда и подтвердить' }}</button>
+                            <a v-else :href="route('social.link', 'yandex')" class="cab-btn !min-h-10 !px-4 !text-[13px]">Подтвердить</a>
                         </div>
                         <div v-if="!setup.profile_filled" class="cab-panel flex flex-wrap items-center gap-3.5 !rounded-3xl p-4">
                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brandblue-soft text-brandblue-dark"><UserIcon class="h-6 w-6" aria-hidden="true" /></span>

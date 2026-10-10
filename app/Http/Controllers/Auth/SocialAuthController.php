@@ -38,6 +38,11 @@ class SocialAuthController extends Controller
      */
     private const LINKING = 'social_linking';
 
+    /**
+     * Яндекс или ВКонтакте уже привязан к другому аккаунту этого же человека: ждём его согласия перенести вход сюда.
+     */
+    private const MOVE = 'social_move';
+
     public function __construct(private readonly SocialAccounts $accounts) {}
 
     public function redirect(string $provider, bool $askAgain = false): SymfonyRedirect|RedirectResponse
@@ -83,6 +88,36 @@ class SocialAuthController extends Controller
         ]);
 
         return $this->redirect($provider, askAgain: true);
+    }
+
+    /**
+     * Перенос входа через Яндекс/ВК из другого аккаунта в текущий. Человек только что вошёл в этот Яндекс,
+     * значит, он его владелец; второй аккаунт остаётся, в него можно войти по email и паролю.
+     */
+    public function move(Request $request): RedirectResponse
+    {
+        $pending = $request->session()->pull(self::MOVE);
+        $user = $request->user();
+
+        if (! is_array($pending) || $pending['user_id'] !== $user->id || $pending['expires_at'] < now()->timestamp) {
+            return back()->with('error', 'Время на перенос вышло. Нажмите «Подтвердить» ещё раз.');
+        }
+
+        $profile = $pending['profile'];
+        $account = SocialAccount::query()->where('provider', $profile['provider'])->where('provider_user_id', $profile['id'])->first();
+
+        // свой прежний вход через этого провайдера у текущего аккаунта заменяем новым
+        $user->socialAccounts()->where('provider', $profile['provider'])->whereKeyNot($account?->id)->delete();
+        $account?->forceFill(['user_id' => $user->id, 'email' => $profile['email'] ?: null])->save();
+        $this->accounts->link($user, $profile);
+
+        Log::channel('social')->info('Привязка перенесена из другого аккаунта', [
+            'provider' => $profile['provider'],
+            'user_id' => $user->id,
+            'from_user_id' => $pending['from_user_id'],
+        ]);
+
+        return $this->phoneResult($user, $profile, $pending['back']);
     }
 
     public function unlink(Request $request, string $provider): RedirectResponse
@@ -232,14 +267,29 @@ class SocialAuthController extends Controller
                 'linked_user_id' => $owner?->id,
             ]);
 
-            $where = $owner?->email ? ' ('.$this->maskEmail($owner->email).')' : '';
-            $text = "Этот {$name} уже привязан к другому аккаунту на сайте{$where}. Войдите в тот аккаунт через {$name} и отвяжите его в «Вход и безопасность» — после этого подтвердите телефон здесь.";
+            // не заставляем человека разбираться в аккаунтах: предлагаем перенести вход сюда одной кнопкой
+            session()->put(self::MOVE, [
+                'user_id' => $user->id,
+                'from_user_id' => $owner?->id,
+                'profile' => $profile,
+                'back' => $back,
+                'expires_at' => now()->addMinutes(15)->timestamp,
+            ]);
 
-            return redirect()->to($back)
-                ->with('error', $text)
-                ->with('phone_result', ['ok' => false, 'text' => $text]);
+            $where = $owner?->email ? " ({$this->maskEmail($owner->email)})" : '';
+
+            return redirect()->to($back)->with('phone_result', [
+                'ok' => false,
+                'move' => true,
+                'text' => "Этот {$name} уже используется для входа в другой ваш аккаунт на сайте{$where}. Перенесите вход через {$name} сюда — и телефон сразу подтвердится.",
+            ]);
         }
 
+        return $this->phoneResult($user, $profile, $back);
+    }
+
+    private function phoneResult(User $user, array $profile, string $back): RedirectResponse
+    {
         $status = $this->accounts->applyPhone($user, $profile['phone']);
         $verified = in_array($status, [SocialAccounts::PHONE_FILLED, SocialAccounts::PHONE_VERIFIED], true);
         $text = $this->accounts->message($profile['provider'], $status);
