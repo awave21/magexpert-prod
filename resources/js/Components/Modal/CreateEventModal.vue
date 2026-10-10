@@ -711,10 +711,10 @@ const closeModal = () => {
     emit("close");
 };
 
-const resetForm = () => {
+function resetForm() {
     form.reset();
     form.clearErrors();
-};
+}
 
 const submitForm = (options = { keepOpen: false, onSuccess: null }) => {
     const url = isEdit.value

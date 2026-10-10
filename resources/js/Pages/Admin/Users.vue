@@ -227,7 +227,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import UserAvatar from '@/Components/UserAvatar.vue';
@@ -312,8 +312,9 @@ const selectRoles = computed(() => {
 });
 
 // Отслеживание flash-сообщений
+const inertiaPage = usePage();
 watch(() => props.users, () => {
-  const flash = router.page.props.flash;
+  const flash = inertiaPage.props.flash ?? {};
   if (flash.message) {
     toast.success(flash.message);
   }

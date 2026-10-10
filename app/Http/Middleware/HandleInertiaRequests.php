@@ -61,6 +61,7 @@ class HandleInertiaRequests extends Middleware
             'socialProviders' => fn () => array_values(array_filter(['yandex', 'vkid'], fn (string $p): bool => (bool) config("services.{$p}.client_id"))),
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
+                'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
             'ziggy' => fn () => [

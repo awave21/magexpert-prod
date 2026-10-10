@@ -138,7 +138,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import SelectList from '@/Components/SelectList.vue';
@@ -271,9 +271,10 @@ const deleteConfirmed = () => {
 };
 
 // Отслеживание flash-сообщений
+const inertiaPage = usePage();
 watch(() => props.partners, () => {
-  const flash = router.page.props.flash;
-  if (flash?.success) toast.success(flash.success);
+  const flash = inertiaPage.props.flash ?? {};
+  if (flash?.success || flash?.message) toast.success(flash.success || flash.message);
   if (flash?.error) toast.error(flash.error);
 }, { deep: true, immediate: true });
 </script> 

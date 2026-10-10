@@ -240,7 +240,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import SelectList from '@/Components/SelectList.vue';
@@ -382,8 +382,9 @@ const deleteSpeaker = () => {
 };
 
 // Отслеживание flash-сообщений
+const inertiaPage = usePage();
 watch(() => props.speakers, () => {
-  const flash = router.page.props.flash;
+  const flash = inertiaPage.props.flash ?? {};
   if (flash.message) {
     toast.success(flash.message);
   }

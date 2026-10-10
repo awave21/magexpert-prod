@@ -97,10 +97,10 @@ watch(() => props.show, (value) => {
 }, { immediate: true });
 
 // Сброс формы
-const resetForm = () => {
+function resetForm() {
   form.reset();
   form.clearErrors();
-};
+}
 
 // Отправка формы
 const submitForm = () => {

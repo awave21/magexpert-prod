@@ -114,10 +114,10 @@ const closeModal = () => {
   emit('close');
 };
 
-const resetForm = () => {
+function resetForm() {
   form.reset();
   form.clearErrors();
-};
+}
 
 const submitForm = () => {
   const url = isEdit.value 

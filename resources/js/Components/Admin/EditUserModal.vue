@@ -162,10 +162,10 @@ const closeModal = () => {
   emit('close');
 };
 
-const resetForm = () => {
+function resetForm() {
   form.reset();
   form.clearErrors();
-};
+}
 
 const submit = () => {
   // Проверяем данные перед отправкой

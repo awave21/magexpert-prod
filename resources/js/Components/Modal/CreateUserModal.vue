@@ -187,10 +187,10 @@ const closeModal = () => {
   emit('close');
 };
 
-const resetForm = () => {
+function resetForm() {
   form.reset();
   form.clearErrors();
-};
+}
 
 const createUser = () => {
   form.post(route('admin.users.store'), {
