@@ -19,14 +19,14 @@ const form = useForm({
 const confirmUserDeletion = () => {
     confirmingUserDeletion.value = true;
 
-    nextTick(() => passwordInput.value.focus());
+    nextTick(() => passwordInput.value?.focus?.());
 };
 
 const deleteUser = () => {
     form.delete(route('profile.destroy'), {
         preserveScroll: true,
         onSuccess: () => closeModal(),
-        onError: () => passwordInput.value.focus(),
+        onError: () => passwordInput.value?.focus?.(),
         onFinish: () => form.reset(),
     });
 };
@@ -63,7 +63,6 @@ const closeModal = () => {
                         </h2>
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                             Мы удалим ваше имя, email, телефон и другие личные данные, и вы больше не сможете войти в этот аккаунт.
-                            Сведения об оплатах сохранятся в обезличенном виде, как требует бухгалтерский учёт.
                             Позже вы сможете снова зарегистрироваться с тем же email.
                         </p>
                     </div>

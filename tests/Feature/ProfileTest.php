@@ -55,6 +55,7 @@ test('deleting the account anonymizes the user instead of erasing their records'
 
     $this->actingAs($user)->delete('/profile', ['password' => 'password'])
         ->assertSessionHasNoErrors()
+        ->assertSessionHas('message', 'Аккаунт удалён. Ваши личные данные стёрты.')
         ->assertRedirect('/');
 
     $this->assertGuest();

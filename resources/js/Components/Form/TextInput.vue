@@ -3,6 +3,7 @@
     <label v-if="label" :for="id" class="block text-sm font-medium text-zinc-900 dark:text-white">{{ label }}</label>
     <div class="mt-1">
       <input
+        ref="input"
         :id="id"
         :type="type"
         :value="modelValue"
@@ -18,7 +19,9 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref } from 'vue';
+
+const input = ref(null);
 
 const props = defineProps({
   id: {
@@ -56,4 +59,7 @@ const props = defineProps({
 });
 
 defineEmits(['update:modelValue']);
+
+// чтобы родитель мог поставить курсор в поле: passwordInput.value.focus()
+defineExpose({ focus: () => input.value?.focus() });
 </script> 
