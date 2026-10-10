@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
-import { ArrowLeftIcon, BookOpenIcon, CalendarDaysIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, BookOpenIcon, CalendarDaysIcon, Cog6ToothIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 import MainLogo from '@/Components/main-logo.vue';
 import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CookieConsent from '@/Components/CookieConsent.vue';
@@ -28,6 +28,8 @@ const crumbs = {
     'cabinet.payments': 'Платежи',
     certificates: 'Сертификаты',
 };
+
+const isStaff = computed(() => (page.props.auth.user?.roles ?? []).some((role) => ['admin', 'editor', 'manager'].includes(role.name)));
 
 const isActive = (item) => item.active.some((name) => route().current(name));
 const crumb = computed(() => {
@@ -80,6 +82,14 @@ watch(() => page.props.flash?.error, (error) => {
                         <component :is="item.icon" class="h-5 w-5 shrink-0" aria-hidden="true" />
                         {{ item.label }}
                     </Link>
+                    <a
+                        v-if="isStaff"
+                        :href="route('admin.index')"
+                        class="cab-focus mt-2 flex min-h-[46px] items-center gap-3 rounded-full border border-gray-200 px-4 text-[15px] font-bold text-gray-900 hover:border-brandblue hover:text-brandblue-dark dark:border-gray-700 dark:text-white"
+                    >
+                        <Cog6ToothIcon class="h-5 w-5 shrink-0" aria-hidden="true" />
+                        Админка
+                    </a>
                 </nav>
 
                 <div class="min-h-6 flex-1"></div>

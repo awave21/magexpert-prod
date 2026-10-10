@@ -625,6 +625,8 @@ const logout = () => {
 // Инициализация темной темы при монтировании
 onMounted(() => {
     adminStore.initDarkMode();
+    // прячем чат сайта, если админку открыли переходом с сайта
+    document.documentElement.classList.add("is-admin");
 
     // Инициализируем подписку на уведомления
     if (window.Echo && page.props.auth.user) {
@@ -638,6 +640,7 @@ onMounted(() => {
 
 // Отписываемся от канала при размонтировании компонента
 onUnmounted(() => {
+    document.documentElement.classList.remove("is-admin");
     if (window.Echo && page.props.auth.user) {
         window.Echo.leave(`admin.notifications.${page.props.auth.user.id}`);
     }

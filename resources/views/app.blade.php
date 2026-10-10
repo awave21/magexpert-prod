@@ -46,7 +46,8 @@
             <noscript><div><img src="https://mc.yandex.ru/watch/104263544" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
         <!-- /Yandex.Metrika counter -->
 
-        <!-- Bitrix24 -->
+        <!-- Bitrix24: в админке чат не нужен и перекрывает кнопки -->
+        @unless (request()->is('admin*'))
               <script>
                 (function(w,d,u){
                         var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
@@ -55,9 +56,13 @@
             </script>
 
             <!-- Adjust Bitrix24 widget position -->
+        @endunless
             <style>
                 .b24-widget {
                     bottom: 120px !important;
+                }
+                .is-admin .b24-widget {
+                    display: none !important;
                 }
             </style>
 

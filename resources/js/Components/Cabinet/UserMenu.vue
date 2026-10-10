@@ -6,6 +6,7 @@ import {
     ArrowRightOnRectangleIcon,
     BellIcon,
     ChevronDownIcon,
+    Cog6ToothIcon,
     CreditCardIcon,
     ShieldCheckIcon,
     UserIcon,
@@ -18,6 +19,8 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
+// Сотрудникам — быстрый переход в админку
+const isStaff = computed(() => (user.value.roles ?? []).some((role) => ['admin', 'editor', 'manager'].includes(role.name)));
 const needsAttention = computed(() => !user.value.email_verified || !user.value.phone_verified);
 
 const open = ref(false);
@@ -105,6 +108,15 @@ const logout = async () => {
                     <div class="text-sm font-bold text-gray-900 dark:text-white">{{ user.full_name }}</div>
                     <div class="truncate text-[13px] text-gray-500 dark:text-gray-400">{{ user.email }}</div>
                 </div>
+                <a
+                    v-if="isStaff"
+                    role="menuitem"
+                    :href="route('admin.index')"
+                    class="cab-focus mb-1 flex min-h-[44px] items-center gap-3 rounded-xl bg-gray-100 px-3 text-sm font-bold text-gray-900 hover:bg-gray-200 dark:bg-gray-700 dark:text-white"
+                >
+                    <Cog6ToothIcon class="h-[18px] w-[18px]" aria-hidden="true" />
+                    Админка
+                </a>
                 <Link
                     v-for="item in items"
                     :key="item.route"

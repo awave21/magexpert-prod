@@ -1,538 +1,287 @@
 <template>
-    <SlideOverModal
-        :show="show"
-        @close="closeModal"
-        @backdropClick="closeModal"
-    >
-        <template #title>{{
-            isEdit
-                ? "Редактирование мероприятия"
-                : "Создание нового мероприятия"
-        }}</template>
+    <SlideOverModal :show="show" @close="requestClose" @backdropClick="requestClose">
+        <template #title>{{ isEdit ? "Редактирование мероприятия" : "Новое мероприятие" }}</template>
 
-        <form @submit.prevent="submitForm" class="space-y-5">
-            <TextInput
-                id="title"
-                label="Название"
-                v-model="form.title"
-                :error="form.errors.title"
-                required
-                placeholder="Введите название мероприятия"
-            />
-
-            <TextInput
-                id="slug"
-                label="URL-адрес"
-                v-model="form.slug"
-                :error="form.errors.slug"
-                placeholder="Оставьте пустым для автоматической генерации"
-            >
-                <template #hint>
-                    Используется в URL. Если оставить пустым, будет сгенерирован
-                    автоматически.
-                </template>
-            </TextInput>
-
-            <div class="space-y-4">
-                <CheckboxInput
-                    id="is_on_demand"
-                    label="Мероприятие по запросу"
-                    v-model="form.is_on_demand"
-                >
-                    <template #hint>
-                        Укажите, если мероприятие проводится по запросу без
-                        фиксированного времени
-                    </template>
-                </CheckboxInput>
-
-                <div
-                    v-if="!form.is_on_demand"
-                    class="grid grid-cols-1 md:grid-cols-2 gap-4"
-                >
-                    <TextInput
-                        id="start_date"
-                        label="Дата начала"
-                        v-model="form.start_date"
-                        type="date"
-                        :error="form.errors.start_date"
-                        required
-                    />
-                    <TextInput
-                        id="start_time"
-                        label="Время начала"
-                        v-model="form.start_time"
-                        type="time"
-                        :error="form.errors.start_time"
-                    />
-                    <TextInput
-                        id="end_date"
-                        label="Дата окончания"
-                        v-model="form.end_date"
-                        type="date"
-                        :error="form.errors.end_date"
-                    />
-                    <TextInput
-                        id="end_time"
-                        label="Время окончания"
-                        v-model="form.end_time"
-                        type="time"
-                        :error="form.errors.end_time"
-                    />
+        <form class="space-y-5" novalidate @submit.prevent="submitForm()">
+            <!-- 1. Основное -->
+            <section :class="box">
+                <h3 :class="boxTitle">1. Основное</h3>
+                <div>
+                    <label for="ev-title" :class="label">Название <span class="text-red-500">*</span></label>
+                    <input id="ev-title" v-model="form.title" :class="input" placeholder="2 ступень. Первая практика гинеколога-эстетиста" />
+                    <p v-if="form.errors.title" :class="error">{{ form.errors.title }}</p>
                 </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SelectInput
-                    id="event_type"
-                    label="Тип мероприятия"
-                    v-model="form.event_type"
-                    :options="eventTypeOptions"
-                    :error="form.errors.event_type"
-                    placeholder="Выберите тип"
-                    required
-                />
-
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="ev-type" :class="label">Тип <span class="text-red-500">*</span></label>
+                        <select id="ev-type" v-model="form.event_type" :class="input">
+                            <option value="" disabled>Выберите тип</option>
+                            <option v-for="o in eventTypeOptions" :key="o.value" :value="o.value">{{ o.text }}</option>
+                        </select>
+                        <p v-if="form.errors.event_type" :class="error">{{ form.errors.event_type }}</p>
+                    </div>
+                    <div>
+                        <label for="ev-format" :class="label">Формат</label>
+                        <select id="ev-format" v-model="form.format" :class="input">
+                            <option value="">Не указан</option>
+                            <option v-for="o in formatOptions" :key="o.value" :value="o.value">{{ o.text }}</option>
+                        </select>
+                        <p v-if="form.errors.format" :class="error">{{ form.errors.format }}</p>
+                    </div>
+                </div>
                 <MultiSelectInput
                     id="categories"
-                    label="Категории мероприятия"
+                    label="Категории"
                     v-model="form.selected_categories"
                     :options="categoryOptions"
-                    :error="
-                        form.errors.selected_categories ||
-                        form.errors.categories
-                    "
-                    placeholder="Выберите категории"
+                    :error="form.errors.selected_categories || form.errors.categories"
+                    placeholder="Выберите одну или несколько"
                     :searchable="true"
                     :show-selected="true"
-                >
-                    <template #hint>
-                        Выберите одну или несколько категорий для мероприятия
-                    </template>
-                </MultiSelectInput>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SelectInput
-                    id="format"
-                    label="Формат"
-                    v-model="form.format"
-                    :options="formatOptions"
-                    :error="form.errors.format"
-                    placeholder="Выберите формат"
                 />
-                <TextInput
-                    id="max_quantity"
-                    label="Максимальное число мест"
-                    type="number"
-                    min="0"
-                    step="1"
-                    v-model.number="form.max_quantity"
-                    :error="form.errors.max_quantity"
-                    placeholder="Оставьте пустым для безлимита"
-                />
+            </section>
 
-                <TextInput
-                    id="location"
-                    label="Место проведения"
-                    v-model="form.location"
-                    :error="form.errors.location"
-                    placeholder="Введите место проведения"
-                />
-                <TextInput
-                    id="external_url"
-                    label="Ссылка на внешний сайт"
-                    v-model="form.external_url"
-                    :error="form.errors.external_url"
-                    placeholder="https://example.com"
-                    type="url"
-                >
-                    <template #hint>
-                        Если указана ссылка, кнопка "Записаться" будет
-                        перенаправлять на этот сайт вместо регистрации
-                    </template>
-                </TextInput>
-            </div>
-
-            <div class="space-y-3 p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
-                <h4 class="text-sm font-medium text-gray-900 dark:text-white">
-                    Настройки оплаты
-                </h4>
-
-                <CheckboxInput
-                    id="is_paid"
-                    label="Платное мероприятие"
-                    v-model="form.is_paid"
-                    :error="form.errors.is_paid"
-                >
-                    <template #hint>
-                        Отметьте, если мероприятие платное (независимо от
-                        указания конкретной цены)
-                    </template>
-                </CheckboxInput>
-
-                <CheckboxInput
-                    id="show_price"
-                    label="Показывать цену на сайте"
-                    v-model="form.show_price"
-                    :error="form.errors.show_price"
-                    :disabled="!form.is_paid"
-                >
-                    <template #hint>
-                        {{
-                            form.is_paid
-                                ? 'Отметьте, если нужно показывать цену посетителям сайта (если цена не указана, покажется "Платно")'
-                                : "Доступно только для платных мероприятий"
-                        }}
-                    </template>
-                </CheckboxInput>
-
-                <!-- Поле стоимости - показывается для всех платных мероприятий -->
-                <div v-if="form.is_paid" class="transition-all duration-200">
-                    <TextInput
-                        id="price"
-                        label="Стоимость (необязательно)"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        v-model="form.price"
-                        :error="form.errors.price"
-                        placeholder="Введите стоимость мероприятия"
-                    >
-                        <template #hint>
-                            Укажите стоимость участия. Можно оставить пустым
-                            если цена уточняется позже
-                        </template>
-                    </TextInput>
-                </div>
-
-                <!-- Информационное сообщение -->
-                <div
-                    v-if="form.is_paid && !form.show_price"
-                    class="text-sm text-gray-600 dark:text-gray-400 italic"
-                >
-                    💡 Цена будет скрыта от посетителей. Отобразится просто
-                    "Платно"
-                </div>
-                <div
-                    v-if="!form.is_paid"
-                    class="text-sm text-gray-600 dark:text-gray-400 italic"
-                >
-                    💡 Мероприятие отмечено как бесплатное.
-                </div>
-            </div>
-
-            <TextInput
-                id="topic"
-                label="Тема"
-                v-model="form.topic"
-                :error="form.errors.topic"
-                placeholder="Введите тему мероприятия"
-            />
-
-            <!-- Секция Кинескопа -->
-            <div class="space-y-4 p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
-                <h4 class="text-sm font-medium text-gray-900 dark:text-white">
-                    Контент Кинескопа
-                </h4>
-
-                <SelectInput
-                    id="kinescope_type"
-                    label="Тип контента"
-                    v-model="form.kinescope_type"
-                    :options="kinescopeTypeOptions"
-                    :error="form.errors.kinescope_type"
-                    placeholder="Выберите тип контента"
-                >
-                    <template #hint>
-                        Выберите тип контента: отдельное видео или плейлист
-                    </template>
-                </SelectInput>
-
-                <div
-                    v-if="form.kinescope_type === 'video'"
-                    class="transition-all duration-200"
-                >
-                    <TextInput
-                        id="kinescope_id"
-                        label="ID видео Кинескопа"
-                        v-model="form.kinescope_id"
-                        :error="form.errors.kinescope_id"
-                        placeholder="Введите ID видео Кинескопа"
-                    >
-                        <template #hint>
-                            Идентификатор видео с платформы Кинескоп для
-                            встраивания записи мероприятия
-                        </template>
-                    </TextInput>
-                </div>
-
-                <div
-                    v-if="form.kinescope_type === 'playlist'"
-                    class="transition-all duration-200"
-                >
-                    <TextInput
-                        id="kinescope_playlist_id"
-                        label="ID плейлиста Кинескопа"
-                        v-model="form.kinescope_playlist_id"
-                        :error="form.errors.kinescope_playlist_id"
-                        placeholder="Введите ID плейлиста Кинескопа"
-                    >
-                        <template #hint>
-                            Идентификатор плейлиста с платформы Кинескоп для
-                            встраивания нескольких видео
-                        </template>
-                    </TextInput>
-                </div>
-
-                <!-- Информационное сообщение -->
-                <div
-                    v-if="!form.kinescope_type"
-                    class="text-sm text-gray-600 dark:text-gray-400 italic"
-                >
-                    💡 Выберите тип контента чтобы указать ID видео или
-                    плейлиста
-                </div>
-                <div
-                    v-if="form.kinescope_type === 'video' && form.kinescope_id"
-                    class="text-sm text-gray-600 dark:text-gray-400 italic"
-                >
-                    📹 Будет встроено одно видео с ID: {{ form.kinescope_id }}
-                </div>
-                <div
-                    v-if="
-                        form.kinescope_type === 'playlist' &&
-                        form.kinescope_playlist_id
-                    "
-                    class="text-sm text-gray-600 dark:text-gray-400 italic"
-                >
-                    🎬 Будет встроен плейлист с ID:
-                    {{ form.kinescope_playlist_id }}
-                </div>
-            </div>
-
-            <!-- Секция письма Sendsay -->
-            <div class="space-y-4 p-4 bg-gray-50 rounded-lg dark:bg-gray-800">
-                <h4 class="text-sm font-medium text-gray-900 dark:text-white">
-                    Уведомления Sendsay
-                </h4>
-
-                <TextInput
-                    id="groupsensay"
-                    label="Группа Sendsay"
-                    v-model="form.groupsensay"
-                    :error="form.errors.groupsensay"
-                    placeholder="Введите имя группы Sendsay"
-                >
-                    <template #hint> Group Sendsay </template>
-                </TextInput>
-
-                <TextInput
-                    id="letter_draft_id"
-                    label="ID письма"
-                    v-model="form.letter_draft_id"
-                    :error="form.errors.letter_draft_id"
-                    placeholder="Введите ID письма Sendsay"
-                >
-                    <template #hint>
-                        Идентификатор письма в Sendsay, которое будет отправлено
-                        участникам мероприятия
-                    </template>
-                </TextInput>
-
-                <!-- Информационное сообщение -->
-                <div
-                    v-if="form.letter_draft_id"
-                    class="text-sm text-gray-600 dark:text-gray-400 italic"
-                >
-                    📧 Будет использован письмо с ID: {{ form.letter_draft_id }}
-                </div>
-                <div
-                    v-if="!form.letter_draft_id"
-                    class="text-sm text-gray-600 dark:text-gray-400 italic"
-                >
-                    💡 Укажите ID письма для автоматической отправки участникам
-                </div>
-            </div>
-
-            <TextareaInput
-                id="short_description"
-                label="Краткое описание"
-                v-model="form.short_description"
-                :error="form.errors.short_description"
-                rows="2"
-                placeholder="Введите краткое описание мероприятия"
-            />
-
-            <RichTextEditor
-                id="full_description"
-                label="Полное описание"
-                v-model="form.full_description"
-                :error="form.errors.full_description"
-                placeholder="Введите полное описание мероприятия"
-                :upload-endpoint="route('admin.events.upload-image')"
-                :event-id="props.event?.id ?? null"
-            />
-
-            <SpeakerSelector
-                id="speakers"
-                label="Спикеры мероприятия"
-                v-model="form.speakers"
-                :speakers="speakers"
-                :error="form.errors.speakers"
-            />
-
-            <ImageUpload
-                label="Изображение"
-                v-model="form.image"
-                v-model:delete-photo="form.delete_image"
-                :error="form.errors.image"
-            />
-
-            <TextInput
-                id="sort_order"
-                label="Порядок сортировки"
-                type="number"
-                min="0"
-                v-model="form.sort_order"
-                :error="form.errors.sort_order"
-                placeholder="0"
-            />
-            <!-- Поле загрузки файла -->
-            <div class="mt-4">
-                <label
-                    for="event_file"
-                    class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                    Прикрепить файл *
+            <!-- 2. Дата и место -->
+            <section :class="box">
+                <h3 :class="boxTitle">2. Дата и место</h3>
+                <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
+                    <input v-model="form.is_on_demand" type="checkbox" :class="checkbox" />
+                    <span>Без даты — смотреть в любое время<span :class="hintInline">запись доступна сразу после регистрации</span></span>
                 </label>
-                <input
-                    type="file"
-                    id="event_file"
-                    @change="(e) => (form.file = e.target.files[0])"
-                    class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brandblue focus:outline-none focus:ring-1 focus:ring-brandblue sm:text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Поддерживаются файлы: PDF, DOCX, JPG, PNG (макс. 10 МБ)
-                </p>
-                <span v-if="form.errors.file" class="text-red-500 text-xs mt-1">
-                    {{ form.errors.file }}
-                </span>
-            </div>
-            <!-- Блок отображения текущего файла -->
-            <div v-if="form.file && !isEdit">
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Текущий файл:
-                    {{ form.file instanceof File ? form.file.name : form.file }}
-                </p>
-                <a :href="`/${props.event.file_path}`" target="_blank">
-                    Просмотреть файл
-                </a>
-            </div>
+                <div v-if="!form.is_on_demand" class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="ev-sd" :class="label">Дата начала <span class="text-red-500">*</span></label>
+                        <input id="ev-sd" v-model="form.start_date" type="date" :class="input" />
+                        <p v-if="form.errors.start_date" :class="error">{{ form.errors.start_date }}</p>
+                    </div>
+                    <div>
+                        <label for="ev-st" :class="label">Время начала, МСК</label>
+                        <input id="ev-st" v-model="form.start_time" type="time" :class="input" />
+                        <p v-if="form.errors.start_time" :class="error">{{ form.errors.start_time }}</p>
+                    </div>
+                    <div>
+                        <label for="ev-ed" :class="label">Дата окончания</label>
+                        <input id="ev-ed" v-model="form.end_date" type="date" :min="form.start_date || undefined" :class="input" />
+                        <p v-if="form.errors.end_date" :class="error">{{ form.errors.end_date }}</p>
+                    </div>
+                    <div>
+                        <label for="ev-et" :class="label">Время окончания, МСК</label>
+                        <input id="ev-et" v-model="form.end_time" type="time" :class="input" />
+                        <p v-if="form.errors.end_time" :class="error">{{ form.errors.end_time }}</p>
+                    </div>
+                </div>
+                <div v-if="form.format !== 'online'">
+                    <label for="ev-loc" :class="label">Место проведения</label>
+                    <input id="ev-loc" v-model="form.location" :class="input" placeholder="Москва, ул. Рабочая, 93" />
+                    <p v-if="form.errors.location" :class="error">{{ form.errors.location }}</p>
+                </div>
+            </section>
 
-            <!-- Если редактируем существующее мероприятие -->
-            <div v-if="isEdit && props.event?.file_path">
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Текущий файл:
-                    {{ form.file instanceof File ? form.file.name : form.file }}
-                </p>
-                <a
-                    :href="`/${props.event.file_path}`"
-                    target="_blank"
-                    class="text-blue-500 hover:underline text-sm"
-                >
-                    Скачать файл
-                </a>
-                <button
-                    @click="confirmDeleteFile"
-                    type="button"
-                    class="text-red-500 hover:text-red-700 text-sm font-medium"
-                >
-                    Удалить
-                </button>
-            </div>
-            <div class="space-y-3">
-                <CheckboxInput
-                    id="registration_enabled"
-                    label="Разрешить регистрацию на мероприятие"
-                    v-model="form.registration_enabled"
+            <!-- 3. Видео -->
+            <section :class="box">
+                <h3 :class="boxTitle">3. Видео Kinescope</h3>
+                <div>
+                    <label for="ev-video" :class="label">Ссылка или ID из Kinescope</label>
+                    <input id="ev-video" v-model="videoLink" :class="input" placeholder="https://kinescope.io/abc123 или https://kinescope.io/pl/xyz" @input="parseVideoLink" />
+                    <p :class="hint">Вставьте ссылку на видео или плейлист — тип определится сам. Можно оставить пустым и добавить запись позже.</p>
+                    <p v-if="form.errors.kinescope_id || form.errors.kinescope_playlist_id || form.errors.kinescope_type" :class="error">
+                        {{ form.errors.kinescope_id || form.errors.kinescope_playlist_id || form.errors.kinescope_type }}
+                    </p>
+                </div>
+                <div v-if="videoId" class="flex flex-wrap items-center gap-3 text-sm">
+                    <span class="rounded bg-zinc-100 px-2 py-1 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+                        {{ form.kinescope_type === "playlist" ? "Плейлист" : "Видео" }} · {{ videoId }}
+                    </span>
+                    <label v-if="!detectedFromUrl" class="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                        <input v-model="isPlaylist" type="checkbox" :class="checkbox" /> это плейлист
+                    </label>
+                    <button type="button" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400" @click="showPreview = !showPreview">
+                        {{ showPreview ? "Скрыть плеер" : "Проверить в плеере" }}
+                    </button>
+                </div>
+                <div v-if="videoId && showPreview" class="aspect-video overflow-hidden rounded-lg bg-black">
+                    <iframe :src="embedUrl" class="h-full w-full" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen title="Проверка видео"></iframe>
+                </div>
+                <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
+                    <input v-model="form.is_live" type="checkbox" :class="checkbox" />
+                    <span>Прямая трансляция<span :class="hintInline">во время проведения мероприятие будет помечено «В эфире» и откроется чат</span></span>
+                </label>
+            </section>
+
+            <!-- 4. Доступ и оплата -->
+            <section :class="box">
+                <h3 :class="boxTitle">4. Доступ и оплата</h3>
+                <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Оплата">
+                    <label :class="[pill, !form.is_paid ? pillOn : '']">
+                        <input v-model="form.is_paid" type="radio" :value="false" class="sr-only" /> Бесплатное
+                    </label>
+                    <label :class="[pill, form.is_paid ? pillOn : '']">
+                        <input v-model="form.is_paid" type="radio" :value="true" class="sr-only" /> Платное
+                    </label>
+                </div>
+                <div v-if="form.is_paid" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="ev-price" :class="label">Стоимость, ₽ <span class="text-red-500">*</span></label>
+                        <input id="ev-price" v-model="form.price" type="number" min="0" step="1" inputmode="numeric" :class="input" placeholder="5000" />
+                        <p v-if="form.errors.price" :class="error">{{ form.errors.price }}</p>
+                    </div>
+                    <label class="flex items-start gap-2 text-sm text-zinc-900 sm:pt-7 dark:text-white">
+                        <input v-model="form.show_price" type="checkbox" :class="checkbox" />
+                        <span>Показывать цену на сайте<span :class="hintInline">иначе будет написано «Платно»</span></span>
+                    </label>
+                </div>
+                <p v-else :class="hint">Смотреть смогут все, кто зарегистрировался.</p>
+
+                <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
+                    <input v-model="form.registration_enabled" type="checkbox" :class="checkbox" />
+                    <span>Открыта регистрация</span>
+                </label>
+                <div v-if="form.registration_enabled" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="ev-max" :class="label">Мест</label>
+                        <input id="ev-max" v-model.number="form.max_quantity" type="number" min="0" step="1" :class="input" placeholder="Без ограничений" />
+                        <p v-if="form.errors.max_quantity" :class="error">{{ form.errors.max_quantity }}</p>
+                    </div>
+                    <div>
+                        <label for="ev-ext" :class="label">Регистрация на другом сайте</label>
+                        <input id="ev-ext" v-model="form.external_url" type="url" :class="input" placeholder="https://" />
+                        <p :class="hint">Если заполнить, кнопка «Записаться» поведёт туда.</p>
+                        <p v-if="form.errors.external_url" :class="error">{{ form.errors.external_url }}</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. Описание и материалы -->
+            <section :class="box">
+                <h3 :class="boxTitle">5. Описание и материалы</h3>
+                <div>
+                    <label for="ev-short" :class="label">Кратко</label>
+                    <textarea id="ev-short" v-model="form.short_description" rows="2" :class="input" placeholder="Одно-два предложения для карточки в каталоге"></textarea>
+                    <p v-if="form.errors.short_description" :class="error">{{ form.errors.short_description }}</p>
+                </div>
+                <RichTextEditor
+                    id="full_description"
+                    label="Подробное описание"
+                    v-model="form.full_description"
+                    :error="form.errors.full_description"
+                    placeholder="Для кого, о чём, программа"
+                    :upload-endpoint="route('admin.events.upload-image')"
+                    :event-id="props.event?.id ?? null"
                 />
-                <CheckboxInput
-                    id="is_live"
-                    label="Прямая трансляция"
-                    v-model="form.is_live"
-                >
-                    <template #hint>
-                        Отметьте, если событие транслируется в прямом эфире
-                    </template>
-                </CheckboxInput>
-                <CheckboxInput
-                    id="is_active"
-                    label="Активное мероприятие"
-                    v-model="form.is_active"
-                />
-                <CheckboxInput
-                    id="is_archived"
-                    label="В архиве"
-                    v-model="form.is_archived"
-                />
-            </div>
+                <div>
+                    <label for="ev-topic" :class="label">Тема</label>
+                    <input id="ev-topic" v-model="form.topic" :class="input" placeholder="Например, инъекционные методики" />
+                </div>
+                <SpeakerSelector id="speakers" label="Спикеры" v-model="form.speakers" :speakers="speakers" :error="form.errors.speakers" />
+                <ImageUpload label="Обложка" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
+
+                <div>
+                    <span :class="label">Программа мероприятия</span>
+                    <div v-if="currentFile" class="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
+                        <span class="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{{ currentFile.name }}</span>
+                        <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть</a>
+                        <button type="button" class="font-medium text-red-600 hover:underline" @click="removeFile">Убрать</button>
+                    </div>
+                    <input v-else id="event_file" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png" :class="[input, 'py-1.5']" @change="pickFile" />
+                    <p :class="hint">Необязательно. PDF, DOCX, JPG или PNG до 10 МБ.<template v-if="form.delete_file"> Файл удалится после сохранения.</template></p>
+                    <p v-if="form.errors.file" :class="error">{{ form.errors.file }}</p>
+                </div>
+            </section>
+
+            <!-- 6. Публикация -->
+            <section :class="box">
+                <h3 :class="boxTitle">6. Публикация</h3>
+                <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
+                    <input v-model="form.is_active" type="checkbox" :class="checkbox" />
+                    <span>Показывать на сайте<span :class="hintInline">выключите, чтобы сохранить черновик</span></span>
+                </label>
+                <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
+                    <input v-model="form.is_archived" type="checkbox" :class="checkbox" />
+                    <span>В архиве<span :class="hintInline">мероприятие прошло, на сайте будет в разделе записей</span></span>
+                </label>
+            </section>
+
+            <!-- Дополнительно -->
+            <details class="rounded-lg border border-zinc-200 dark:border-zinc-700" :open="hasAdvancedErrors">
+                <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-white">Дополнительно</summary>
+                <div class="space-y-4 px-4 pb-4">
+                    <div>
+                        <label for="ev-slug" :class="label">Адрес страницы</label>
+                        <input id="ev-slug" v-model="form.slug" :class="input" placeholder="Заполнится из названия" />
+                        <p :class="hint">mag-expert.ru/events/<b>{{ form.slug || "адрес-из-названия" }}</b></p>
+                        <p v-if="form.errors.slug" :class="error">{{ form.errors.slug }}</p>
+                    </div>
+                    <div>
+                        <label for="ev-sort" :class="label">Порядок в списках</label>
+                        <input id="ev-sort" v-model.number="form.sort_order" type="number" min="0" :class="input" />
+                        <p :class="hint">Чем меньше число, тем выше. Обычно 0.</p>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="ev-group" :class="label">Группа Sendsay</label>
+                            <input id="ev-group" v-model="form.groupsensay" :class="input" />
+                        </div>
+                        <div>
+                            <label for="ev-letter" :class="label">ID письма Sendsay</label>
+                            <input id="ev-letter" v-model="form.letter_draft_id" :class="input" />
+                        </div>
+                    </div>
+                    <p :class="hint">Поля Sendsay нужны только для старых рассылок — письма участникам теперь уходят через Sender.</p>
+                </div>
+            </details>
         </form>
 
         <template #footer>
-            <div class="flex justify-end gap-3">
-                <SecondaryButton @click="closeModal"> Отмена </SecondaryButton>
-                <PrimaryButton
-                    @click="submitForm"
-                    :processing="form.processing"
-                >
-                    {{ isEdit ? "Сохранить" : "Создать мероприятие" }}
-                </PrimaryButton>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <span v-if="Object.keys(form.errors).length" class="text-sm text-red-600">Проверьте поля, отмеченные красным</span>
+                <span v-else></span>
+                <div class="flex gap-3">
+                    <SecondaryButton @click="requestClose">Отмена</SecondaryButton>
+                    <PrimaryButton :processing="form.processing" :disabled="form.processing" @click="submitForm()">
+                        {{ form.processing ? "Сохраняем…" : isEdit ? "Сохранить" : "Создать мероприятие" }}
+                    </PrimaryButton>
+                </div>
             </div>
         </template>
     </SlideOverModal>
 </template>
 
 <script setup>
-import { computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import SlideOverModal from "@/Components/Modal/SlideOverModal.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
-import TextInput from "@/Components/Form/TextInput.vue";
-import TextareaInput from "@/Components/Form/TextareaInput.vue";
-import SelectInput from "@/Components/Form/SelectInput.vue";
 import MultiSelectInput from "@/Components/Form/MultiSelectInput.vue";
-import CheckboxInput from "@/Components/Form/CheckboxInput.vue";
 import ImageUpload from "@/Components/Form/ImageUpload.vue";
 import SpeakerSelector from "@/Components/Form/SpeakerSelector.vue";
 import RichTextEditor from "@/Components/Form/RichTextEditor.vue";
 
 const props = defineProps({
-    show: {
-        type: Boolean,
-        default: false,
-    },
-    event: {
-        type: Object,
-        default: null,
-    },
-    categories: {
-        type: Array,
-        default: () => [],
-    },
-    speakers: {
-        type: Array,
-        default: () => [],
-    },
+    show: { type: Boolean, default: false },
+    event: { type: Object, default: null },
+    categories: { type: Array, default: () => [] },
+    speakers: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["close", "created", "updated"]);
 const toast = useToast();
-
 const isEdit = computed(() => !!props.event);
 
-const form = useForm({
+// Общие классы полей — просто и одинаково во всей форме
+const box = "space-y-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700";
+const boxTitle = "text-sm font-semibold text-zinc-900 dark:text-white";
+const label = "mb-1 block text-sm font-medium text-zinc-800 dark:text-zinc-200";
+const input = "block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-white dark:focus:ring-white";
+const checkbox = "mt-0.5 size-4 shrink-0 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800";
+const hint = "mt-1 text-xs text-zinc-500 dark:text-zinc-400";
+const hintInline = "block text-xs text-zinc-500 dark:text-zinc-400";
+const error = "mt-1 text-sm text-red-600 dark:text-red-400";
+const pill = "cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200";
+const pillOn = "!border-zinc-900 bg-zinc-900 !text-white dark:!border-white dark:bg-white dark:!text-zinc-900";
+
+const blank = {
     title: "",
     slug: "",
     start_date: "",
@@ -548,11 +297,11 @@ const form = useForm({
     external_url: "",
     price: "",
     is_paid: false,
-    show_price: false,
-    format: "",
+    show_price: true,
+    format: "online",
     image: null,
     registration_enabled: true,
-    selected_categories: [], // Множественный выбор категорий
+    selected_categories: [],
     is_active: true,
     sort_order: 0,
     is_archived: false,
@@ -566,217 +315,214 @@ const form = useForm({
     groupsensay: "",
     max_quantity: null,
     file: null,
-    delete_file: false, // Флаг для удаления файла
+    delete_file: false,
     _method: "POST",
-});
+};
+const form = useForm({ ...blank });
 
 const eventTypeOptions = [
     { value: "webinar", text: "Вебинар" },
-    { value: "conference", text: "Конференция" },
     { value: "workshop", text: "Мастер-класс" },
+    { value: "course", text: "Курс" },
+    { value: "seminar", text: "Семинар" },
+    { value: "conference", text: "Конференция" },
     { value: "other", text: "Другое" },
 ];
-
 const formatOptions = [
     { value: "online", text: "Онлайн" },
     { value: "offline", text: "Офлайн" },
-    { value: "hybrid", text: "Гибридный" },
+    { value: "hybrid", text: "Гибрид" },
 ];
+const categoryOptions = computed(() => props.categories.map((c) => ({ value: c.id, text: c.name })));
 
-const kinescopeTypeOptions = [
-    { value: "video", text: "Отдельное видео" },
-    { value: "playlist", text: "Плейлист" },
-];
+// ---------- Видео Kinescope: одна строка вместо «тип + ID» ----------
+const videoLink = ref("");
+const detectedFromUrl = ref(false);
+const showPreview = ref(false);
+const videoId = computed(() => (form.kinescope_type === "playlist" ? form.kinescope_playlist_id : form.kinescope_id));
+const isPlaylist = computed({
+    get: () => form.kinescope_type === "playlist",
+    set: (value) => {
+        const id = videoId.value;
+        form.kinescope_type = value ? "playlist" : "video";
+        form.kinescope_id = value ? "" : id;
+        form.kinescope_playlist_id = value ? id : "";
+    },
+});
+const embedUrl = computed(() => (form.kinescope_type === "playlist" ? `https://kinescope.io/embed/pl/${videoId.value}` : `https://kinescope.io/embed/${videoId.value}`));
 
-const categoryOptions = computed(() =>
-    props.categories.map((category) => ({
-        value: category.id,
-        text: category.name,
-    }))
-);
-const confirmDeleteFile = () => {
-    if (window.confirm("Вы уверены, что хотите удалить файл?")) {
-        deleteFile();
+function parseVideoLink() {
+    const raw = videoLink.value.trim();
+    showPreview.value = false;
+    form.kinescope_id = "";
+    form.kinescope_playlist_id = "";
+    form.kinescope_type = "";
+    detectedFromUrl.value = false;
+    if (!raw) {
+        return;
     }
-};
+    const playlist = raw.match(/kinescope\.io\/(?:embed\/)?pl\/([\w-]+)/i);
+    const video = raw.match(/kinescope\.io\/(?:embed\/|watch\/)?([\w-]+)/i);
+    if (playlist) {
+        form.kinescope_type = "playlist";
+        form.kinescope_playlist_id = playlist[1];
+        detectedFromUrl.value = true;
+    } else if (video) {
+        form.kinescope_type = "video";
+        form.kinescope_id = video[1];
+        detectedFromUrl.value = true;
+    } else if (/^[\w-]+$/.test(raw)) {
+        form.kinescope_type = "video";
+        form.kinescope_id = raw;
+    }
+}
 
-const deleteFile = () => {
-    if (window.confirm("Вы уверены, что хотите удалить файл?")) {
-        // сразу убираем файл из интерфейса
+// ---------- Программа мероприятия ----------
+const existingFile = ref(null);
+const currentFile = computed(() => {
+    if (form.file instanceof File) {
+        return { name: form.file.name, url: null };
+    }
+    if (existingFile.value && !form.delete_file) {
+        return { name: existingFile.value.split("/").pop(), url: `/${existingFile.value}` };
+    }
+    return null;
+});
+function pickFile(event) {
+    form.file = event.target.files?.[0] ?? null;
+}
+function removeFile() {
+    if (form.file instanceof File) {
         form.file = null;
-        form.delete_file = true;
-
-        if (props.event) {
-            props.event.file_path = null; // сразу убираем отображение файла
-        }
-
-        submitForm({ keepOpen: true });
+        return;
     }
-};
+    // удалится вместе с сохранением формы, без отдельного запроса
+    form.delete_file = true;
+}
+
+// ---------- Заполнение при редактировании ----------
+function resetForm() {
+    form.defaults({ ...blank });
+    form.reset();
+    form.clearErrors();
+    videoLink.value = "";
+    detectedFromUrl.value = false;
+    showPreview.value = false;
+    existingFile.value = null;
+}
+
+function fill(event) {
+    const values = {
+        ...blank,
+        title: event.title || "",
+        slug: event.slug || "",
+        start_date: event.start_date ? String(event.start_date).slice(0, 10) : "",
+        start_time: event.start_time ? String(event.start_time).slice(0, 5) : "",
+        end_date: event.end_date ? String(event.end_date).slice(0, 10) : "",
+        end_time: event.end_time ? String(event.end_time).slice(0, 5) : "",
+        is_on_demand: !!event.is_on_demand,
+        event_type: event.event_type || "",
+        short_description: event.short_description || "",
+        full_description: event.full_description || "",
+        topic: event.topic || "",
+        location: event.location || "",
+        external_url: event.external_url || "",
+        price: event.price ? String(Math.round(Number(event.price))) : "",
+        is_paid: !!event.is_paid,
+        show_price: event.show_price ?? true,
+        format: event.format || "",
+        image: event.image || null,
+        registration_enabled: event.registration_enabled ?? true,
+        selected_categories: (event.categories || []).map((c) => c.id),
+        is_active: event.is_active ?? true,
+        sort_order: event.sort_order || 0,
+        is_archived: !!event.is_archived,
+        speakers: (event.speakers || []).map((s) => ({
+            id: s.id,
+            role: s.pivot?.role || "",
+            topic: s.pivot?.topic || "",
+            sort_order: s.pivot?.sort_order || 0,
+        })),
+        kinescope_id: event.kinescope_id || "",
+        kinescope_playlist_id: event.kinescope_playlist_id || "",
+        kinescope_type: event.kinescope_type || (event.kinescope_playlist_id ? "playlist" : event.kinescope_id ? "video" : ""),
+        is_live: !!event.is_live,
+        letter_draft_id: event.letter_draft_id || "",
+        groupsensay: event.groupsensay || "",
+        max_quantity: event.max_quantity ?? null,
+        _method: "PUT",
+    };
+    form.defaults(values);
+    form.reset();
+    form.clearErrors();
+    existingFile.value = event.file_path || null;
+    const id = values.kinescope_type === "playlist" ? values.kinescope_playlist_id : values.kinescope_id;
+    videoLink.value = id ? (values.kinescope_type === "playlist" ? `https://kinescope.io/pl/${id}` : `https://kinescope.io/${id}`) : "";
+    detectedFromUrl.value = !!id;
+    showPreview.value = false;
+}
 
 watch(
-    () => props.event,
-    (newEvent) => {
-        if (newEvent) {
-            form.title = newEvent.title || "";
-            form.slug = newEvent.slug || "";
-            // Даты уже приходят в формате Y-m-d из модели, используем как есть
-            form.start_date = newEvent.start_date || "";
-            form.start_time = newEvent.start_time || "";
-            form.end_date = newEvent.end_date || "";
-            form.end_time = newEvent.end_time || "";
-            form.is_on_demand = newEvent.is_on_demand ?? false;
-            form.event_type = newEvent.event_type || "";
-            form.short_description = newEvent.short_description || "";
-            form.full_description = newEvent.full_description || "";
-            form.topic = newEvent.topic || "";
-            form.location = newEvent.location || "";
-            form.external_url = newEvent.external_url || ""; // Внешняя ссылка
-            form.price = newEvent.price || "";
-            form.format = newEvent.format || "";
-            form.registration_enabled = newEvent.registration_enabled ?? true;
-            form.is_active = newEvent.is_active ?? true;
-            form.sort_order = newEvent.sort_order || 0;
-            form.is_archived = newEvent.is_archived ?? false;
-            form.image = newEvent.image || null;
-            form.kinescope_id = newEvent.kinescope_id || "";
-            form.kinescope_playlist_id = newEvent.kinescope_playlist_id || "";
-            form.kinescope_type = newEvent.kinescope_type || "";
-            form.is_paid = newEvent.is_paid ?? false;
-            form.show_price = newEvent.show_price ?? false;
-            form.is_live = newEvent.is_live ?? false;
-            form.letter_draft_id = newEvent.letter_draft_id || "";
-            form.groupsensay = newEvent.groupsensay || "";
-            form.max_quantity = newEvent.max_quantity ?? null;
-            form.file = newEvent.file_path || null; // Путь к файлу программы
-
-            // Загружаем выбранные категории
-            form.selected_categories = newEvent.categories
-                ? newEvent.categories.map((cat) => cat.id)
-                : [];
-
-            // Загружаем спикеров, если они есть
-            form.speakers = newEvent.speakers
-                ? newEvent.speakers.map((speaker) => ({
-                      id: speaker.id,
-                      role: speaker.pivot.role || "",
-                      topic: speaker.pivot.topic || "",
-                      sort_order: speaker.pivot.sort_order || 0,
-                  }))
-                : [];
-
-            form._method = "PUT";
+    () => [props.show, props.event],
+    () => {
+        if (props.event) {
+            fill(props.event);
         } else {
             resetForm();
-            form._method = "POST";
         }
     },
     { immediate: true }
 );
 
-// Автоматически сбрасываем show_price если мероприятие становится бесплатным
-watch(
-    () => form.is_paid,
-    (newValue) => {
-        if (!newValue) {
-            form.show_price = false;
-            form.price = "";
-        }
-    }
-);
+// ---------- Закрытие и сохранение ----------
+const hasAdvancedErrors = computed(() => ["slug", "sort_order", "groupsensay", "letter_draft_id"].some((key) => form.errors[key]));
 
-// Автоматически включаем показ цены если она указана
-watch(
-    () => form.price,
-    (newValue) => {
-        if (newValue && form.is_paid && !form.show_price) {
-            form.show_price = true;
-        }
+function requestClose() {
+    if (form.isDirty && !window.confirm("Закрыть без сохранения? Введённые данные пропадут.")) {
+        return;
     }
-);
-
-// Очищаем поля Кинескопа при смене типа
-watch(
-    () => form.kinescope_type,
-    (newValue, oldValue) => {
-        if (oldValue && newValue !== oldValue) {
-            form.kinescope_id = "";
-            form.kinescope_playlist_id = "";
-        }
-    }
-);
-
-const closeModal = () => {
     resetForm();
     emit("close");
-};
-
-function resetForm() {
-    form.reset();
-    form.clearErrors();
 }
 
-const submitForm = (options = { keepOpen: false, onSuccess: null }) => {
-    const url = isEdit.value
-        ? route("admin.events.update", props.event.id)
-        : route("admin.events.store");
+function submitForm() {
+    const url = isEdit.value ? route("admin.events.update", props.event.id) : route("admin.events.store");
 
     form.transform((data) => ({
         ...data,
-        delete_file: data.delete_file ? 1 : 0,
-        start_time: data.start_time || null,
-        end_date: data.end_date || null,
-        end_time: data.end_time || null,
-        price: data.price === "" ? null : data.price,
-        is_paid: data.is_paid,
+        start_date: data.is_on_demand ? null : data.start_date || null,
+        start_time: data.is_on_demand ? null : data.start_time || null,
+        end_date: data.is_on_demand ? null : data.end_date || null,
+        end_time: data.is_on_demand ? null : data.end_time || null,
+        location: data.location || null,
+        external_url: data.external_url || null,
+        format: data.format || null,
+        price: data.is_paid && data.price !== "" ? data.price : null,
         show_price: data.is_paid ? data.show_price : false,
-        kinescope_id:
-            data.kinescope_type === "video" ? data.kinescope_id : null,
-        kinescope_playlist_id:
-            data.kinescope_type === "playlist"
-                ? data.kinescope_playlist_id
-                : null,
         kinescope_type: data.kinescope_type || null,
+        kinescope_id: data.kinescope_type === "video" ? data.kinescope_id : null,
+        kinescope_playlist_id: data.kinescope_type === "playlist" ? data.kinescope_playlist_id : null,
         categories: data.selected_categories || [],
-        is_live: data.is_live,
         letter_draft_id: data.letter_draft_id || null,
         groupsensay: data.groupsensay || null,
-        max_quantity:
-            data.max_quantity === "" || data.max_quantity == null
-                ? null
-                : Number(data.max_quantity),
+        max_quantity: data.max_quantity === "" || data.max_quantity == null ? null : Number(data.max_quantity),
+        sort_order: Number(data.sort_order) || 0,
+        delete_file: data.delete_file ? 1 : 0,
+        file: data.file instanceof File ? data.file : null,
+        image: data.image instanceof File ? data.image : undefined,
     })).post(url, {
-        forceFormData:
-            form.image instanceof File ||
-            form.file instanceof File ||
-            form.delete_file,
+        forceFormData: true,
+        preserveScroll: true,
         onSuccess: () => {
-            const message = isEdit.value
-                ? "Мероприятие успешно обновлено"
-                : "Мероприятие успешно создано";
-            toast.success(message);
-
-            // сбрасываем флаг удаления
-            form.delete_file = false;
-
-            if (!options.keepOpen) {
-                closeModal();
-                emit(isEdit.value ? "updated" : "created");
-            } else {
-                emit("updated"); // событие, если хотим сразу обновить родителя
-            }
+            // сообщение об успехе показывает страница по flash с сервера
+            const wasEdit = isEdit.value;
+            resetForm();
+            emit("close");
+            emit(wasEdit ? "updated" : "created");
         },
         onError: () => {
-            toast.error("Пожалуйста, исправьте ошибки в форме");
+            toast.error("Проверьте поля, отмеченные красным");
         },
     });
-};
-const submitFormAndClose = () => {
-    submitForm({
-        keepOpen: true, // не закрывать сразу внутри submitForm
-        onSuccess: () => {
-            closeModal(); // закрываем только при успехе
-        },
-    });
-};
+}
 </script>
