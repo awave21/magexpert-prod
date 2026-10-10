@@ -54,7 +54,7 @@ class AuthService
         });
     }
 
-    private function issueToken(User $user): string
+    public function issueToken(User $user): string
     {
         $plain = self::PREFIX.Str::random(48);
 

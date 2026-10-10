@@ -16,6 +16,7 @@ use App\Sender\Http\Controllers\Admin\TemplateFolderController;
 use App\Sender\Http\Controllers\Admin\VariableController;
 use App\Sender\Http\Controllers\ConfirmSenderAddressController;
 use App\Sender\Http\Controllers\MessageController;
+use App\Sender\Http\Controllers\OAuthController;
 use App\Sender\Http\Controllers\TrackController;
 use App\Sender\Http\Controllers\UnsubscribeController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
@@ -32,6 +33,9 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
     Route::prefix('admin')->name('sender.admin.')->group(function (): void {
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
         Route::post('register', [AuthController::class, 'register'])->middleware('throttle:10,60')->name('register');
+        Route::post('oauth/exchange', [AuthController::class, 'oauthExchange'])->middleware('throttle:20,1')->name('oauth.exchange');
+        Route::get('oauth/pending', [AuthController::class, 'oauthPending'])->middleware('throttle:30,1')->name('oauth.pending');
+        Route::post('oauth/register', [AuthController::class, 'oauthRegister'])->middleware('throttle:10,60')->name('oauth.register');
 
         Route::middleware(AuthenticateUser::class)->group(function (): void {
             Route::get('me', [AuthController::class, 'me'])->name('me');
@@ -112,6 +116,10 @@ if ($uiHost = SenderUi::host()) {
     Route::domain($uiHost)->group(function (): void {
         Route::get('confirm-address/{token}', ConfirmSenderAddressController::class)
             ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.ui-host.confirm-address');
+        Route::middleware('web')->group(function (): void {
+            Route::get('oauth/{provider}/redirect', [OAuthController::class, 'redirect'])->whereIn('provider', ['yandex', 'vkid'])->name('sender.ui-host.oauth.redirect');
+            Route::get('oauth/{provider}/callback', [OAuthController::class, 'callback'])->whereIn('provider', ['yandex', 'vkid'])->middleware('throttle:30,1');
+        });
         Route::get('t/o/{uuid}', [TrackController::class, 'open'])->whereUuid('uuid');
         Route::get('t/c/{uuid}', [TrackController::class, 'click'])->whereUuid('uuid');
         Route::get('unsubscribe/{uuid}', [UnsubscribeController::class, 'show'])->whereUuid('uuid')->name('sender.ui-host.unsubscribe');
@@ -124,6 +132,12 @@ if ($uiHost = SenderUi::host()) {
 // Подтверждение адреса отправителя по ссылке из письма (страница без входа в админку)
 Route::get('sender/confirm-address/{token}', ConfirmSenderAddressController::class)
     ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.confirm-address');
+
+// Вход в Sender через Яндекс ID и VK ID (нужна сессия: Socialite хранит в ней state и PKCE)
+Route::middleware('web')->group(function (): void {
+    Route::get('sender/oauth/{provider}/redirect', [OAuthController::class, 'redirect'])->whereIn('provider', ['yandex', 'vkid'])->name('sender.oauth.redirect');
+    Route::get('sender/oauth/{provider}/callback', [OAuthController::class, 'callback'])->whereIn('provider', ['yandex', 'vkid'])->middleware('throttle:30,1')->name('sender.oauth.callback');
+});
 
 // Учёт открытий и переходов по ссылкам из писем рассылок
 Route::get('sender/t/o/{uuid}', [TrackController::class, 'open'])->whereUuid('uuid')->name('sender.track.open');

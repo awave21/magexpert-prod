@@ -33,4 +33,9 @@ class User extends SenderModel
     {
         return $this->hasMany(UserToken::class, 'user_id');
     }
+
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class, 'user_id');
+    }
 }

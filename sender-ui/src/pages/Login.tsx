@@ -1,17 +1,33 @@
-import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Mail } from 'lucide-react'
-import { ApiError } from '../api'
+import { api, ApiError, type User } from '../api'
+import { SocialButtons } from '../components/SocialButtons'
 import { useAuth } from '../auth'
 import { AuthAside } from './AuthAside'
 import { PasswordInput } from '../components/ui'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, signIn } = useAuth()
+  const [params, setParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // возврат после Яндекса или ВКонтакте: одноразовый код меняем на токен, ошибку показываем
+  useEffect(() => {
+    const code = params.get('oauth')
+    const failed = params.get('error')
+    if (failed) { setError(failed); setParams({}, { replace: true }) }
+    if (!code) return
+    setBusy(true)
+    setParams({}, { replace: true })
+    api<{ token: string; user: { data?: User } & User }>('/oauth/exchange', { method: 'POST', body: { code } })
+      .then(signIn)
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Не удалось войти. Попробуйте ещё раз'))
+      .finally(() => setBusy(false))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -43,10 +59,7 @@ export default function Login() {
             <button className="btn primary lg" disabled={busy || !email || !password}>{busy ? 'Входим…' : 'Войти'}</button>
           </form>
           <div className="divider">или</div>
-          <button className="btn lg" type="button" disabled title="Вход через Яндекс появится позже" style={{ marginTop: -12 }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#FC3F1D', color: '#fff', display: 'inline-grid', placeItems: 'center', fontSize: 13, fontWeight: 700 }}>Я</span>
-            Войти через Яндекс
-          </button>
+          <SocialButtons />
           <p style={{ color: 'var(--ink-2)' }}>Нет аккаунта? <Link to="/register" style={{ fontWeight: 500 }}>Зарегистрироваться</Link></p>
           <p className="sub"><Link to="/privacy">Политика обработки персональных данных</Link></p>
         </div>

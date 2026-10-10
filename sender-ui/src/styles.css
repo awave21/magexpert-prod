@@ -810,3 +810,9 @@ button { font: inherit; color: inherit; }
 .dns-current .mono { overflow-wrap: anywhere; color: var(--ink-2); }
 .chip.ok { background: var(--ok-soft); color: var(--ok); }
 .chip.err { background: var(--err-soft); color: var(--err); }
+
+/* вход через Яндекс и ВКонтакте */
+.social-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: -12px; }
+.social-btns .btn { justify-content: center; gap: 10px; }
+.social-ic { width: 22px; height: 22px; flex: none; display: inline-grid; place-items: center; color: #fff; font-size: 13px; font-weight: 700; }
+@media (max-width: 420px) { .social-btns { grid-template-columns: 1fr; } }
