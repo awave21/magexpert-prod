@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ba4af3400429bc22985e2190b2fcff3e",
+    "content-hash": "72801cb8ca7b4a0c15bd46b11be24c77",
     "packages": [
         {
             "name": "brick/math",
@@ -5096,57 +5096,6 @@
                 "source": "https://github.com/socialiteproviders/manager"
             },
             "time": "2026-03-18T22:13:24+00:00"
-        },
-        {
-            "name": "socialiteproviders/vkid",
-            "version": "5.1.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/SocialiteProviders/VKID.git",
-                "reference": "3d9d97d9a2b6d0d62eff7c6835df3a1770f55cd2"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/SocialiteProviders/VKID/zipball/3d9d97d9a2b6d0d62eff7c6835df3a1770f55cd2",
-                "reference": "3d9d97d9a2b6d0d62eff7c6835df3a1770f55cd2",
-                "shasum": ""
-            },
-            "require": {
-                "ext-json": "*",
-                "php": "^8.4",
-                "socialiteproviders/manager": "^4.4"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "SocialiteProviders\\VKID\\": ""
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Vladimir Kharinenkov",
-                    "email": "vhar@mail.ru"
-                }
-            ],
-            "description": "VK ID OAuth2 Provider for Laravel Socialite",
-            "keywords": [
-                "laravel",
-                "oauth",
-                "provider",
-                "socialite",
-                "vkid",
-                "vkontakte"
-            ],
-            "support": {
-                "docs": "https://socialiteproviders.com/vkid",
-                "issues": "https://github.com/socialiteproviders/providers/issues",
-                "source": "https://github.com/socialiteproviders/providers"
-            },
-            "time": "2026-02-04T19:08:05+00:00"
         },
         {
             "name": "socialiteproviders/yandex",
@@ -11331,5 +11280,8 @@
         "php": "^8.2"
     },
     "platform-dev": {},
+    "platform-overrides": {
+        "php": "8.2.29"
+    },
     "plugin-api-version": "2.6.0"
 }

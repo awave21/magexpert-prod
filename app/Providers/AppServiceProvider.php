@@ -26,7 +26,9 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(function (SocialiteWasCalled $event): void {
             $event->extendSocialite('yandex', \SocialiteProviders\Yandex\Provider::class);
-            $event->extendSocialite('vkid', \SocialiteProviders\VKID\Provider::class);
+            if (class_exists(\SocialiteProviders\VKID\Provider::class)) {
+                $event->extendSocialite('vkid', \SocialiteProviders\VKID\Provider::class);
+            }
         });
     }
 }
