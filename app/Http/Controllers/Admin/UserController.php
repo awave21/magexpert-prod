@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Role;
 use App\Models\Event;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Inertia\Response;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 
@@ -24,15 +25,15 @@ class UserController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('middle_name', 'like', "%{$search}%")
-                  ->orWhere(function ($subQuery) use ($search) {
-                      $subQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
-                  })
-                  ->orWhere(function ($subQuery) use ($search) {
-                      $subQuery->whereRaw("CONCAT(last_name, ' ', first_name) LIKE ?", ["%{$search}%"]);
-                  })
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhere(function ($subQuery) use ($search) {
+                        $subQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
+                    })
+                    ->orWhere(function ($subQuery) use ($search) {
+                        $subQuery->whereRaw("CONCAT(last_name, ' ', first_name) LIKE ?", ["%{$search}%"]);
+                    })
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -53,33 +54,33 @@ class UserController extends Controller
         $perPage = $request->input('per_page', 10);
         $paginator = $query->paginate($perPage)
             ->withQueryString();
-            
+
         // Создаем кастомные ссылки для пагинации с русскими метками
         $paginator->setPath(route('admin.users'));
         $paginator->appends($request->except('page'));
-        
+
         // Модифицируем ссылки пагинации
         $paginatorInfo = $paginator->toArray();
-        
-            // Добавляем полное имя и информацию об аватарке для каждого пользователя
-    $userIds = array_column($paginatorInfo['data'], 'id');
-    $userModels = User::whereIn('id', $userIds)->get()->keyBy('id');
-    
-    foreach ($paginatorInfo['data'] as &$user) {
-        if (isset($userModels[$user['id']])) {
-            $userModel = $userModels[$user['id']];
-            $user['full_name'] = $userModel->getFullNameAttribute();
-            $user['avatar'] = $userModel->avatar;
-        } else {
-            $user['full_name'] = '';
-            $user['avatar'] = '';
+
+        // Добавляем полное имя и информацию об аватарке для каждого пользователя
+        $userIds = array_column($paginatorInfo['data'], 'id');
+        $userModels = User::whereIn('id', $userIds)->get()->keyBy('id');
+
+        foreach ($paginatorInfo['data'] as &$user) {
+            if (isset($userModels[$user['id']])) {
+                $userModel = $userModels[$user['id']];
+                $user['full_name'] = $userModel->getFullNameAttribute();
+                $user['avatar'] = $userModel->avatar;
+            } else {
+                $user['full_name'] = '';
+                $user['avatar'] = '';
+            }
         }
-    }
-        
+
         // Создаем ссылки с улучшенным форматированием
         $links = $this->formatPaginationLinks($paginator);
         $paginatorInfo['links'] = $links;
-        
+
         // Обработка пустого набора данных
         if ($paginator->isEmpty() && $paginator->currentPage() > 1) {
             return redirect()->route('admin.users');
@@ -101,17 +102,45 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * Страница создания пользователя.
+     */
+    public function create(Request $request): Response
+    {
+        return Inertia::render('Admin/UserForm', [
+            'user' => null,
+            'roles' => Role::all(['id', 'name']),
+            'isAdmin' => $request->user()->hasRole('admin'),
+        ]);
+    }
+
+    /**
+     * Страница редактирования данных пользователя.
+     */
+    public function edit(Request $request, User $user): Response
+    {
+        if (! $request->user()->hasRole('admin') && $user->hasRole('admin')) {
+            abort(403, 'У вас нет прав для редактирования администраторов');
+        }
+
+        return Inertia::render('Admin/UserForm', [
+            'user' => $user->only(['id', 'first_name', 'last_name', 'middle_name', 'email', 'company', 'position', 'city', 'phone', 'avatar']),
+            'roles' => [],
+            'isAdmin' => $request->user()->hasRole('admin'),
+        ]);
+    }
+
     public function update(Request $request, User $user)
     {
         $currentUser = auth()->user();
-        
+
         // Проверяем права на редактирование пользователя
-        if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
+        if (! $currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для редактирования пользователей');
         }
 
         // Если пользователь - не админ, и пытается редактировать админа
-        if (!$currentUser->hasRole('admin') && $user->hasRole('admin')) {
+        if (! $currentUser->hasRole('admin') && $user->hasRole('admin')) {
             abort(403, 'У вас нет прав для редактирования администраторов');
         }
 
@@ -130,7 +159,7 @@ class UserController extends Controller
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
                 'middle_name' => 'nullable|string|max:255',
-                'email' => 'required|email|unique:users,email,' . $user->id,
+                'email' => 'required|email|unique:users,email,'.$user->id,
                 'company' => 'nullable|string|max:255',
                 'position' => 'nullable|string|max:255',
                 'city' => 'nullable|string|max:255',
@@ -140,7 +169,7 @@ class UserController extends Controller
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('Ошибка валидации:', [
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ]);
             throw $e;
         }
@@ -163,7 +192,7 @@ class UserController extends Controller
             $this->processAndSaveAvatar($user, $request->file('avatar'));
         } elseif ($request->boolean('delete_avatar')) {
             // Удаляем аватар, если указано
-            if ($user->avatar && !str_starts_with($user->avatar, 'http')) {
+            if ($user->avatar && ! str_starts_with($user->avatar, 'http')) {
                 $oldAvatarPath = str_replace('/storage/', '', $user->avatar);
                 if (Storage::disk('public')->exists($oldAvatarPath)) {
                     Storage::disk('public')->delete($oldAvatarPath);
@@ -181,20 +210,20 @@ class UserController extends Controller
         //     $user->roles()->sync($roleIds);
         // }
 
-        return redirect()->route('admin.users.show', $user)->with('success', 'Пользователь успешно обновлен');
+        return redirect()->route('admin.users.show', $user)->with('success', 'Данные пользователя сохранены');
     }
 
     public function destroy(User $user)
     {
         $currentUser = auth()->user();
-        
+
         // Проверяем права на удаление пользователя
-        if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
+        if (! $currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для удаления пользователей');
         }
 
         // Если пользователь - не админ, и пытается удалить админа
-        if (!$currentUser->hasRole('admin') && $user->hasRole('admin')) {
+        if (! $currentUser->hasRole('admin') && $user->hasRole('admin')) {
             abort(403, 'У вас нет прав для удаления администраторов');
         }
 
@@ -204,26 +233,25 @@ class UserController extends Controller
 
         $user->delete();
 
-        return back()->with('success', 'Пользователь успешно удален');
+        return redirect()->route('admin.users')->with('success', 'Пользователь удалён');
     }
-    
+
     /**
      * Отображает детальную информацию о пользователе.
      *
-     * @param User $user
      * @return \Inertia\Response
      */
     public function show(User $user)
     {
         $currentUser = auth()->user();
-        
+
         // Проверяем права на просмотр пользователя
-        if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
+        if (! $currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для просмотра пользователей');
         }
 
         // Если пользователь - не админ, и пытается просмотреть админа
-        if (!$currentUser->hasRole('admin') && $user->hasRole('admin')) {
+        if (! $currentUser->hasRole('admin') && $user->hasRole('admin')) {
             abort(403, 'У вас нет прав для просмотра администраторов');
         }
 
@@ -232,7 +260,7 @@ class UserController extends Controller
 
         // Получаем все возможные роли для отображения в интерфейсе
         $roles = Role::all();
-        
+
         // Получаем все доступные события для добавления доступа
         $availableEvents = Event::where('is_active', true)
             ->where('is_archived', false)
@@ -255,15 +283,14 @@ class UserController extends Controller
     /**
      * Сохраняет нового пользователя.
      *
-     * @param Request $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
         $currentUser = auth()->user();
-        
+
         // Проверяем права на создание пользователя
-        if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
+        if (! $currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для создания пользователей');
         }
 
@@ -294,7 +321,7 @@ class UserController extends Controller
             'phone' => $validated['phone'] ?? null,
             'password' => bcrypt($validated['password']),
         ]);
-        
+
         // Обработка аватара
         if ($request->hasFile('avatar')) {
             $this->processAndSaveAvatar($user, $request->file('avatar'));
@@ -312,20 +339,19 @@ class UserController extends Controller
             }
         }
 
-        return redirect()->route('admin.users')->with('success', 'Пользователь успешно создан');
+        return redirect()->route('admin.users.show', $user)->with('success', 'Пользователь создан');
     }
 
     /**
      * Обрабатывает и сохраняет аватар пользователя
      *
-     * @param User $user
-     * @param \Illuminate\Http\UploadedFile $avatarFile
+     * @param  \Illuminate\Http\UploadedFile  $avatarFile
      * @return void
      */
     protected function processAndSaveAvatar(User $user, $avatarFile)
     {
         // Удаляем старый аватар, если он существует и это не http ссылка
-        if ($user->avatar && !str_starts_with($user->avatar, 'http')) {
+        if ($user->avatar && ! str_starts_with($user->avatar, 'http')) {
             $oldAvatarPath = str_replace('/storage/', '', $user->avatar);
             if (Storage::disk('public')->exists($oldAvatarPath)) {
                 Storage::disk('public')->delete($oldAvatarPath);
@@ -337,26 +363,26 @@ class UserController extends Controller
         Storage::disk('public')->makeDirectory($userDir);
 
         // Создаем менеджер изображений с драйвером GD
-        $manager = new ImageManager(new Driver());
+        $manager = new ImageManager(new Driver);
 
         // Читаем и конвертируем изображение в WebP
         $img = $manager->read($avatarFile)->toWebp(90); // 90 - качество
-        
+
         // Сохраняем изображение
-        $fileName = time() . '_' . uniqid() . '.webp';
-        $path = $userDir . '/' . $fileName;
-        
+        $fileName = time().'_'.uniqid().'.webp';
+        $path = $userDir.'/'.$fileName;
+
         Storage::disk('public')->put($path, (string) $img);
-        
+
         // Обновляем путь к аватару в модели
-        $user->avatar = '/storage/' . $path;
+        $user->avatar = '/storage/'.$path;
         $user->save();
     }
-    
+
     /**
      * Форматирует ссылки пагинации для улучшенного отображения
-     * 
-     * @param LengthAwarePaginator $paginator
+     *
+     * @param  LengthAwarePaginator  $paginator
      * @return array
      */
     protected function formatPaginationLinks($paginator)
@@ -366,15 +392,15 @@ class UserController extends Controller
         $onEachSide = 1; // Сколько страниц показывать по бокам от текущей
 
         $links = [];
-        
+
         // Добавляем кнопку "Предыдущая"
         $links[] = [
             'url' => $paginator->previousPageUrl(),
             'label' => '&laquo; Назад',
             'active' => false,
-            'title' => 'Предыдущая страница'
+            'title' => 'Предыдущая страница',
         ];
-        
+
         // Если нет страниц (пустой результат или одна страница)
         if ($lastPage <= 1) {
             $links[] = [
@@ -386,7 +412,7 @@ class UserController extends Controller
             // Начальные страницы
             $startPage = max(1, $currentPage - $onEachSide);
             $endPage = min($lastPage, $currentPage + $onEachSide);
-            
+
             // Проверка на необходимость отображения первой страницы и многоточия
             if ($startPage > 1) {
                 $links[] = [
@@ -394,7 +420,7 @@ class UserController extends Controller
                     'label' => '1',
                     'active' => false,
                 ];
-                
+
                 if ($startPage > 2) {
                     $links[] = [
                         'url' => null,
@@ -403,7 +429,7 @@ class UserController extends Controller
                     ];
                 }
             }
-            
+
             // Центральные страницы
             for ($i = $startPage; $i <= $endPage; $i++) {
                 $links[] = [
@@ -412,7 +438,7 @@ class UserController extends Controller
                     'active' => $currentPage === $i,
                 ];
             }
-            
+
             // Проверка на необходимость отображения последней страницы и многоточия
             if ($endPage < $lastPage) {
                 if ($endPage < $lastPage - 1) {
@@ -422,7 +448,7 @@ class UserController extends Controller
                         'active' => false,
                     ];
                 }
-                
+
                 $links[] = [
                     'url' => $paginator->url($lastPage),
                     'label' => (string) $lastPage,
@@ -430,31 +456,29 @@ class UserController extends Controller
                 ];
             }
         }
-        
+
         // Добавляем кнопку "Следующая"
         $links[] = [
             'url' => $paginator->nextPageUrl(),
             'label' => 'Вперед &raquo;',
             'active' => false,
-            'title' => 'Следующая страница'
+            'title' => 'Следующая страница',
         ];
-        
+
         return $links;
     }
 
     /**
      * Добавляет доступ пользователя к событию.
      *
-     * @param Request $request
-     * @param User $user
      * @return \Illuminate\Http\RedirectResponse
      */
     public function storeEventAccess(Request $request, User $user)
     {
         $currentUser = auth()->user();
-        
+
         // Проверяем права на управление доступами
-        if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
+        if (! $currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для управления доступами к событиям');
         }
 
@@ -494,22 +518,19 @@ class UserController extends Controller
     /**
      * Обновляет доступ пользователя к событию.
      *
-     * @param Request $request
-     * @param User $user
-     * @param Event $event
      * @return \Illuminate\Http\RedirectResponse
      */
     public function updateEventAccess(Request $request, User $user, Event $event)
     {
         $currentUser = auth()->user();
-        
+
         // Проверяем права на управление доступами
-        if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
+        if (! $currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для управления доступами к событиям');
         }
 
         // Проверяем, есть ли доступ к этому событию
-        if (!$user->events()->where('event_id', $event->id)->exists()) {
+        if (! $user->events()->where('event_id', $event->id)->exists()) {
             return back()->withErrors(['error' => 'У пользователя нет доступа к этому событию']);
         }
 
@@ -543,54 +564,50 @@ class UserController extends Controller
     /**
      * Переключает активность доступа пользователя к событию.
      *
-     * @param User $user
-     * @param Event $event
      * @return \Illuminate\Http\RedirectResponse
      */
     public function toggleEventAccess(User $user, Event $event)
     {
         $currentUser = auth()->user();
-        
+
         // Проверяем права на управление доступами
-        if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
+        if (! $currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для управления доступами к событиям');
         }
 
         // Получаем текущий статус активности
         $pivot = $user->events()->where('event_id', $event->id)->first();
-        
-        if (!$pivot) {
+
+        if (! $pivot) {
             return back()->withErrors(['error' => 'У пользователя нет доступа к этому событию']);
         }
 
-        $newStatus = !$pivot->pivot->is_active;
+        $newStatus = ! $pivot->pivot->is_active;
 
         // Обновляем статус
         $user->events()->updateExistingPivot($event->id, ['is_active' => $newStatus]);
 
         $message = $newStatus ? 'Доступ к событию активирован' : 'Доступ к событию отключен';
-        
+
         return back()->with('success', $message);
     }
 
     /**
      * Удаляет доступ пользователя к событию.
      *
-     * @param User $user
-     * @param Event $event
      * @return \Illuminate\Http\RedirectResponse
      */
     public function destroyEventAccess(User $user, Event $event)
     {
         $currentUser = auth()->user();
-        
+
         // Проверяем права на управление доступами
-        if (!$currentUser->hasAnyRole(['admin', 'manager'])) {
+        if (! $currentUser->hasAnyRole(['admin', 'manager'])) {
             abort(403, 'У вас нет прав для управления доступами к событиям');
         }
 
         // Проверяем, есть ли доступ к этому событию
-        if (!$user->events()->where('event_id', $event->id)->exists()) {
+        if (! $user->events()->where('event_id', $event->id)->exists()) {
             return back()->withErrors(['error' => 'У пользователя нет доступа к этому событию']);
         }
 
@@ -599,4 +616,4 @@ class UserController extends Controller
 
         return back()->with('success', 'Доступ к событию успешно удален');
     }
-} 
+}

@@ -70,7 +70,7 @@
                             class="relative"
                         >
                             <span
-                                v-if="route().current(item.activePattern)"
+                                v-if="isActive(item)"
                                 class="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-zinc-950 dark:bg-white"
                             ></span>
                             <Link
@@ -78,9 +78,9 @@
                                 class="flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium"
                                 :class="{
                                     'bg-zinc-950/5 text-zinc-950 dark:bg-white/5 dark:text-white':
-                                        route().current(item.activePattern),
+                                        isActive(item),
                                     'text-zinc-950 hover:bg-zinc-200 dark:text-white dark:hover:bg-zinc-800':
-                                        !route().current(item.activePattern),
+                                        !isActive(item),
                                 }"
                             >
                                 <component
@@ -88,11 +88,9 @@
                                     class="size-5"
                                     :class="{
                                         'fill-zinc-950 dark:fill-white':
-                                            route().current(item.activePattern),
+                                            isActive(item),
                                         'fill-zinc-500 dark:fill-zinc-400':
-                                            !route().current(
-                                                item.activePattern
-                                            ),
+                                            !isActive(item),
                                     }"
                                 />
                                 <span>{{ item.name }}</span>
@@ -398,7 +396,7 @@
                             class="relative"
                         >
                             <span
-                                v-if="route().current(item.activePattern)"
+                                v-if="isActive(item)"
                                 class="absolute inset-y-2 -left-2 w-0.5 rounded-full bg-zinc-950 dark:bg-white"
                             ></span>
                             <Link
@@ -406,9 +404,9 @@
                                 class="flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium"
                                 :class="{
                                     'bg-zinc-950/5 text-zinc-950 dark:bg-white/5 dark:text-white':
-                                        route().current(item.activePattern),
+                                        isActive(item),
                                     'text-zinc-950 hover:bg-zinc-200 dark:text-white dark:hover:bg-zinc-800':
-                                        !route().current(item.activePattern),
+                                        !isActive(item),
                                 }"
                             >
                                 <component
@@ -416,11 +414,9 @@
                                     class="size-5"
                                     :class="{
                                         'fill-zinc-950 dark:fill-white':
-                                            route().current(item.activePattern),
+                                            isActive(item),
                                         'fill-zinc-500 dark:fill-zinc-400':
-                                            !route().current(
-                                                item.activePattern
-                                            ),
+                                            !isActive(item),
                                     }"
                                 />
                                 <span>{{ item.name }}</span>
@@ -528,7 +524,8 @@
 import { Link, usePage, router } from "@inertiajs/vue3";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { useAdminStore } from "@/Stores/adminStore";
-import { onMounted, onUnmounted } from "vue";
+import { onMounted, onUnmounted, watch } from "vue";
+import { useToast } from "vue-toastification";
 import UserAvatar from "@/Components/UserAvatar.vue";
 import NotificationDrawer from "@/Components/Admin/NotificationDrawer.vue";
 import {
@@ -586,7 +583,7 @@ const menuItems = [
     {
         name: "Мероприятия",
         routeName: "admin.events",
-        activePattern: "admin.events*",
+        activePattern: ["admin.events*", "admin.categories*"],
         icon: CalendarDaysIcon,
     },
     {
@@ -616,6 +613,25 @@ const menuItems = [
         }]
         : []),
 ];
+
+// Сообщения после сохранения/удаления показываем в одном месте для всех страниц админки
+const toast = useToast();
+watch(
+    () => page.props.flash,
+    (flash) => {
+        const success = flash?.success || flash?.message;
+        if (success) {
+            toast.success(success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    },
+    { immediate: true }
+);
+
+// Пункт меню подсвечен, если открыт любой из его разделов
+const isActive = (item) => [].concat(item.activePattern).some((pattern) => route().current(pattern));
 
 // Функция для выхода из системы
 const logout = () => {

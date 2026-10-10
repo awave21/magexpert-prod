@@ -1,24 +1,21 @@
 <template>
   <AdminLayout>
     <template #header>
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-semibold text-zinc-900 dark:text-white">Медицинская библиотека</h1>
-      </div>
-      
-      <!-- Заголовок и кнопки действий -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 class="text-xl font-semibold text-zinc-800 dark:text-white">
-          Список материалов
-        </h2>
+        <div>
+          <h1 class="text-2xl font-semibold text-zinc-900 dark:text-white">Библиотека</h1>
+          <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Статьи и материалы раздела «Библиотека» на сайте</p>
+        </div>
         
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-          <button
-            @click="showCreateLibraryModal = true"
+          <Link
+            v-if="canManageLibrary"
+            :href="route('admin.medical-library.create')"
             class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
           >
             <PlusIcon class="mr-2 size-4" />
             Добавить материал
-          </button>
+          </Link>
           
           <div class="w-full sm:w-40">
             <SelectList v-model="languageFilter" :options="languageOptions" placeholder="Все языки" @change="applyFilters" />
@@ -49,12 +46,12 @@
                 <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Материал</th>
                 <th scope="col" class="hidden lg:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Дата публикации</th>
                 <th scope="col" class="hidden xl:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Язык</th>
-                <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Действия</th>
+                <th scope="col" class="px-4 sm:px-6 py-3"><span class="sr-only">Действия</span></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900">
-              <tr v-for="item in library.data" :key="`library-${item.id}`" class="group transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4">
+              <tr v-for="item in library.data" :key="`library-${item.id}`" class="group cursor-pointer transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50" @click="editLibraryItem(item)">
+                <td class="px-4 sm:px-6 py-4">
                   <div class="flex items-center">
                     <div class="size-12 sm:size-16 flex-shrink-0 overflow-hidden rounded-lg">
                       <img v-if="item.image_url" :src="item.image_url" :alt="item.title" class="size-full object-cover" />
@@ -63,7 +60,7 @@
                       </div>
                     </div>
                     <div class="ml-3 sm:ml-4">
-                      <div class="text-sm font-medium text-zinc-900 dark:text-white">{{ item.title }}</div>
+                      <Link :href="route('admin.medical-library.edit', item.id)" class="block text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>{{ item.title }}</Link>
                       <div class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">{{ item.description }}</div>
                     </div>
                   </div>
@@ -77,18 +74,12 @@
                   </span>
                 </td>
                 <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm font-medium">
-                  <div class="flex items-center gap-2">
-                    <a v-if="item.file_url" :href="item.file_url" target="_blank" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-blue-600 transition-colors duration-150 hover:bg-blue-50 hover:text-blue-900 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300">
+                  <div class="flex items-center justify-end gap-2">
+                    <a v-if="item.file_url" :href="item.file_url" target="_blank" rel="noopener" :class="iconAction" title="Открыть файл" aria-label="Открыть файл" @click.stop>
                       <ArrowDownTrayIcon class="size-4" />
-                      <span class="hidden sm:inline">Скачать</span>
                     </a>
-                    <button @click="editLibraryItem(item)" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-zinc-600 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white">
-                      <PencilIcon class="size-4" />
-                      <span class="hidden sm:inline">Редактировать</span>
-                    </button>
-                    <button @click="confirmDeleteLibraryItem(item)" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-red-600 transition-colors duration-150 hover:bg-red-50 hover:text-red-900 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300">
+                    <button type="button" :class="iconDanger" title="Удалить" aria-label="Удалить материал" @click.stop="confirmDeleteLibraryItem(item)">
                       <TrashIcon class="size-4" />
-                      <span class="hidden sm:inline">Удалить</span>
                     </button>
                   </div>
                 </td>
@@ -125,15 +116,6 @@
       </div>
     </div>
 
-    <!-- Модальные окна -->
-    <CreateMedicalLibraryModal
-      :show="showCreateLibraryModal"
-      :library="selectedLibraryItem"
-      @close="closeCreateLibraryModal"
-      @created="handleLibraryItemCreated"
-      @updated="handleLibraryItemUpdated"
-    />
-    
     <ConfirmModal 
       :show="showDeleteModal" 
       :title="deleteModalTitle" 
@@ -148,13 +130,13 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Link, router } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import SelectList from '@/Components/SelectList.vue';
 import Pagination from '@/Components/Pagination.vue';
-import CreateMedicalLibraryModal from '@/Components/Modal/CreateMedicalLibraryModal.vue';
+import { iconAction, iconDanger } from '@/Components/Admin/formClasses.js';
 import ConfirmModal from '@/Components/Modal/ConfirmModal.vue';
 import debounce from 'lodash/debounce';
 import { 
@@ -162,7 +144,6 @@ import {
   MagnifyingGlassIcon, 
   DocumentIcon,
   DocumentTextIcon,
-  PencilIcon, 
   TrashIcon,
   XCircleIcon,
   ArrowDownTrayIcon
@@ -187,8 +168,6 @@ const deleteModalMessage = ref('');
 const searchQuery = ref(props.filters?.search || '');
 const languageFilter = ref(props.filters?.language || '');
 const perPage = ref(props.filters?.per_page || 10);
-const showCreateLibraryModal = ref(false);
-const selectedLibraryItem = ref(null);
 
 // Варианты для выпадающих списков
 const perPageOptions = [
@@ -251,25 +230,9 @@ const getNoResultsMessage = () => hasActiveFilters()
 
 const changePerPage = () => applyFilters();
 
-// CRUD для библиотеки
-const closeCreateLibraryModal = () => { 
-  showCreateLibraryModal.value = false; 
-  selectedLibraryItem.value = null; 
-};
-
-const editLibraryItem = (item) => { 
-  selectedLibraryItem.value = item; 
-  showCreateLibraryModal.value = true; 
-};
-
-const handleLibraryItemCreated = () => { 
-  router.reload({ only: ['library'] }); 
-  toast.success('Материал успешно добавлен'); 
-};
-
-const handleLibraryItemUpdated = () => { 
-  router.reload({ only: ['library'] }); 
-  toast.success('Материал успешно обновлен'); 
+// Открыть материал
+const editLibraryItem = (item) => {
+  router.visit(route('admin.medical-library.edit', item.id));
 };
 
 const confirmDeleteLibraryItem = (item) => {
@@ -284,8 +247,8 @@ const deleteConfirmed = () => {
   if (!itemToDelete.value) return;
   
   router.delete(route('admin.medical-library.destroy', itemToDelete.value), {
+    preserveScroll: true,
     onSuccess: () => {
-      toast.success('Материал успешно удален');
       showDeleteModal.value = false;
       itemToDelete.value = null;
     },
@@ -297,11 +260,4 @@ const deleteConfirmed = () => {
   });
 };
 
-// Отслеживание flash-сообщений
-const inertiaPage = usePage();
-watch(() => props.library, () => {
-  const flash = inertiaPage.props.flash ?? {};
-  if (flash?.success || flash?.message) toast.success(flash.success || flash.message);
-  if (flash?.error) toast.error(flash.error);
-}, { deep: true, immediate: true });
 </script> 

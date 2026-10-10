@@ -135,10 +135,13 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
     Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users');
 
     // Маршрут для просмотра карточки пользователя
+    Route::get('/users/create', [AdminUserController::class, 'create'])->middleware('role:admin,manager')->name('admin.users.create');
     Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('admin.users.show');
 
     // Маршруты для спикеров
     Route::get('/speakers', [SpeakerController::class, 'index'])->name('admin.speakers');
+    Route::get('/speakers/create', [SpeakerController::class, 'create'])->name('admin.speakers.create');
+    Route::get('/speakers/{speaker}/edit', [SpeakerController::class, 'edit'])->name('admin.speakers.edit');
     Route::get('/speakers/{speaker}', [SpeakerController::class, 'show'])->name('admin.speakers.show');
     Route::post('/speakers', [SpeakerController::class, 'store'])->name('admin.speakers.store');
     Route::put('/speakers/{speaker}', [SpeakerController::class, 'update'])->name('admin.speakers.update');
@@ -165,18 +168,24 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
 
     // Маршруты для категорий
     Route::get('/categories', [CategoryController::class, 'index'])->name('admin.categories');
+    Route::get('/categories/create', [CategoryController::class, 'create'])->name('admin.categories.create');
+    Route::get('/categories/{category}/edit', [CategoryController::class, 'edit'])->name('admin.categories.edit');
     Route::post('/categories', [CategoryController::class, 'store'])->name('admin.categories.store');
     Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('admin.categories.update');
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('admin.categories.destroy');
 
     // Маршруты для медицинской библиотеки
     Route::get('/medical-library', [MedicalLibraryController::class, 'index'])->name('admin.medical-library');
+    Route::get('/medical-library/create', [MedicalLibraryController::class, 'create'])->name('admin.medical-library.create');
+    Route::get('/medical-library/{medicalLibrary}/edit', [MedicalLibraryController::class, 'edit'])->name('admin.medical-library.edit');
     Route::post('/medical-library', [MedicalLibraryController::class, 'store'])->name('admin.medical-library.store');
     Route::put('/medical-library/{medicalLibrary}', [MedicalLibraryController::class, 'update'])->name('admin.medical-library.update');
     Route::delete('/medical-library/{medicalLibrary}', [MedicalLibraryController::class, 'destroy'])->name('admin.medical-library.destroy');
 
     // Маршруты для партнеров
     Route::get('/partners', [PartnerController::class, 'index'])->name('admin.partners');
+    Route::get('/partners/create', [PartnerController::class, 'create'])->name('admin.partners.create');
+    Route::get('/partners/{partner}/edit', [PartnerController::class, 'edit'])->name('admin.partners.edit');
     Route::post('/partners', [PartnerController::class, 'store'])->name('admin.partners.store');
     Route::put('/partners/{partner}', [PartnerController::class, 'update'])->name('admin.partners.update');
     Route::delete('/partners/{partner}', [PartnerController::class, 'destroy'])->name('admin.partners.destroy');
@@ -198,6 +207,7 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
         Route::delete('/users/{user}/roles/{role}', [UserRoleController::class, 'removeRole'])->name('admin.users.roles.remove');
 
         // Маршруты для редактирования и удаления пользователей (только для админов и менеджеров)
+        Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->name('admin.users.edit');
         Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
 

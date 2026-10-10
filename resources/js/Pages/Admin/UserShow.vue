@@ -183,13 +183,14 @@
         </div>
         <div class="flex items-center gap-4 px-6 py-5">
           <!-- Кнопка редактирования -->
-          <SecondaryButton
+          <Link
             v-if="canManageUsers && (isAdmin || !hasAdminRole(user))"
-            @click="showEditModal = true"
+            :href="route('admin.users.edit', user.id)"
+            class="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
             <PencilIcon class="mr-2 size-5" />
             Редактировать данные
-          </SecondaryButton>
+          </Link>
           
           <!-- Кнопка удаления -->
           <button
@@ -225,18 +226,12 @@
     </div>
 
     <!-- Модальные окна -->
-    <EditUserModal
-      :show="showEditModal"
-      :user="user"
-      @close="showEditModal = false"
-      @update="handleUserUpdate"
-    />
     <UserRolesModal
       :show="showRolesModal"
       :user="user"
       :roles="roles"
       @close="showRolesModal = false"
-      @update="showNotification('Роли пользователя успешно обновлены')"
+      @update="router.reload({ only: ['user'] })"
     />
 
     <!-- Модальное окно подтверждения удаления -->
@@ -295,7 +290,6 @@ import { ref } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import UserAvatar from '@/Components/UserAvatar.vue';
-import EditUserModal from '@/Components/Admin/EditUserModal.vue';
 import UserRolesModal from '@/Components/Admin/UserRolesModal.vue';
 import UserEventAccess from '@/Components/Admin/UserEventAccess.vue';
 import SlideOverModal from '@/Components/Modal/SlideOverModal.vue';
@@ -328,7 +322,6 @@ const props = defineProps({
 });
 
 // Модальные окна
-const showEditModal = ref(false);
 const showRolesModal = ref(false);
 const showDeleteModal = ref(false);
 
@@ -342,11 +335,6 @@ const notification = ref({
   type: 'success',
   timeout: null
 });
-
-const handleUserUpdate = () => {
-  showNotification('Данные пользователя успешно обновлены');
-  router.reload({ only: ['user'], preserveState: true });
-};
 
 // Методы
 // Получить имя пользователя для отображения
@@ -404,13 +392,8 @@ const showNotification = (message, type = 'success') => {
 };
 
 const deleteUser = () => {
+  // после удаления сервер вернёт к списку с сообщением
   form.delete(route('admin.users.destroy', props.user.id), {
-    onSuccess: () => {
-      showNotification('Пользователь успешно удален');
-      setTimeout(() => {
-        router.visit(route('admin.users'));
-      }, 1500); // Небольшая задержка, чтобы пользователь увидел уведомление
-    },
     onError: () => {
       showNotification('Ошибка при удалении пользователя', 'error');
     }
@@ -423,7 +406,7 @@ const confirmDelete = () => {
 };
 
 const handleAccessUpdated = () => {
-  showNotification('Доступ к событию успешно обновлен');
+  // сообщение об успехе приходит с сервера и показывается в AdminLayout
   router.reload({ only: ['user', 'userEvents', 'availableEvents'], preserveState: true });
 };
 </script> 

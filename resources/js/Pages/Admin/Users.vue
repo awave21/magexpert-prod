@@ -5,9 +5,9 @@
         <h1 class="text-2xl font-semibold text-zinc-900 dark:text-white">Пользователи</h1>
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           <!-- Добавляем кнопку создания пользователя -->
-          <button
+          <Link
             v-if="canManageUsers"
-            @click="showCreateModal = true"
+            :href="route('admin.users.create')"
             class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="mr-2 size-4">
@@ -15,7 +15,7 @@
               <path d="M19.75 7.5a.75.75 0 0 0-1.5 0v2.25H16a.75.75 0 0 0 0 1.5h2.25v2.25a.75.75 0 0 0 1.5 0v-2.25H22a.75.75 0 0 0 0-1.5h-2.25V7.5Z" />
             </svg>
             Создать пользователя
-          </button>
+          </Link>
           
           <!-- Улучшенный фильтр по ролям -->
           <div class="w-full sm:w-40">
@@ -86,16 +86,16 @@
               >
                 Дата регистрации
               </th>
-              <th
-                scope="col"
-                class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
-              >
-                Профиль
-              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900">
-            <tr v-for="user in users.data" :key="user.id" class="group transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+            <tr
+              v-for="user in users.data"
+              :key="user.id"
+              class="group transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+              :class="canOpen(user) ? 'cursor-pointer' : ''"
+              @click="openUser(user)"
+            >
               <td class="whitespace-nowrap px-4 sm:px-6 py-4">
                 <div class="flex items-center">
                   <div class="size-8 sm:size-10 flex-shrink-0">
@@ -107,7 +107,8 @@
                     />
                   </div>
                   <div class="ml-3 sm:ml-4">
-                    <div class="text-sm font-medium text-zinc-900 dark:text-white">{{ user.full_name || 'Пользователь' }}</div>
+                    <Link v-if="canOpen(user)" :href="route('admin.users.show', user.id)" class="block text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>{{ user.full_name || 'Пользователь' }}</Link>
+                    <div v-else class="text-sm font-medium text-zinc-900 dark:text-white">{{ user.full_name || 'Пользователь' }}</div>
                     <div class="md:hidden text-xs text-zinc-500 dark:text-zinc-400">{{ user.email }}</div>
                   </div>
                 </div>
@@ -128,7 +129,7 @@
                       'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200': role.name === 'user'
                     }"
                   >
-                    {{ role.name }}
+                    {{ roleLabel(role.name) }}
                   </span>
                   <span
                     v-if="!user.roles.length"
@@ -140,18 +141,6 @@
               </td>
               <td class="hidden xl:table-cell whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400">
                 {{ formatDate(user.created_at) }}
-              </td>
-              <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm font-medium">
-                <Link
-                  :href="route('admin.users.show', user.id)"
-                  class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-zinc-600 transition-colors duration-150 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4">
-                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                    <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="hidden sm:inline">Просмотр</span>
-                </Link>
               </td>
             </tr>
           </tbody>
@@ -214,25 +203,16 @@
       </div>
     </div>
 
-    <!-- Модальное окно создания пользователя -->
-    <CreateUserModal
-      :show="showCreateModal"
-      :roles="roles"
-      :is-admin="isAdmin"
-      @close="showCreateModal = false"
-      @created="handleUserCreated"
-    />
   </AdminLayout>
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue';
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Link, router } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import UserAvatar from '@/Components/UserAvatar.vue';
 import SelectList from '@/Components/SelectList.vue';
-import CreateUserModal from '@/Components/Modal/CreateUserModal.vue';
 import Pagination from '@/Components/Pagination.vue';
 import debounce from 'lodash/debounce';
 
@@ -252,7 +232,6 @@ const searchQuery = ref(props.filters.search || '');
 const roleFilter = ref(props.filters.role || '');
 const perPage = ref(props.filters.per_page || 10);
 const loading = ref(false);
-const showCreateModal = ref(false);
 
 // Варианты для количества записей на странице
 const perPageOptions = [
@@ -306,22 +285,10 @@ const selectRoles = computed(() => {
     { value: '', label: 'Все роли' },
     ...props.roles.map(role => ({
       value: role.name,
-      label: role.name,
+      label: roleLabel(role.name),
     }))
   ];
 });
-
-// Отслеживание flash-сообщений
-const inertiaPage = usePage();
-watch(() => props.users, () => {
-  const flash = inertiaPage.props.flash ?? {};
-  if (flash.message) {
-    toast.success(flash.message);
-  }
-  if (flash.error) {
-    toast.error(flash.error);
-  }
-}, { immediate: true });
 
 const hasActiveFilters = () => {
   return roleFilter.value !== '' || searchQuery.value !== '';
@@ -350,9 +317,14 @@ const changePerPage = () => {
   applyFilters();
 };
 
-// Обработка создания пользователя
-const handleUserCreated = () => {
-  // Перезагружаем список пользователей
-  router.reload({ only: ['users'] });
+// Карточку админа открывают только админы — как и на сервере
+const canOpen = (user) => props.canManageUsers && (props.isAdmin || !hasAdminRole(user));
+const openUser = (user) => {
+  if (canOpen(user)) {
+    router.visit(route('admin.users.show', user.id));
+  }
 };
+
+const roleNames = { admin: 'Администратор', manager: 'Менеджер', editor: 'Редактор', user: 'Пользователь' };
+const roleLabel = (name) => roleNames[name] ?? name;
 </script> 

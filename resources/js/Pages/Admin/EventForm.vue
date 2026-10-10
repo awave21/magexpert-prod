@@ -547,8 +547,7 @@ function submitForm() {
         preserveScroll: true,
         onBefore: () => { saving = true; },
         onSuccess: (page) => {
-            const flash = page.props.flash ?? {};
-            toast.success(flash.success || flash.message || "Сохранено");
+            // «Сохранено» покажет AdminLayout по сообщению с сервера
             if (props.event) {
                 fill(page.props.event ?? props.event);
             }
