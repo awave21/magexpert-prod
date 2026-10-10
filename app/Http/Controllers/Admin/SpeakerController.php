@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Speaker;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -83,6 +84,26 @@ class SpeakerController extends Controller
             'speaker' => null,
             'events' => [],
         ]);
+    }
+
+    /**
+     * Быстрое добавление спикера прямо из формы мероприятия: только имя и должность.
+     */
+    public function quickStore(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'last_name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'position' => 'nullable|string|max:255',
+        ], [
+            'last_name.required' => 'Укажите фамилию.',
+            'first_name.required' => 'Укажите имя.',
+        ]);
+
+        $speaker = Speaker::create($validated + ['is_active' => true, 'sort_order' => 0]);
+
+        return response()->json($speaker->only(['id', 'first_name', 'last_name', 'middle_name', 'full_name', 'position', 'company', 'photo']), 201);
     }
 
     /**

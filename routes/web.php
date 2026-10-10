@@ -141,6 +141,7 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
     // Маршруты для спикеров
     Route::get('/speakers', [SpeakerController::class, 'index'])->name('admin.speakers');
     Route::get('/speakers/create', [SpeakerController::class, 'create'])->name('admin.speakers.create');
+    Route::post('/speakers/quick', [SpeakerController::class, 'quickStore'])->middleware('throttle:30,1')->name('admin.speakers.quick-store');
     Route::get('/speakers/{speaker}/edit', [SpeakerController::class, 'edit'])->name('admin.speakers.edit');
     Route::get('/speakers/{speaker}', [SpeakerController::class, 'show'])->name('admin.speakers.show');
     Route::post('/speakers', [SpeakerController::class, 'store'])->name('admin.speakers.store');

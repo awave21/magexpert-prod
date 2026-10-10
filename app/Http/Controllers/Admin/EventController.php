@@ -584,7 +584,7 @@ class EventController extends Controller
      */
     public function edit(Event $event): \Inertia\Response
     {
-        return Inertia::render('Admin/EventForm', $this->formOptions() + [
+        return Inertia::render('Admin/EventForm', $this->formOptions($event) + [
             'event' => $event->load(['categories', 'speakers']),
         ]);
     }
@@ -594,14 +594,18 @@ class EventController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function formOptions(): array
+    private function formOptions(?Event $event = null): array
     {
+        $attachedSpeakerIds = $event?->speakers()->pluck('speakers.id')->all() ?? [];
+
         return [
             'categories' => Category::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']),
-            'speakers' => Speaker::where('is_active', true)
+            // скрытые спикеры, уже привязанные к мероприятию, тоже нужны — иначе в форме они без имени
+            'speakers' => Speaker::query()
+                ->where(fn ($query) => $query->where('is_active', true)->orWhereIn('id', $attachedSpeakerIds))
                 ->orderBy('last_name')
                 ->orderBy('first_name')
-                ->get(['id', 'first_name', 'last_name', 'middle_name', 'position', 'company', 'photo']),
+                ->get(['id', 'first_name', 'last_name', 'middle_name', 'position', 'company', 'photo', 'is_active']),
         ];
     }
 

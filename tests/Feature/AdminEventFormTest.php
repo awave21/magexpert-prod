@@ -107,3 +107,34 @@ test('врач не может открыть редактор мероприя�
 
     $this->actingAs(User::factory()->create())->get("/admin/events/{$event->id}/edit")->assertForbidden();
 });
+
+test('спикера можно добавить прямо из формы мероприятия', function () {
+    $this->actingAs(eventEditor())->postJson('/admin/speakers/quick', [
+        'last_name' => 'Петрова',
+        'first_name' => 'Анна',
+        'position' => 'Врач акушер-гинеколог',
+    ])->assertCreated()
+        ->assertJson(['last_name' => 'Петрова', 'full_name' => 'Петрова Анна', 'position' => 'Врач акушер-гинеколог']);
+
+    expect(\App\Models\Speaker::first()->is_active)->toBeTrue();
+});
+
+test('без имени спикер из формы не создаётся', function () {
+    $this->actingAs(eventEditor())->postJson('/admin/speakers/quick', ['last_name' => 'Петрова'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['first_name' => 'Укажите имя.']);
+});
+
+test('скрытый спикер мероприятия остаётся в форме, а порядок спикеров сохраняется', function () {
+    $event = Event::factory()->create();
+    $hidden = \App\Models\Speaker::factory()->create(['is_active' => false, 'last_name' => 'Скрытая']);
+    $first = \App\Models\Speaker::factory()->create(['last_name' => 'Первая']);
+    \App\Models\Speaker::factory()->create(['is_active' => false, 'last_name' => 'Посторонняя']);
+    $event->speakers()->attach([$hidden->id => ['sort_order' => 1], $first->id => ['sort_order' => 0]]);
+
+    $this->actingAs(eventEditor())->get("/admin/events/{$event->id}/edit")
+        ->assertInertia(fn ($page) => $page
+            ->where('speakers', fn ($speakers) => collect($speakers)->pluck('last_name')->sort()->values()->all() === ['Первая', 'Скрытая'])
+            ->where('event.speakers.0.id', $first->id)
+            ->where('event.speakers.1.id', $hidden->id));
+});

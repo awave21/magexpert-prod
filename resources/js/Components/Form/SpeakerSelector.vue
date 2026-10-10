@@ -1,432 +1,324 @@
 <template>
-    <div class="space-y-2" ref="dropdownRef">
-        <label
-            v-if="label"
-            :for="id"
-            class="block text-sm font-medium text-zinc-900 dark:text-white mb-1"
-        >
-            {{ label }}
-            <span v-if="required" class="text-red-600">*</span>
+    <div ref="rootRef" class="space-y-3">
+        <label v-if="label" :for="`${id}-search`" class="mb-1 block text-sm font-medium text-zinc-800 dark:text-zinc-200">
+            {{ label }}<span v-if="required" class="text-red-600"> *</span>
         </label>
 
+        <!-- Поиск: сразу печатаем фамилию, список остаётся открытым, чтобы добавить нескольких подряд -->
         <div class="relative">
+            <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
+            <input
+                :id="`${id}-search`"
+                ref="inputRef"
+                v-model="query"
+                type="text"
+                role="combobox"
+                autocomplete="off"
+                :aria-expanded="isOpen"
+                :aria-controls="`${id}-list`"
+                :aria-activedescendant="isOpen && options[activeIndex] ? `${id}-opt-${activeIndex}` : undefined"
+                class="block w-full rounded-lg border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-white dark:focus:ring-white"
+                :placeholder="selected.length ? 'Добавить ещё спикера…' : 'Начните вводить фамилию спикера'"
+                @focus="open"
+                @input="open"
+                @keydown="onKeydown"
+            />
+
             <div
-                @click="toggleDropdown"
-                class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-600 transition-colors duration-150 ease-in-out hover:border-zinc-400"
+                v-if="isOpen"
+                class="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
             >
-                <span
-                    v-if="selectedSpeakers.length"
-                    class="flex items-center gap-2"
-                >
-                    <span class="block truncate">{{
-                        selectedSpeakersText
-                    }}</span>
-                </span>
-                <span
-                    v-else
-                    class="block truncate text-zinc-500 dark:text-zinc-400"
-                    >{{ placeholder }}</span
-                >
-                <span
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        class="size-5 text-zinc-400"
-                        aria-hidden="true"
+                <ul :id="`${id}-list`" role="listbox" class="max-h-72 overflow-auto py-1">
+                    <li
+                        v-for="(speaker, index) in matches"
+                        :id="`${id}-opt-${index}`"
+                        :key="speaker.id"
+                        role="option"
+                        :aria-selected="index === activeIndex"
+                        class="flex cursor-pointer items-center gap-3 px-3 py-2"
+                        :class="index === activeIndex ? 'bg-zinc-100 dark:bg-zinc-700' : ''"
+                        @mouseenter="activeIndex = index"
+                        @mousedown.prevent="choose(speaker)"
                     >
-                        <path
-                            fill-rule="evenodd"
-                            d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z"
-                            clip-rule="evenodd"
-                        />
-                    </svg>
-                </span>
-            </div>
-
-            <transition
-                leave-active-class="transition ease-in duration-100"
-                leave-from-class="opacity-100"
-                leave-to-class="opacity-0"
-                enter-active-class="transition ease-out duration-100"
-                enter-from-class="opacity-0 translate-y-1"
-                enter-to-class="opacity-100 translate-y-0"
-            >
-                <div
-                    v-if="showDropdown"
-                    class="absolute z-10 mt-1 w-full bg-white dark:bg-zinc-800 shadow-lg rounded-lg border border-zinc-300 dark:border-zinc-700 overflow-hidden"
-                >
-                    <div
-                        class="p-2 border-b border-zinc-200 dark:border-zinc-700"
+                        <SpeakerPhoto :speaker="speaker" class="size-8" />
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-medium text-zinc-900 dark:text-white">
+                                {{ nameOf(speaker) }}
+                                <span v-if="speaker.is_active === false" class="ml-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] font-normal text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300">скрыт</span>
+                            </span>
+                            <span v-if="detailsOf(speaker)" class="block truncate text-xs text-zinc-500 dark:text-zinc-400">{{ detailsOf(speaker) }}</span>
+                        </span>
+                    </li>
+                    <li v-if="!matches.length" class="px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">
+                        {{ query.trim() ? "Такого спикера нет в списке" : "Все спикеры уже добавлены" }}
+                    </li>
+                    <li
+                        :id="`${id}-opt-${matches.length}`"
+                        role="option"
+                        :aria-selected="activeIndex === matches.length"
+                        class="flex cursor-pointer items-center gap-3 border-t border-zinc-100 px-3 py-2 text-sm font-medium text-blue-700 dark:border-zinc-700 dark:text-blue-300"
+                        :class="activeIndex === matches.length ? 'bg-zinc-100 dark:bg-zinc-700' : ''"
+                        @mouseenter="activeIndex = matches.length"
+                        @mousedown.prevent="startCreate"
                     >
-                        <input
-                            type="text"
-                            :id="id + '-search'"
-                            v-model="searchQuery"
-                            class="w-full rounded-md border-zinc-300 shadow-sm focus:border-zinc-500 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-                            placeholder="Поиск спикеров..."
-                            @click.stop
-                        />
-                    </div>
-
-                    <div class="max-h-60 overflow-auto py-1">
-                        <div
-                            v-for="speaker in availableSpeakers"
-                            :key="speaker.id"
-                            class="relative cursor-default select-none py-2 pl-3 pr-9 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-                            @mousedown.prevent="selectSpeaker(speaker)"
-                        >
-                            <div class="flex items-center gap-2">
-                                <div
-                                    class="flex-shrink-0 size-5 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-700"
-                                >
-                                    <img
-                                        v-if="speaker.photo"
-                                        :src="speaker.photo"
-                                        :alt="speaker.full_name"
-                                        class="w-full h-full object-cover"
-                                    />
-                                    <div
-                                        v-else
-                                        class="w-full h-full flex items-center justify-center text-zinc-500"
-                                    >
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            class="size-4"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                            />
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div
-                                        class="font-medium text-zinc-900 dark:text-white"
-                                    >
-                                        {{ speaker.full_name }}
-                                    </div>
-                                    <div
-                                        class="text-xs text-zinc-500 dark:text-zinc-400"
-                                    >
-                                        {{
-                                            [speaker.position, speaker.company]
-                                                .filter(Boolean)
-                                                .join(", ")
-                                        }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div
-                            v-if="availableSpeakers.length === 0"
-                            class="py-2 px-3 text-zinc-500 dark:text-zinc-400 text-center"
-                        >
-                            {{
-                                searchQuery
-                                    ? "Ничего не найдено"
-                                    : "Все спикеры уже выбраны"
-                            }}
-                        </div>
-                    </div>
-                </div>
-            </transition>
-        </div>
-
-        <div v-if="selectedSpeakers.length" class="mt-3 space-y-3">
-            <div
-                v-for="(speaker, index) in selectedSpeakers"
-                :key="speaker.id"
-                class="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden"
-            >
-                <div
-                    class="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-700/50 border-b border-zinc-200 dark:border-zinc-700"
-                >
-                    <div class="flex items-center gap-2">
-                        <div
-                            class="flex-shrink-0 size-8 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-700"
-                        >
-                            <img
-                                v-if="speaker.photo"
-                                :src="speaker.photo"
-                                :alt="speaker.full_name"
-                                class="w-full h-full object-cover"
-                            />
-                            <div
-                                v-else
-                                class="w-full h-full flex items-center justify-center text-zinc-500"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    class="size-5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                    />
-                                </svg>
-                            </div>
-                        </div>
-                        <div>
-                            <div
-                                class="font-medium text-zinc-900 dark:text-white"
-                            >
-                                {{ speaker.full_name }}
-                            </div>
-                            <div
-                                class="text-xs text-zinc-500 dark:text-zinc-400"
-                            >
-                                {{
-                                    [speaker.position, speaker.company]
-                                        .filter(Boolean)
-                                        .join(", ")
-                                }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        @click.stop="removeSpeaker(index)"
-                        class="text-zinc-500 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 transition-colors"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="size-5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                        >
-                            <path
-                                fill-rule="evenodd"
-                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                clip-rule="evenodd"
-                            />
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="p-3">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <TextInput
-                            :id="`speaker-${speaker.id}-role`"
-                            label="Роль"
-                            v-model="speaker.role"
-                            placeholder="Например: Ведущий, Докладчик"
-                        />
-                        <TextInput
-                            :id="`speaker-${speaker.id}-topic`"
-                            label="Тема выступления"
-                            v-model="speaker.topic"
-                            placeholder="Тема выступления спикера"
-                        />
-                    </div>
-                </div>
+                        <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/30"><PlusIcon class="size-4" /></span>
+                        {{ query.trim() ? `Новый спикер: «${query.trim()}»` : "Новый спикер" }}
+                    </li>
+                </ul>
+                <p class="border-t border-zinc-100 px-3 py-1.5 text-[11px] text-zinc-400 dark:border-zinc-700">↑ ↓ — выбрать, Enter — добавить, Esc — закрыть</p>
             </div>
         </div>
 
-        <p v-if="error" class="mt-1 text-sm text-red-600">{{ error }}</p>
+        <!-- Быстрое добавление спикера, которого ещё нет в базе -->
+        <div v-if="creating" class="space-y-3 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/30">
+            <p class="text-sm font-medium text-zinc-900 dark:text-white">Новый спикер</p>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                    <label :for="`${id}-new-last`" class="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Фамилия *</label>
+                    <input :id="`${id}-new-last`" ref="newLastRef" v-model="draft.last_name" :class="smallInput" @keydown.enter.prevent="saveNew" />
+                    <p v-if="draftErrors.last_name" class="mt-1 text-xs text-red-600">{{ draftErrors.last_name }}</p>
+                </div>
+                <div>
+                    <label :for="`${id}-new-first`" class="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Имя *</label>
+                    <input :id="`${id}-new-first`" v-model="draft.first_name" :class="smallInput" @keydown.enter.prevent="saveNew" />
+                    <p v-if="draftErrors.first_name" class="mt-1 text-xs text-red-600">{{ draftErrors.first_name }}</p>
+                </div>
+                <div>
+                    <label :for="`${id}-new-middle`" class="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Отчество</label>
+                    <input :id="`${id}-new-middle`" v-model="draft.middle_name" :class="smallInput" @keydown.enter.prevent="saveNew" />
+                </div>
+            </div>
+            <div>
+                <label :for="`${id}-new-position`" class="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Должность</label>
+                <input :id="`${id}-new-position`" v-model="draft.position" :class="smallInput" placeholder="Врач акушер-гинеколог, к.м.н." @keydown.enter.prevent="saveNew" />
+            </div>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">Фото и регалии можно добавить позже в разделе «Спикеры».</p>
+            <p v-if="draftErrors.general" class="text-xs text-red-600">{{ draftErrors.general }}</p>
+            <div class="flex gap-2">
+                <button type="button" class="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900" :disabled="savingNew" @click="saveNew">
+                    {{ savingNew ? "Добавляем…" : "Добавить и выбрать" }}
+                </button>
+                <button type="button" class="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800" @click="creating = false">Отмена</button>
+            </div>
+        </div>
+
+        <!-- Выбранные спикеры в том порядке, в каком их покажет сайт -->
+        <ol v-if="selected.length" class="space-y-2">
+            <li
+                v-for="(item, index) in selected"
+                :key="item.id"
+                class="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-800"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="w-4 shrink-0 text-center text-xs font-semibold text-zinc-400">{{ index + 1 }}</span>
+                    <SpeakerPhoto :speaker="speakerOf(item)" class="size-9" />
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm font-medium text-zinc-900 dark:text-white">{{ nameOf(speakerOf(item)) }}</span>
+                        <span v-if="detailsOf(speakerOf(item))" class="block truncate text-xs text-zinc-500 dark:text-zinc-400">{{ detailsOf(speakerOf(item)) }}</span>
+                    </span>
+                    <span class="flex shrink-0 items-center">
+                        <button type="button" :class="iconButton" :disabled="index === 0" title="Выше" aria-label="Переместить выше" @click="move(index, -1)"><ChevronUpIcon class="size-4" /></button>
+                        <button type="button" :class="iconButton" :disabled="index === selected.length - 1" title="Ниже" aria-label="Переместить ниже" @click="move(index, 1)"><ChevronDownIcon class="size-4" /></button>
+                        <button type="button" :class="[iconButton, 'hover:!text-red-600']" title="Убрать" :aria-label="`Убрать ${nameOf(speakerOf(item))}`" @click="remove(index)"><XMarkIcon class="size-4" /></button>
+                    </span>
+                </div>
+                <div class="mt-2 grid grid-cols-1 gap-2 pl-7 sm:grid-cols-[180px_1fr]">
+                    <input v-model="item.role" :list="`${id}-roles`" :class="smallInput" placeholder="Роль, напр. ведущий" :aria-label="`Роль: ${nameOf(speakerOf(item))}`" />
+                    <input v-model="item.topic" :class="smallInput" placeholder="Тема выступления — необязательно" :aria-label="`Тема выступления: ${nameOf(speakerOf(item))}`" />
+                </div>
+            </li>
+        </ol>
+        <p v-else class="text-xs text-zinc-500 dark:text-zinc-400">Спикеров пока нет. Порядок, в котором вы их добавите, будет на странице мероприятия.</p>
+
+        <datalist :id="`${id}-roles`">
+            <option value="Ведущий" />
+            <option value="Докладчик" />
+            <option value="Модератор" />
+            <option value="Эксперт" />
+        </datalist>
+
+        <p v-if="error" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
-import TextInput from "@/Components/Form/TextInput.vue";
+import { computed, defineComponent, h, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import axios from "axios";
+import { ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon, PlusIcon, UserIcon, XMarkIcon } from "@heroicons/vue/20/solid";
 
 const props = defineProps({
-    id: {
-        type: String,
-        required: true,
-    },
-    label: {
-        type: String,
-        default: "Спикеры",
-    },
-    modelValue: {
-        type: Array,
-        default: () => [],
-    },
-    speakers: {
-        type: Array,
-        default: () => [],
-    },
-    error: {
-        type: String,
-        default: "",
-    },
-    required: {
-        type: Boolean,
-        default: false,
-    },
-    placeholder: {
-        type: String,
-        default: "Выберите спикеров",
-    },
+    id: { type: String, required: true },
+    label: { type: String, default: "Спикеры" },
+    modelValue: { type: Array, default: () => [] },
+    speakers: { type: Array, default: () => [] },
+    error: { type: String, default: "" },
+    required: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
 
-const searchQuery = ref("");
-const showDropdown = ref(false);
-const selectedSpeakers = ref([]);
+const smallInput = "block w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-white";
+const iconButton = "inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white";
 
-// Текст для отображения выбранных спикеров
-const selectedSpeakersText = computed(() => {
-    if (selectedSpeakers.value.length === 0) return "";
-    if (selectedSpeakers.value.length === 1)
-        return selectedSpeakers.value[0].full_name;
-    return `Выбрано спикеров: ${selectedSpeakers.value.length}`;
-});
-
-// Доступные спикеры (не выбранные)
-const availableSpeakers = computed(() => {
-    const result = props.speakers.filter((speaker) => {
-        return !selectedSpeakers.value.some((s) => s.id === speaker.id);
-    });
-
-    if (!searchQuery.value) return result;
-
-    const query = searchQuery.value.toLowerCase();
-    return result.filter((speaker) => {
-        return (
-            speaker.full_name.toLowerCase().includes(query) ||
-            (speaker.position &&
-                speaker.position.toLowerCase().includes(query)) ||
-            (speaker.company && speaker.company.toLowerCase().includes(query))
+// Круглое фото спикера или значок, если фото нет
+const SpeakerPhoto = defineComponent({
+    props: { speaker: { type: Object, default: null } },
+    setup(photoProps, { attrs }) {
+        return () => h(
+            "span",
+            { class: ["inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-200 text-zinc-500 dark:bg-zinc-700", attrs.class] },
+            photoProps.speaker?.photo
+                ? h("img", { src: photoProps.speaker.photo, alt: "", class: "size-full object-cover" })
+                : h(UserIcon, { class: "size-1/2" }),
         );
-    });
+    },
 });
 
-// Инициализация выбранных спикеров
-onMounted(() => {
-    initializeSelectedSpeakers();
+// Спикеры, добавленные прямо из формы, пока страница не перезагружена
+const created = ref([]);
+const allSpeakers = computed(() => [...props.speakers, ...created.value]);
+const byId = computed(() => new Map(allSpeakers.value.map((speaker) => [speaker.id, speaker])));
 
-    // Добавляем обработчик клика вне компонента для скрытия выпадающего списка
-    document.addEventListener("click", handleClickOutside);
+const nameOf = (speaker) => speaker?.full_name || [speaker?.last_name, speaker?.first_name, speaker?.middle_name].filter(Boolean).join(" ") || "Спикер без имени";
+const detailsOf = (speaker) => [speaker?.position, speaker?.company].filter(Boolean).join(", ");
+
+// ---------- Выбранные ----------
+const selected = ref([]);
+const speakerOf = (item) => byId.value.get(item.id) ?? item;
+
+function syncFromModel(value) {
+    selected.value = (value ?? []).map((item) => ({ id: item.id, role: item.role ?? "", topic: item.topic ?? "", full_name: item.full_name }));
+}
+const asModel = () => selected.value.map((item, index) => ({ id: item.id, role: item.role, topic: item.topic, sort_order: index }));
+
+syncFromModel(props.modelValue);
+watch(() => props.modelValue, (value) => {
+    if (JSON.stringify(value ?? []) !== JSON.stringify(asModel())) {
+        syncFromModel(value);
+    }
+}, { deep: true });
+watch(selected, () => emit("update:modelValue", asModel()), { deep: true });
+
+function move(index, step) {
+    const list = selected.value;
+    [list[index], list[index + step]] = [list[index + step], list[index]];
+}
+function remove(index) {
+    selected.value.splice(index, 1);
+}
+
+// ---------- Поиск ----------
+const query = ref("");
+const isOpen = ref(false);
+const activeIndex = ref(0);
+const inputRef = ref(null);
+const rootRef = ref(null);
+
+const normalize = (text) => (text ?? "").toString().toLowerCase().replaceAll("ё", "е");
+const matches = computed(() => {
+    const words = normalize(query.value).split(/\s+/).filter(Boolean);
+    const chosen = new Set(selected.value.map((item) => item.id));
+    return allSpeakers.value
+        .filter((speaker) => !chosen.has(speaker.id))
+        .filter((speaker) => {
+            const haystack = normalize([speaker.last_name, speaker.first_name, speaker.middle_name, speaker.full_name, speaker.position, speaker.company].join(" "));
+            // «Анна Петрова» и «Петрова Анна» находят одного и того же человека
+            return words.every((word) => haystack.includes(word));
+        })
+        .slice(0, 50);
 });
+// в списке есть ещё пункт «Новый спикер» — он последний
+const options = computed(() => [...matches.value, null]);
 
-onUnmounted(() => {
-    document.removeEventListener("click", handleClickOutside);
-});
+watch(query, () => { activeIndex.value = 0; });
 
-// Инициализация выбранных спикеров из значения модели
-const initializeSelectedSpeakers = () => {
-    if (!props.modelValue || !props.modelValue.length) {
-        selectedSpeakers.value = [];
+function open() {
+    isOpen.value = true;
+}
+function close() {
+    isOpen.value = false;
+}
+
+function choose(speaker) {
+    selected.value.push({ id: speaker.id, role: "", topic: "" });
+    query.value = "";
+    activeIndex.value = 0;
+    nextTick(() => inputRef.value?.focus());
+}
+
+function onKeydown(event) {
+    if (event.key === "Escape") {
+        close();
         return;
     }
-
-    selectedSpeakers.value = props.modelValue.map((item) => {
-        // Находим спикера по ID
-        const speaker = props.speakers.find((s) => s.id === item.id);
-        if (speaker) {
-            // Возвращаем объект спикера с дополнительными полями из модели
-            return {
-                ...speaker,
-                role: item.role || "",
-                topic: item.topic || "",
-                sort_order: item.sort_order || 0,
-            };
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        open();
+        const last = options.value.length - 1;
+        activeIndex.value = event.key === "ArrowDown"
+            ? Math.min(activeIndex.value + 1, last)
+            : Math.max(activeIndex.value - 1, 0);
+        nextTick(() => document.getElementById(`${props.id}-opt-${activeIndex.value}`)?.scrollIntoView({ block: "nearest" }));
+        return;
+    }
+    if (event.key === "Enter") {
+        // Enter в поиске не должен отправлять всю форму мероприятия
+        event.preventDefault();
+        if (!isOpen.value) {
+            open();
+            return;
         }
-        return item;
-    });
-};
-const dropdownRef = ref(null);
+        const option = options.value[activeIndex.value];
+        option ? choose(option) : startCreate();
+    }
+}
+
 const handleClickOutside = (event) => {
-    if (dropdownRef.value && !dropdownRef.value.contains(event.target)) {
-        showDropdown.value = false;
+    if (rootRef.value && !rootRef.value.contains(event.target)) {
+        close();
     }
 };
+onMounted(() => document.addEventListener("mousedown", handleClickOutside));
+onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside));
 
-// Переключение видимости выпадающего списка
-const toggleDropdown = () => {
-    showDropdown.value = !showDropdown.value;
-};
+// ---------- Новый спикер ----------
+const creating = ref(false);
+const savingNew = ref(false);
+const newLastRef = ref(null);
+const draft = reactive({ last_name: "", first_name: "", middle_name: "", position: "" });
+const draftErrors = reactive({});
 
-// Выбор спикера из списка
-const selectSpeaker = (speaker) => {
-    // Добавляем спикера с дополнительными полями
-    selectedSpeakers.value.push({
-        ...speaker,
-        role: "",
-        topic: "",
-        sort_order: selectedSpeakers.value.length,
-    });
+function startCreate() {
+    // «Петрова Анна Сергеевна» из поиска сразу раскладываем по полям
+    const [lastName = "", firstName = "", middleName = ""] = query.value.trim().split(/\s+/);
+    Object.assign(draft, { last_name: lastName, first_name: firstName, middle_name: middleName, position: "" });
+    Object.keys(draftErrors).forEach((key) => delete draftErrors[key]);
+    creating.value = true;
+    close();
+    nextTick(() => newLastRef.value?.focus());
+}
 
-    // Обновляем модель
-    updateModel();
-
-    // Очищаем поисковый запрос и скрываем выпадающий список
-    searchQuery.value = "";
-    showDropdown.value = false;
-};
-
-// Удаление спикера из выбранных
-const removeSpeaker = (index) => {
-    selectedSpeakers.value.splice(index, 1);
-
-    // Обновляем порядок сортировки
-    selectedSpeakers.value.forEach((speaker, idx) => {
-        speaker.sort_order = idx;
-    });
-
-    // Обновляем модель
-    updateModel();
-};
-
-// Обновление модели при изменении выбранных спикеров
-const updateModel = () => {
-    emit(
-        "update:modelValue",
-        selectedSpeakers.value.map((speaker) => ({
-            id: speaker.id,
-            role: speaker.role,
-            topic: speaker.topic,
-            sort_order: speaker.sort_order,
-        }))
-    );
-};
-
-// Обновляем выбранных спикеров при изменении значения модели извне
-watch(
-    () => props.modelValue,
-    (newValue) => {
-        if (
-            JSON.stringify(newValue) !==
-            JSON.stringify(
-                selectedSpeakers.value.map((s) => ({
-                    id: s.id,
-                    role: s.role,
-                    topic: s.topic,
-                    sort_order: s.sort_order,
-                }))
-            )
-        ) {
-            initializeSelectedSpeakers();
+async function saveNew() {
+    if (savingNew.value) {
+        return;
+    }
+    Object.keys(draftErrors).forEach((key) => delete draftErrors[key]);
+    savingNew.value = true;
+    try {
+        const { data } = await axios.post(route("admin.speakers.quick-store"), { ...draft });
+        created.value.push(data);
+        selected.value.push({ id: data.id, role: "", topic: "" });
+        creating.value = false;
+        query.value = "";
+    } catch (e) {
+        const errors = e.response?.data?.errors;
+        if (errors) {
+            Object.entries(errors).forEach(([key, messages]) => { draftErrors[key] = messages[0]; });
+        } else {
+            draftErrors.general = "Не получилось добавить спикера. Попробуйте ещё раз.";
         }
-    },
-    { deep: true }
-);
-
-// Обновляем модель при изменении ролей или тем выступлений
-watch(
-    selectedSpeakers,
-    () => {
-        updateModel();
-    },
-    { deep: true }
-);
+    } finally {
+        savingNew.value = false;
+    }
+}
 </script>
