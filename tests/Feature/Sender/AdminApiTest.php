@@ -410,3 +410,19 @@ it('expires the confirmation link after two days', function (): void {
     $this->get('/sender/confirm-address/'.str_repeat('c', 48))->assertStatus(410);
     expect($address->fresh()->isConfirmed())->toBeFalse();
 });
+
+it('keeps a sender address and reports a warning when the confirmation email fails', function (): void {
+    $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'dkim_selector' => 'mail']);
+    Illuminate\Support\Facades\Mail::shouldReceive('to')->andThrow(new RuntimeException('Connection refused'));
+
+    $id = $this->withToken($this->token)->postJson(adminApi().'/sender-addresses', ['email' => 'news@mag-expert.ru', 'name' => 'МагЭксперт'])
+        ->assertCreated()
+        ->assertJsonPath('data.confirmation_sent_at', null)
+        ->assertJsonPath('warning', fn (string $w): bool => str_contains($w, 'письмо со ссылкой отправить не удалось'))
+        ->json('data.id');
+
+    // время отправки не записано, поэтому повтор не блокируется на минуту, а ошибка понятная
+    $this->withToken($this->token)->postJson(adminApi()."/sender-addresses/{$id}/resend")
+        ->assertStatus(503)
+        ->assertJsonPath('message', fn (string $m): bool => str_contains($m, 'Письмо отправить не удалось'));
+});

@@ -30,9 +30,12 @@ class SenderAddressController extends Controller
         $email = $request->validated('email');
         $domain = $organization->domains()->where('domain', Str::after($email, '@'))->firstOrFail();
 
-        $address = $addresses->create($organization, $domain, $email, $request->validated('name'));
+        $result = $addresses->create($organization, $domain, $email, $request->validated('name'));
 
-        return response()->json(['data' => $this->present($address->load('domain'))], 201);
+        return response()->json([
+            'data' => $this->present($result['address']->load('domain')),
+            'warning' => $result['sent'] ? null : 'Адрес добавлен, но письмо со ссылкой отправить не удалось. Проверьте настройки почты сервера и нажмите «Отправить ещё раз».',
+        ], 201);
     }
 
     public function resend(Request $request, int $address, SenderAddressService $addresses): JsonResponse
@@ -47,7 +50,9 @@ class SenderAddressController extends Controller
             return response()->json(['message' => 'Письмо только что отправлено, повторить можно через минуту'], 429);
         }
 
-        $addresses->sendConfirmation($model);
+        if ($addresses->trySendConfirmation($model) !== null) {
+            return response()->json(['message' => 'Письмо отправить не удалось: почтовый сервер не принял его. Попробуйте позже или проверьте настройки почты сервера.'], 503);
+        }
 
         return response()->json(['data' => $this->present($model->fresh('domain'))]);
     }

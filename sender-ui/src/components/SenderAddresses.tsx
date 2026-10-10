@@ -19,10 +19,22 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
   const [removing, setRemoving] = useState<SenderAddress | null>(null)
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['sender-addresses'] })
+  const [formError, setFormError] = useState<string | null>(null)
   const add = useMutation({
-    mutationFn: () => api('/sender-addresses', { method: 'POST', body: { email: `${local.trim()}@${domain}`, name: name.trim() } }),
-    onSuccess: () => { setAdding(false); toast(`Письмо со ссылкой отправлено на ${local.trim()}@${domain}`); setLocal(''); setName(''); setErrors({}); refresh() },
-    onError: (e) => setErrors(e instanceof ApiError ? e.errors : {}),
+    mutationFn: () => api<{ data: SenderAddress; warning: string | null }>('/sender-addresses', { method: 'POST', body: { email: `${local.trim()}@${domain}`, name: name.trim() } }),
+    onSuccess: (r) => {
+      setAdding(false)
+      toast(r.warning ?? `Письмо со ссылкой отправлено на ${r.data.email}`, !!r.warning)
+      setLocal(''); setName(''); setErrors({}); setFormError(null)
+      refresh()
+    },
+    onError: (e) => {
+      // ошибки полей показываем у полей, остальное — общим сообщением; список обновляем: адрес мог сохраниться
+      const fields = e instanceof ApiError ? e.errors : {}
+      setErrors(fields)
+      setFormError(Object.keys(fields).length ? null : (e as Error).message || 'Не удалось добавить адрес')
+      refresh()
+    },
   })
   const rename = useMutation({
     mutationFn: (x: { id: number; name: string }) => api(`/sender-addresses/${x.id}`, { method: 'PUT', body: { name: x.name.trim() } }),
@@ -48,7 +60,7 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
           <h2>Адреса отправителей</h2>
           <p className="sub">С этих адресов уходят письма. На новый адрес придёт письмо со ссылкой: пока её не открыли, письма с адреса не отправляются.</p>
         </div>
-        <button type="button" className="btn" onClick={() => { setErrors({}); setAdding(true) }}><Plus size={15} />Добавить адрес</button>
+        <button type="button" className="btn" onClick={() => { setErrors({}); setFormError(null); setAdding(true) }}><Plus size={15} />Добавить адрес</button>
       </div>
 
       {list.length === 0 ? (
@@ -109,9 +121,10 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
               <input id="addr-name" className={`input${errors.name ? ' err' : ''}`} placeholder="МедАльянсГрупп Expert" value={name} onChange={(e) => setName(e.target.value)} />
               {errors.name ? <div className="hint err">{errors.name[0]}</div> : <div className="hint">Так письмо подписано во входящих у получателя</div>}
             </div>
+            {formError && <div className="callout err" role="alert"><div><b>Не получилось</b><span>{formError}</span></div></div>}
             <div className="row" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="btn" onClick={() => setAdding(false)}>Отмена</button>
-              <button className="btn primary" disabled={!local.trim() || !name.trim() || add.isPending}>Добавить</button>
+              <button className="btn primary" disabled={!local.trim() || !name.trim() || add.isPending}>{add.isPending ? 'Добавляем…' : 'Добавить'}</button>
             </div>
           </form>
         </Modal>

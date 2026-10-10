@@ -7,8 +7,10 @@ use App\Sender\Models\Domain;
 use App\Sender\Models\Organization;
 use App\Sender\Models\SenderAddress;
 use App\Sender\Support\SenderUi;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Адреса отправителей: добавление и подтверждение владения ящиком по ссылке из письма.
@@ -19,7 +21,12 @@ class SenderAddressService
 
     public const RESEND_AFTER_SECONDS = 60;
 
-    public function create(Organization $organization, Domain $domain, string $email, string $name): SenderAddress
+    /**
+     * Адрес сохраняется, даже если письмо со ссылкой не ушло: его можно отправить ещё раз из списка.
+     *
+     * @return array{address: SenderAddress, sent: bool, error: ?string}
+     */
+    public function create(Organization $organization, Domain $domain, string $email, string $name): array
     {
         $address = $organization->senderAddresses()->create([
             'domain_id' => $domain->id,
@@ -27,9 +34,25 @@ class SenderAddressService
             'name' => trim($name),
         ]);
 
-        $this->sendConfirmation($address);
+        $error = $this->trySendConfirmation($address);
 
-        return $address;
+        return ['address' => $address, 'sent' => $error === null, 'error' => $error];
+    }
+
+    /**
+     * @return string|null текст ошибки, если письмо не отправилось
+     */
+    public function trySendConfirmation(SenderAddress $address): ?string
+    {
+        try {
+            $this->sendConfirmation($address);
+
+            return null;
+        } catch (Throwable $exception) {
+            Log::error('Sender: не удалось отправить письмо подтверждения адреса', ['email' => $address->email, 'error' => $exception->getMessage()]);
+
+            return $exception->getMessage();
+        }
     }
 
     public function canResend(SenderAddress $address): bool
@@ -41,14 +64,13 @@ class SenderAddressService
     public function sendConfirmation(SenderAddress $address): void
     {
         $plain = Str::random(48);
-
-        $address->forceFill([
-            'confirmation_token' => hash('sha256', $plain),
-            'confirmation_sent_at' => now(),
-        ])->save();
-
         $url = SenderUi::url('confirm-address/'.$plain);
+
+        $address->forceFill(['confirmation_token' => hash('sha256', $plain)])->save();
         Mail::to($address->email)->send(new SenderAddressConfirmationMail($address, $url, $this->letterHtml($address, $url)));
+
+        // время отправки — только после успешной отправки, иначе «Отправить ещё раз» заблокируется на минуту
+        $address->forceFill(['confirmation_sent_at' => now()])->save();
     }
 
     /**
