@@ -40,7 +40,12 @@ class RegisteredUserController extends Controller
             'specialization' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'privacy_consent' => ['accepted'],
+            'oferta_consent' => ['accepted'],
+            'newsletter_consent' => ['nullable', 'boolean'],
         ], [
+            'privacy_consent.accepted' => 'Нужно согласие на обработку персональных данных.',
+            'oferta_consent.accepted' => 'Нужно согласие с условиями оферты.',
             'first_name.required' => 'Поле «Имя» обязательно для заполнения.',
             'last_name.required' => 'Поле «Фамилия» обязательно для заполнения.',
             'email.required' => 'Поле «Email» обязательно для заполнения.',
@@ -62,6 +67,9 @@ class RegisteredUserController extends Controller
             'specialization' => $request->specialization,
             'city' => $request->city,
             'password' => Hash::make($request->password),
+            'privacy_consent' => true,
+            'oferta_consent' => true,
+            'newsletter_consent' => $request->boolean('newsletter_consent'),
         ]);
 
         event(new Registered($user));

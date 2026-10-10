@@ -20,7 +20,7 @@ beforeEach(function (): void {
 });
 
 it('puts the confirmation link into the welcome email of a form sign-up', function (): void {
-    $this->post('/register', ['first_name' => 'Анна', 'last_name' => 'Иванова', 'email' => 'anna@example.com', 'password' => 'password', 'password_confirmation' => 'password']);
+    $this->post('/register', ['first_name' => 'Анна', 'last_name' => 'Иванова', 'email' => 'anna@example.com', 'password' => 'password', 'password_confirmation' => 'password', 'privacy_consent' => true, 'oferta_consent' => true]);
 
     $url = $this->sent->calls[0]['data']['verify_url'] ?? null;
 

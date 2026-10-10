@@ -26,6 +26,8 @@ test('new users can register and get a welcome email', function () {
         'email' => 'test@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
+        'privacy_consent' => true,
+        'oferta_consent' => true,
     ]);
 
     $this->assertAuthenticated();
@@ -48,8 +50,28 @@ test('registration completes even if the welcome email fails', function () {
 
     $this->post('/register', [
         'first_name' => 'Пётр', 'last_name' => 'Сидоров', 'email' => 'petr@example.com',
-        'password' => 'password', 'password_confirmation' => 'password',
+        'password' => 'password', 'password_confirmation' => 'password', 'privacy_consent' => true, 'oferta_consent' => true,
     ])->assertRedirect(route('dashboard', absolute: false));
 
     $this->assertAuthenticated();
+});
+
+test('registration requires both consents and saves the newsletter choice', function () {
+    $this->post('/register', [
+        'first_name' => 'Ольга', 'last_name' => 'Смирнова', 'email' => 'olga@example.com',
+        'password' => 'password', 'password_confirmation' => 'password',
+    ])->assertSessionHasErrors(['privacy_consent', 'oferta_consent']);
+
+    $this->assertGuest();
+
+    $this->post('/register', [
+        'first_name' => 'Ольга', 'last_name' => 'Смирнова', 'email' => 'olga@example.com',
+        'password' => 'password', 'password_confirmation' => 'password',
+        'privacy_consent' => true, 'oferta_consent' => true, 'newsletter_consent' => true,
+    ])->assertRedirect(route('dashboard', absolute: false));
+
+    $user = App\Models\User::query()->where('email', 'olga@example.com')->firstOrFail();
+    expect((bool) $user->privacy_consent)->toBeTrue()
+        ->and((bool) $user->oferta_consent)->toBeTrue()
+        ->and((bool) $user->newsletter_consent)->toBeTrue();
 });
