@@ -47,8 +47,6 @@ class Event extends Model
         'kinescope_playlist_id', // ID плейлиста Кинескопа
         'kinescope_type', // Тип: 'video' или 'playlist'
         'is_live', // Транслируется ли событие в прямом эфире
-        'letter_draft_id',
-        'groupsensay', // Группа Sendsay
         'max_quantity', // Максимальное количество мест
         'file_path', // программа
     ];

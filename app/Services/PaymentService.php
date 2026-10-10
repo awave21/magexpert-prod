@@ -11,12 +11,9 @@ class PaymentService
 {
     protected PayKeeperService $payKeeper;
 
-    protected SendsayService $sendsayService;
-
-    public function __construct(PayKeeperService $payKeeper, SendsayService $sendsayService)
+    public function __construct(PayKeeperService $payKeeper)
     {
         $this->payKeeper = $payKeeper;
-        $this->sendsayService = $sendsayService;
     }
 
     /**

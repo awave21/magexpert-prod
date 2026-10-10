@@ -235,17 +235,6 @@
                         <input id="ev-sort" v-model.number="form.sort_order" type="number" min="0" :class="input" />
                         <p :class="hint">Чем меньше число, тем выше. Обычно 0.</p>
                     </div>
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                            <label for="ev-group" :class="label">Группа Sendsay</label>
-                            <input id="ev-group" v-model="form.groupsensay" :class="input" />
-                        </div>
-                        <div>
-                            <label for="ev-letter" :class="label">ID письма Sendsay</label>
-                            <input id="ev-letter" v-model="form.letter_draft_id" :class="input" />
-                        </div>
-                    </div>
-                    <p :class="hint">Поля Sendsay нужны только для старых рассылок — письма участникам теперь уходят через Sender.</p>
                 </div>
             </details>
         </form>
@@ -329,8 +318,6 @@ const blank = {
     kinescope_playlist_id: "",
     kinescope_type: "",
     is_live: false,
-    letter_draft_id: "",
-    groupsensay: "",
     max_quantity: null,
     file: null,
     delete_file: false,
@@ -465,8 +452,6 @@ function fill(event) {
         kinescope_playlist_id: event.kinescope_playlist_id || "",
         kinescope_type: event.kinescope_type || (event.kinescope_playlist_id ? "playlist" : event.kinescope_id ? "video" : ""),
         is_live: !!event.is_live,
-        letter_draft_id: event.letter_draft_id || "",
-        groupsensay: event.groupsensay || "",
         max_quantity: event.max_quantity ?? null,
         _method: "PUT",
     };
@@ -495,7 +480,7 @@ const sections = [
 ];
 const publicUrl = computed(() => (props.event?.slug ? route("events.show", props.event.slug) : null));
 
-const hasAdvancedErrors = computed(() => ["slug", "sort_order", "groupsensay", "letter_draft_id"].some((key) => form.errors[key]));
+const hasAdvancedErrors = computed(() => ["slug", "sort_order"].some((key) => form.errors[key]));
 
 // Предупреждаем, если уходят со страницы с несохранёнными правками
 let saving = false;
@@ -535,8 +520,6 @@ function submitForm() {
         kinescope_id: data.kinescope_type === "video" ? data.kinescope_id : null,
         kinescope_playlist_id: data.kinescope_type === "playlist" ? data.kinescope_playlist_id : null,
         categories: data.selected_categories || [],
-        letter_draft_id: data.letter_draft_id || null,
-        groupsensay: data.groupsensay || null,
         max_quantity: data.max_quantity === "" || data.max_quantity == null ? null : Number(data.max_quantity),
         sort_order: Number(data.sort_order) || 0,
         delete_file: data.delete_file ? 1 : 0,

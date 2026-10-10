@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Services\Bitrix24RegistrationService;
 use App\Services\PaymentService;
 use App\Services\SenderMailService;
-use App\Services\SendsayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -21,17 +20,13 @@ class EventsController extends Controller
 {
     protected PaymentService $paymentService;
 
-    protected SendsayService $sendsayService;
-
     protected Bitrix24RegistrationService $bitrix24RegistrationService;
 
     public function __construct(
         PaymentService $paymentService,
-        SendsayService $sendsayService,
         Bitrix24RegistrationService $bitrix24RegistrationService
     ) {
         $this->paymentService = $paymentService;
-        $this->sendsayService = $sendsayService;
         $this->bitrix24RegistrationService = $bitrix24RegistrationService;
     }
 

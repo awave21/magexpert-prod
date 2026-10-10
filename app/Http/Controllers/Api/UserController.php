@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\SenderMailService;
-use App\Services\SendsayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -14,13 +13,6 @@ use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
-    protected SendsayService $sendsayService;
-
-    public function __construct(SendsayService $sendsayService)
-    {
-        $this->sendsayService = $sendsayService;
-    }
-
     public function store(Request $request): JsonResponse
     {
         // Валидация входящих данных

@@ -73,14 +73,6 @@ return [
             'replace_placeholders' => true,
         ],
 
-        'sendsay' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/sendsay.log'),
-            'level' => env('SENDSAY_LOGGING_LEVEL', 'info'),
-            'days' => env('SENDSAY_LOG_DAYS', 7),
-            'replace_placeholders' => true,
-        ],
-
         'bitrix24' => [
             'driver' => 'daily',
             'path' => storage_path('logs/bitrix24.log'),
