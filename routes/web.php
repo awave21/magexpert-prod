@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\CabinetMessageController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\EventRegistrationController;
@@ -180,6 +181,11 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
 
     // Маршруты для управления пользователями (только для админов и менеджеров)
     Route::middleware('role:admin,manager')->group(function () {
+        // Сообщения в колокольчик личного кабинета
+        Route::get('/messages', [CabinetMessageController::class, 'index'])->name('admin.messages');
+        Route::get('/messages/count', [CabinetMessageController::class, 'count'])->name('admin.messages.count');
+        Route::post('/messages', [CabinetMessageController::class, 'store'])->middleware('throttle:20,1')->name('admin.messages.store');
+
         // Создание пользователя
         Route::post('/users', [AdminUserController::class, 'store'])->name('admin.users.store');
 

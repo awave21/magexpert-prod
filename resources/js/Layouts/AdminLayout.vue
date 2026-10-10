@@ -551,6 +551,7 @@ import {
     DocumentTextIcon,
     BuildingOfficeIcon,
     ClipboardDocumentListIcon,
+    BellAlertIcon,
 } from "@heroicons/vue/24/solid";
 
 // Используем хранилище админа
@@ -558,6 +559,9 @@ const adminStore = useAdminStore();
 
 // Получение данных пользователя из Inertia
 const page = usePage();
+
+// Сообщения в кабинет могут отправлять только админы и менеджеры
+const canSendMessages = (page.props.auth.user?.roles ?? []).some((role) => ['admin', 'manager'].includes(role.slug ?? role.name));
 
 // Меню навигации
 const menuItems = [
@@ -603,6 +607,14 @@ const menuItems = [
         activePattern: "admin.partners*",
         icon: BuildingOfficeIcon,
     },
+    ...(canSendMessages
+        ? [{
+            name: "Сообщения",
+            routeName: "admin.messages",
+            activePattern: "admin.messages*",
+            icon: BellAlertIcon,
+        }]
+        : []),
 ];
 
 // Функция для выхода из системы
