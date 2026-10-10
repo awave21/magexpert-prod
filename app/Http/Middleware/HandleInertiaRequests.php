@@ -59,6 +59,8 @@ class HandleInertiaRequests extends Middleware
             ],
             // кнопки входа показываем только для провайдеров, у которых в .env есть ключи
             'socialProviders' => fn () => array_values(array_filter(['yandex', 'vkid'], fn (string $p): bool => (bool) config("services.{$p}.client_id"))),
+            // через кого можно подтвердить телефон: нужны ключи и разрешённый доступ к номеру (YANDEX_PHONE / VKID_PHONE)
+            'phoneProviders' => fn () => array_values(array_filter(['yandex', 'vkid'], fn (string $p): bool => (bool) config("services.{$p}.client_id") && (bool) config("services.{$p}.phone"))),
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'success' => fn () => $request->session()->get('success'),

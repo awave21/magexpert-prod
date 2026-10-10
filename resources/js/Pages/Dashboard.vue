@@ -19,7 +19,8 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
-const yandexAvailable = computed(() => (page.props.socialProviders ?? []).includes('yandex'));
+// подтверждать телефон предлагаем, только когда Яндекс действительно отдаёт номер
+const phoneCheck = computed(() => (page.props.phoneProviders ?? []).includes('yandex'));
 
 const greeting = computed(() => {
     const hour = new Date().getHours();
@@ -40,8 +41,9 @@ const resend = () => {
         onFinish: () => { sending.value = false; },
     });
 };
-const doneCount = computed(() => 1 + Number(props.setup.email_verified) + Number(props.setup.phone_verified) + Number(props.setup.profile_filled));
-const setupDone = computed(() => doneCount.value === 4);
+const totalSteps = computed(() => (phoneCheck.value ? 4 : 3));
+const doneCount = computed(() => 1 + Number(props.setup.email_verified) + Number(phoneCheck.value && props.setup.phone_verified) + Number(props.setup.profile_filled));
+const setupDone = computed(() => doneCount.value === totalSteps.value);
 
 const tab = ref(props.upcoming.length || !props.records.length ? 'upcoming' : 'records');
 const tabs = [
@@ -98,7 +100,7 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                     <div class="flex flex-wrap items-end justify-between gap-4">
                         <div class="flex flex-col gap-3.5">
                             <span class="cab-eyebrow">Профиль</span>
-                            <h2 id="setup-title" class="font-display text-[30px] font-medium leading-9">Завершите настройку — {{ doneCount }} из 4</h2>
+                            <h2 id="setup-title" class="font-display text-[30px] font-medium leading-9">Завершите настройку — {{ doneCount }} из {{ totalSteps }}</h2>
                         </div>
                         <p class="max-w-[420px] text-[15px] leading-[23px] text-gray-500 dark:text-gray-400">Подтвердите email и телефон — так вы не потеряете доступ к аккаунту.</p>
                     </div>
@@ -112,14 +114,13 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                             <span v-if="emailSent" class="cab-chip-ok">Отправлено</span>
                             <button v-else type="button" class="cab-btn !min-h-10 !px-4 !text-[13px]" :disabled="sending" @click="resend">{{ sending ? 'Отправляем…' : 'Отправить ещё раз' }}</button>
                         </div>
-                        <div v-if="!setup.phone_verified" class="cab-panel flex flex-wrap items-center gap-3.5 !rounded-3xl p-4">
+                        <div v-if="phoneCheck && !setup.phone_verified" class="cab-panel flex flex-wrap items-center gap-3.5 !rounded-3xl p-4">
                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brandblue-soft text-brandblue-dark"><DevicePhoneMobileIcon class="h-6 w-6" aria-hidden="true" /></span>
                             <span class="flex min-w-0 flex-[1_1_160px] flex-col">
                                 <span class="font-bold">Подтвердите телефон</span>
-                                <span class="text-[13px] text-gray-500">{{ yandexAvailable ? 'Через Яндекс ID, без СМС' : 'В разделе «Вход и безопасность»' }}</span>
+                                <span class="text-[13px] text-gray-500">Номером из Яндекс ID, без СМС. Откроется Яндекс и сразу вернёт сюда</span>
                             </span>
-                            <a v-if="yandexAvailable" :href="route('social.link', 'yandex')" class="cab-btn !min-h-10 !px-4 !text-[13px]">Подтвердить</a>
-                            <Link v-else :href="route('cabinet.security')" class="cab-btn !min-h-10 !px-4 !text-[13px]">Подробнее</Link>
+                            <a :href="route('social.link', 'yandex')" class="cab-btn !min-h-10 !px-4 !text-[13px]">Подтвердить</a>
                         </div>
                         <div v-if="!setup.profile_filled" class="cab-panel flex flex-wrap items-center gap-3.5 !rounded-3xl p-4">
                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brandblue-soft text-brandblue-dark"><UserIcon class="h-6 w-6" aria-hidden="true" /></span>

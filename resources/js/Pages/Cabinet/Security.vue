@@ -13,7 +13,8 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
-const yandex = computed(() => props.social.find((item) => item.key === 'yandex'));
+// кнопку подтверждения показываем, только когда Яндекс действительно отдаёт номер
+const phoneCheck = computed(() => (page.props.phoneProviders ?? []).includes('yandex'));
 const providers = computed(() => props.social.filter((item) => item.linked || item.available));
 
 // Подтверждение email: новая ссылка в письме
@@ -84,17 +85,18 @@ const destroy = () => {
                     </div>
 
                     <div class="flex flex-wrap items-center gap-4 border-t border-gray-100 py-4 dark:border-gray-800">
-                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full" :class="phoneVerified ? 'bg-[#e4f1e9] text-[#2f6b4f]' : 'bg-[#fbecd3] text-[#8a5512]'"><DevicePhoneMobileIcon class="h-5 w-5" aria-hidden="true" /></span>
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full" :class="phoneVerified ? 'bg-[#e4f1e9] text-[#2f6b4f]' : phoneCheck ? 'bg-[#fbecd3] text-[#8a5512]' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'"><DevicePhoneMobileIcon class="h-5 w-5" aria-hidden="true" /></span>
                         <div class="min-w-0 flex-[1_1_240px]">
                             <div class="flex flex-wrap items-center gap-2.5">
                                 <span class="font-bold">Телефон</span>
-                                <span :class="phoneVerified ? 'cab-chip-ok' : 'cab-chip-warn'">{{ phoneVerified ? 'Подтверждён' : 'Не подтверждён' }}</span>
+                                <span v-if="phoneVerified" class="cab-chip-ok">Подтверждён</span>
+                                <span v-else-if="phoneCheck" class="cab-chip-warn">Не подтверждён</span>
                             </div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">
-                                {{ phone || 'Номер не указан' }}<template v-if="!phoneVerified && yandex?.available"> — подтвердим номером из Яндекс ID, без СМС</template>
+                                {{ phone || 'Номер не указан' }}<template v-if="!phoneVerified && phoneCheck"> — подтвердим номером из Яндекс ID, без СМС. Откроется Яндекс и сразу вернёт сюда</template>
                             </div>
                         </div>
-                        <a v-if="!phoneVerified && yandex?.available" :href="route('social.link', 'yandex')" class="cab-btn-ghost w-full sm:w-auto">
+                        <a v-if="!phoneVerified && phoneCheck" :href="route('social.link', 'yandex')" class="cab-btn-ghost w-full sm:w-auto">
                             <span class="flex h-5 w-5 items-center justify-center rounded-full bg-[#fc3f1d] text-xs font-extrabold text-white" aria-hidden="true">Я</span>
                             Подтвердить через Яндекс
                         </a>

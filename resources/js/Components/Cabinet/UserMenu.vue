@@ -21,7 +21,8 @@ const page = usePage();
 const user = computed(() => page.props.auth.user);
 // Сотрудникам — быстрый переход в админку
 const isStaff = computed(() => (user.value.roles ?? []).some((role) => ['admin', 'editor', 'manager'].includes(role.name)));
-const needsAttention = computed(() => !user.value.email_verified || !user.value.phone_verified);
+const phoneCheck = computed(() => (page.props.phoneProviders ?? []).length > 0);
+const needsAttention = computed(() => !user.value.email_verified || (phoneCheck.value && !user.value.phone_verified));
 
 const open = ref(false);
 const root = ref(null);

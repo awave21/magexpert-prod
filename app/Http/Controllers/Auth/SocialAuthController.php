@@ -34,7 +34,7 @@ class SocialAuthController extends Controller
     public const PENDING = 'social_pending';
 
     /**
-     * Пользователь уже вошёл и привязывает Яндекс или ВКонтакте из профиля.
+     * Пользователь уже вошёл и привязывает Яндекс или ВКонтакте: куда вернуть его после ответа провайдера.
      */
     private const LINKING = 'social_linking';
 
@@ -65,7 +65,10 @@ class SocialAuthController extends Controller
      */
     public function link(Request $request, string $provider): SymfonyRedirect|RedirectResponse
     {
-        $request->session()->put(self::LINKING, true);
+        // возвращаем туда, откуда нажали кнопку (сводка, «Вход и безопасность»), а не на чужую страницу
+        $previous = url()->previous(route('cabinet.security'));
+        $back = str_starts_with($previous, url('/')) && ! str_contains($previous, '/auth/') ? $previous : route('cabinet.security');
+        $request->session()->put(self::LINKING, $back);
 
         return $this->redirect($provider);
     }
@@ -80,8 +83,11 @@ class SocialAuthController extends Controller
     public function callback(Request $request, string $provider): RedirectResponse
     {
         $name = self::NAMES[$provider];
-        $linking = $request->user() !== null && $request->session()->pull(self::LINKING, false);
-        $fail = $linking ? redirect()->route('profile.edit') : redirect()->route('login');
+        // вошедший пользователь здесь всегда привязывает аккаунт, даже если сессия потеряла адрес возврата
+        $back = $request->session()->pull(self::LINKING);
+        $linking = $request->user() !== null;
+        $back = is_string($back) ? $back : route('cabinet.security');
+        $fail = $linking ? redirect()->to($back) : redirect()->route('login');
 
         if ($request->filled('error')) {
             return $linking
@@ -102,11 +108,7 @@ class SocialAuthController extends Controller
         $profile = $this->profile($provider, $social);
 
         if ($linking) {
-            return $this->linkCurrent($request->user(), $profile);
-        }
-
-        if ($request->user() !== null) {
-            return redirect()->route('dashboard');
+            return $this->linkCurrent($request->user(), $profile, $back);
         }
 
         $account = SocialAccount::query()->where('provider', $provider)->where('provider_user_id', $profile['id'])->first();
@@ -198,15 +200,18 @@ class SocialAuthController extends Controller
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
-    private function linkCurrent(User $user, array $profile): RedirectResponse
+    private function linkCurrent(User $user, array $profile, string $back): RedirectResponse
     {
         $name = self::NAMES[$profile['provider']];
 
         if (! $this->accounts->link($user, $profile)) {
-            return redirect()->route('profile.edit')->with('error', "Этот аккаунт {$name} уже привязан к другому профилю на сайте.");
+            return redirect()->to($back)->with('error', "Этот аккаунт {$name} уже привязан к другому профилю на сайте.");
         }
 
-        return redirect()->route('profile.edit')->with('message', $this->accounts->message($profile['provider'], $this->accounts->applyPhone($user, $profile['phone'])));
+        $status = $this->accounts->applyPhone($user, $profile['phone']);
+        $key = in_array($status, [SocialAccounts::PHONE_FILLED, SocialAccounts::PHONE_VERIFIED], true) ? 'message' : 'error';
+
+        return redirect()->to($back)->with($key, $this->accounts->message($profile['provider'], $status));
     }
 
     /**

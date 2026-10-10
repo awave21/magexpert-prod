@@ -142,9 +142,9 @@ it('links vk from the profile and confirms the matching phone', function (): voi
     $user = User::factory()->create(['phone' => '8 999 123-45-67']);
     fakeSocialUser('vkid', ['id' => '701', 'first_name' => 'Анна', 'phone' => '79991234567'], 'anna-vk@mail.ru');
 
-    $this->actingAs($user)->get('/auth/vkid/link')->assertRedirect('https://oauth.example.test/authorize');
+    $this->actingAs($user)->from(route('dashboard'))->get('/auth/vkid/link')->assertRedirect('https://oauth.example.test/authorize');
     $this->get('/auth/vkid/callback?code=x&device_id=d')
-        ->assertRedirect(route('profile.edit'))
+        ->assertRedirect(route('dashboard'))
         ->assertSessionHas('message', 'ВКонтакте привязан, телефон подтверждён.');
 
     expect($user->fresh()->phone_verified_at)->not->toBeNull()
@@ -157,7 +157,7 @@ it('does not overwrite a different phone and refuses an account linked to someon
     fakeSocialUser('yandex', ['id' => '801', 'default_phone' => ['number' => '+79991234567']], 'x@yandex.ru');
 
     $this->actingAs($user)->get('/auth/yandex/link');
-    $this->get('/auth/yandex/callback?code=x')->assertSessionHas('message', fn (string $m): bool => str_contains($m, 'указан другой номер'));
+    $this->get('/auth/yandex/callback?code=x')->assertSessionHas('error', fn (string $m): bool => str_contains($m, 'указан другой номер'));
     expect($user->fresh()->phone_verified_at)->toBeNull();
 
     $other = User::factory()->create();
@@ -204,4 +204,33 @@ test('кнопки входа показываются только для пр�
 
     $this->get('/login')->assertInertia(fn ($page) => $page->where('socialProviders', ['yandex']));
     $this->getJson('/api/sender/v1/admin/oauth/providers')->assertOk()->assertExactJson(['data' => ['yandex']]);
+});
+
+it('returns to the security page when the link was opened without a known origin', function (): void {
+    $user = User::factory()->create();
+    fakeSocialUser('yandex', ['id' => '811'], 'nophone@yandex.ru');
+
+    $this->actingAs($user)->get('/auth/yandex/link');
+    $this->get('/auth/yandex/callback?code=x')
+        ->assertRedirect(route('cabinet.security'))
+        ->assertSessionHas('error', fn (string $m): bool => str_contains($m, 'не передал номер'));
+});
+
+it('returns to the page with an error when the user cancels at the provider', function (): void {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->from(route('dashboard'))->get('/auth/yandex/link');
+    $this->get('/auth/yandex/callback?error=access_denied')
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionHas('error', 'Привязка Яндекс отменена.');
+});
+
+it('offers phone confirmation only when the provider shares the number', function (): void {
+    config(['services.yandex.client_id' => 'id', 'services.yandex.phone' => false]);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get('/dashboard')->assertInertia(fn ($page) => $page->where('phoneProviders', []));
+
+    config(['services.yandex.phone' => true]);
+    $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('phoneProviders', ['yandex']));
 });
