@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import ProfileLayout from '@/Layouts/ProfileLayout.vue';
+import KinescopePlayer from '@/Components/Events/KinescopePlayer.vue';
 import {
     ArrowLeftIcon,
     CalendarDaysIcon,
@@ -20,6 +21,14 @@ const props = defineProps({
     },
     user: {
         type: Object,
+        default: null
+    },
+    progress: {
+        type: Object,
+        default: () => ({ last: null, items: {} })
+    },
+    progressUrl: {
+        type: String,
         default: null
     }
 });
@@ -254,16 +263,17 @@ const calendarHref = computed(() => {
 
                 <!-- Плеер и чат Кинескопа -->
                 <div class="overflow-hidden rounded-[26px] bg-gray-900 shadow-[0_4px_10px_#0f172a0d,0_40px_80px_-40px_#0f172a4d]">
-                    <div class="relative aspect-video">
-                        <iframe
-                            v-if="embedUrl"
-                            :src="embedUrl"
-                            class="absolute inset-0 h-full w-full"
-                            frameborder="0"
-                            allowfullscreen
-                            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write; screen-wake-lock;"
-                        ></iframe>
-                        <div v-else class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#1f2a3a] via-brandblue-dark to-brandblue px-6 text-center text-white">
+                    <KinescopePlayer
+                        v-if="embedUrl"
+                        :video-id="event.kinescope_type === 'video' ? event.kinescope_id : null"
+                        :playlist-id="event.kinescope_type === 'playlist' ? event.kinescope_playlist_id : null"
+                        :embed-url="embedUrl"
+                        :progress="progress"
+                        :save-url="progressUrl"
+                        :track="!isLive"
+                    />
+                    <div v-else class="relative aspect-video">
+                        <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#1f2a3a] via-brandblue-dark to-brandblue px-6 text-center text-white">
                             <span class="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-brandblue-dark"><PlayIcon class="ml-1 h-7 w-7" aria-hidden="true" /></span>
                             <span class="font-display text-2xl font-medium">Видео скоро будет доступно</span>
                             <span class="text-sm text-white/80">{{ isLive ? 'Мероприятие в процессе проведения' : 'Запись будет опубликована после окончания мероприятия' }}</span>

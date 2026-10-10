@@ -22,6 +22,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserNotificationController;
 use App\Http\Controllers\UserRoleController;
+use App\Http\Controllers\VideoProgressController;
 use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -86,6 +87,9 @@ Route::prefix('payment')->name('payment.')->group(function () {
 Route::get('/my-events/{event:slug}', [EventsController::class, 'view'])
     ->middleware(['auth'])
     ->name('my-events.view');
+Route::post('/my-events/{event:slug}/progress', [VideoProgressController::class, 'store'])
+    ->middleware(['auth', 'throttle:120,1'])
+    ->name('my-events.progress');
 
 // Маршруты для медицинской библиотеки (публичная часть)
 Route::get('/documents', [PublicMedicalLibraryController::class, 'index'])->name('documents.index');

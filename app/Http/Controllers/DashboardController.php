@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\MedicalLibrary;
+use App\Models\VideoProgress;
 use App\Services\CabinetEvents;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,6 +35,8 @@ class DashboardController extends Controller
             ->take(6)
             ->values();
 
+        $watching = $this->watching($user->id, $events);
+
         $calendar = $events
             ->filter(fn (array $event): bool => $event['start_date'] !== null)
             ->map(fn (array $event): array => [
@@ -49,6 +53,7 @@ class DashboardController extends Controller
             'live' => $live,
             'upcoming' => $upcoming,
             'records' => $records,
+            'watching' => $watching,
             'calendar' => $calendar,
             'today' => $today,
             'library' => [
@@ -64,6 +69,37 @@ class DashboardController extends Controller
                 'profile_filled' => filled($user->specialization) && filled($user->city),
             ],
         ]);
+    }
+
+    /**
+     * Записи, которые врач начал и не досмотрел: последние три, с позицией и долей просмотренного.
+     *
+     * @param  Collection<int, array<string, mixed>>  $events
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function watching(int $userId, Collection $events): Collection
+    {
+        $available = $events
+            ->filter(fn (array $event): bool => $event['has_recording'] && ! $event['is_live'] && $event['access'] !== 'pending')
+            ->keyBy('id');
+
+        return VideoProgress::query()
+            ->where('user_id', $userId)
+            ->whereNull('completed_at')
+            ->where('position', '>=', 15)
+            ->latest('updated_at')
+            ->limit(30)
+            ->get()
+            ->unique('event_id')
+            ->filter(fn (VideoProgress $progress): bool => $available->has($progress->event_id))
+            ->take(3)
+            ->map(fn (VideoProgress $progress): array => [
+                ...$available->get($progress->event_id),
+                'position' => $progress->position,
+                'duration' => $progress->duration,
+                'percent' => $progress->duration ? min(100, (int) round($progress->position / $progress->duration * 100)) : null,
+            ])
+            ->values();
     }
 
     /**

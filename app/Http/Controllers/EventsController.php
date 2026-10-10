@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Event;
 use App\Models\Speaker;
 use App\Models\User;
+use App\Models\VideoProgress;
 use App\Services\Bitrix24RegistrationService;
 use App\Services\PaymentService;
 use App\Services\SenderMailService;
@@ -245,6 +246,8 @@ class EventsController extends Controller
 
         return Inertia::render('Events/View', [
             'event' => $eventData,
+            'progress' => VideoProgress::forPlayer($user, $event),
+            'progressUrl' => route('my-events.progress', $event->slug),
             'user' => [
                 'id' => $user->id,
                 'first_name' => $user->first_name,

@@ -11,6 +11,7 @@ const props = defineProps({
     live: { type: Object, default: null },
     upcoming: { type: Array, default: () => [] },
     records: { type: Array, default: () => [] },
+    watching: { type: Array, default: () => [] },
     calendar: { type: Array, default: () => [] },
     today: { type: String, required: true },
     library: { type: Object, default: () => ({ total: 0, latest: [] }) },
@@ -63,6 +64,20 @@ const libQuery = ref('');
 const searchLibrary = () => {
     router.get(route('documents.index'), libQuery.value ? { search: libQuery.value } : {});
 };
+const clock = (seconds) => {
+    const total = Math.max(0, Math.floor(seconds ?? 0));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = String(total % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+};
+const leftLabel = (item) => {
+    if (!item.duration) {
+        return `Остановились на ${clock(item.position)}`;
+    }
+    const minutes = Math.max(1, Math.round((item.duration - item.position) / 60));
+    return `Осталось ${minutes} мин · остановились на ${clock(item.position)}`;
+};
 const year = (date) => (date ? String(date).slice(0, 4) : '');
 </script>
 
@@ -101,6 +116,34 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                     </div>
                     <span class="cab-btn cab-btn--coral">Смотреть трансляцию</span>
                 </Link>
+
+                <!-- Продолжить просмотр -->
+                <section v-if="watching.length" aria-labelledby="watching-title" class="flex flex-col gap-6">
+                    <div class="flex flex-col gap-3.5">
+                        <span class="cab-eyebrow">Записи</span>
+                        <h2 id="watching-title" class="font-display text-[30px] font-medium leading-9">Продолжить просмотр</h2>
+                    </div>
+                    <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-5 gap-y-6">
+                        <Link
+                            v-for="item in watching"
+                            :key="item.id"
+                            :href="route('my-events.view', item.slug)"
+                            class="cab-focus group flex flex-col gap-3 rounded-[22px] text-gray-900 dark:text-white"
+                        >
+                            <div class="cab-thumb aspect-video w-full">
+                                <img v-if="item.image" :src="item.image" alt="" class="absolute inset-0 h-full w-full object-cover" />
+                                <span class="absolute bottom-4 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-brandblue transition group-hover:scale-105"><PlayIcon class="ml-0.5 h-4 w-4" aria-hidden="true" /></span>
+                                <span v-if="item.percent !== null" class="absolute inset-x-0 bottom-0 h-1.5 bg-black/25" role="progressbar" :aria-valuenow="item.percent" aria-valuemin="0" aria-valuemax="100" :aria-label="`Просмотрено ${item.percent} %`">
+                                    <span class="block h-full bg-brandcoral" :style="{ width: `${item.percent}%` }"></span>
+                                </span>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <span class="line-clamp-2 text-[17px] font-bold leading-[22px] group-hover:text-brandblue-dark">{{ item.title }}</span>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">{{ leftLabel(item) }}</span>
+                            </div>
+                        </Link>
+                    </div>
+                </section>
 
                 <!-- Завершите настройку -->
                 <section v-if="!setupDone" aria-labelledby="setup-title" class="flex flex-col gap-6">
