@@ -45,8 +45,10 @@ MAIL_PORT=25
 MAIL_USERNAME=null
 MAIL_PASSWORD=null
 MAIL_SCHEME=null
+MAIL_AUTO_TLS=false
 MAIL_FROM_ADDRESS=noreply@mag-expert.ru
 ```
+`MAIL_AUTO_TLS=false` нужен потому, что Postfix на этом сервере отдаёт самоподписанный сертификат на имя хоста, а Laravel подключается к 127.0.0.1 и без этой строки обрывает соединение («Peer certificate CN … did not match»). Шифрование внутри одного сервера не нужно.
 
 ## 5. Миграции и начальные данные
 ```
