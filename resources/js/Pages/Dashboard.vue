@@ -21,6 +21,8 @@ const page = usePage();
 const user = computed(() => page.props.auth.user);
 // подтверждать телефон предлагаем, только когда Яндекс действительно отдаёт номер
 const phoneCheck = computed(() => (page.props.phoneProviders ?? []).includes('yandex'));
+// итог последней попытки подтверждения (приходит один раз после возврата с Яндекса)
+const phoneResult = computed(() => page.props.flash?.phone_result ?? null);
 
 const greeting = computed(() => {
     const hour = new Date().getHours();
@@ -118,7 +120,8 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brandblue-soft text-brandblue-dark"><DevicePhoneMobileIcon class="h-6 w-6" aria-hidden="true" /></span>
                             <span class="flex min-w-0 flex-[1_1_160px] flex-col">
                                 <span class="font-bold">Подтвердите телефон</span>
-                                <span class="text-[13px] text-gray-500">Номером из Яндекс ID, без СМС. Откроется Яндекс и сразу вернёт сюда</span>
+                                <span v-if="phoneResult && !phoneResult.ok" class="text-[13px] font-semibold text-[#b4361c]" role="alert">{{ phoneResult.text }}</span>
+                                <span v-else class="text-[13px] text-gray-500">Номером из Яндекс ID, без СМС. Откроется Яндекс и сразу вернёт сюда</span>
                             </span>
                             <a :href="route('social.link', 'yandex')" class="cab-btn !min-h-10 !px-4 !text-[13px]">Подтвердить</a>
                         </div>

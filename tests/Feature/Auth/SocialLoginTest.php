@@ -34,6 +34,7 @@ function fakeSocialUser(string $provider, array $raw, ?string $email): void
     $driver = Mockery::mock();
     $driver->shouldReceive('redirectUrl')->andReturnSelf();
     $driver->shouldReceive('scopes')->andReturnSelf();
+    $driver->shouldReceive('with')->andReturnSelf();
     $driver->shouldReceive('redirect')->andReturn(redirect()->away('https://oauth.example.test/authorize'));
     $driver->shouldReceive('user')->andReturn($user);
     Socialite::shouldReceive('driver')->with($provider)->andReturn($driver);
@@ -233,4 +234,17 @@ it('offers phone confirmation only when the provider shares the number', functio
 
     config(['services.yandex.phone' => true]);
     $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('phoneProviders', ['yandex']));
+});
+
+it('shows why the phone was not confirmed right in the cabinet and asks yandex to confirm access again', function (): void {
+    config(['services.yandex.client_id' => 'id', 'services.yandex.phone' => true]);
+    $user = User::factory()->create(['phone' => '+7 900 000-00-00']);
+    fakeSocialUser('yandex', ['id' => '821', 'default_phone' => ['number' => '+79991234567']], 'other@yandex.ru');
+
+    $this->actingAs($user)->from(route('dashboard'))->get('/auth/yandex/link');
+    $this->get('/auth/yandex/callback?code=x')->assertRedirect(route('dashboard'));
+
+    $this->get('/dashboard')->assertInertia(fn ($page) => $page
+        ->where('flash.phone_result.ok', false)
+        ->where('flash.phone_result.text', fn (string $text): bool => str_contains($text, 'указан другой номер')));
 });

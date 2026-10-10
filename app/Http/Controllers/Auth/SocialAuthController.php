@@ -40,7 +40,7 @@ class SocialAuthController extends Controller
 
     public function __construct(private readonly SocialAccounts $accounts) {}
 
-    public function redirect(string $provider): SymfonyRedirect|RedirectResponse
+    public function redirect(string $provider, bool $askAgain = false): SymfonyRedirect|RedirectResponse
     {
         if (! config("services.{$provider}.client_id")) {
             return redirect()->route('login')->withErrors(['email' => 'Вход через '.self::NAMES[$provider].' пока не настроен.']);
@@ -53,6 +53,12 @@ class SocialAuthController extends Controller
 
         if ($provider === 'yandex') {
             $driver->scopes(array_merge(['login:email', 'login:info'], $phone ? ['login:default_phone'] : []));
+
+            // при подтверждении телефона просим Яндекс заново показать разрешения:
+            // иначе он молча отдаёт старое согласие, выданное ещё без доступа к номеру
+            if ($askAgain) {
+                $driver->with(['force_confirm' => 'yes']);
+            }
         } elseif ($phone) {
             $driver->scopes(['phone']);
         }
@@ -70,7 +76,7 @@ class SocialAuthController extends Controller
         $back = str_starts_with($previous, url('/')) && ! str_contains($previous, '/auth/') ? $previous : route('cabinet.security');
         $request->session()->put(self::LINKING, $back);
 
-        return $this->redirect($provider);
+        return $this->redirect($provider, askAgain: true);
     }
 
     public function unlink(Request $request, string $provider): RedirectResponse
@@ -209,9 +215,22 @@ class SocialAuthController extends Controller
         }
 
         $status = $this->accounts->applyPhone($user, $profile['phone']);
-        $key = in_array($status, [SocialAccounts::PHONE_FILLED, SocialAccounts::PHONE_VERIFIED], true) ? 'message' : 'error';
+        $verified = in_array($status, [SocialAccounts::PHONE_FILLED, SocialAccounts::PHONE_VERIFIED], true);
+        $text = $this->accounts->message($profile['provider'], $status);
 
-        return redirect()->to($back)->with($key, $this->accounts->message($profile['provider'], $status));
+        // сам номер в журнал не пишем: только пришёл ли он и чем закончилась проверка
+        Log::info('Подтверждение телефона через соцсеть', [
+            'provider' => $profile['provider'],
+            'user_id' => $user->id,
+            'phone_received' => $profile['phone'] !== null,
+            'profile_has_phone' => filled($user->phone),
+            'status' => $status,
+        ]);
+
+        // итог показываем и всплывающим сообщением, и прямо в плашке телефона — чтобы его нельзя было пропустить
+        return redirect()->to($back)
+            ->with($verified ? 'message' : 'error', $text)
+            ->with('phone_result', ['ok' => $verified, 'text' => $text]);
     }
 
     /**
