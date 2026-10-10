@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\AccountAnonymizer;
 use App\Traits\ManagesAvatars;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +17,7 @@ use Inertia\Response;
 class ProfileController extends Controller
 {
     use ManagesAvatars;
-    
+
     /**
      * Display the user's profile.
      */
@@ -56,13 +57,13 @@ class ProfileController extends Controller
             'city' => $validated['city'] ?? null,
             'phone' => $validated['phone'] ?? null,
         ];
-        
+
         try {
             // Обработка аватара
             if ($request->hasFile('avatar')) {
                 $this->processAndSaveAvatar($user, $request->file('avatar'));
             } elseif ($request->boolean('delete_avatar')) {
-                if ($user->avatar && !str_starts_with($user->avatar, 'http')) {
+                if ($user->avatar && ! str_starts_with($user->avatar, 'http')) {
                     $oldAvatarPath = str_replace('/storage/', '', $user->avatar);
                     if (Storage::disk('public')->exists($oldAvatarPath)) {
                         Storage::disk('public')->delete($oldAvatarPath);
@@ -98,7 +99,7 @@ class ProfileController extends Controller
 
         Auth::logout();
 
-        $user->delete();
+        app(AccountAnonymizer::class)->anonymize($user);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
