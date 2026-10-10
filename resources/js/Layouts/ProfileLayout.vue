@@ -113,8 +113,9 @@ watch(() => page.props.flash?.error, (error) => {
             </aside>
 
             <main class="flex min-w-0 flex-1 flex-col gap-8">
-                <!-- Верхняя панель (десктоп) -->
-                <div class="cab-panel relative z-30 hidden flex-wrap items-center gap-2.5 !rounded-full py-2 pl-3 pr-2 lg:flex">
+                <!-- Верхняя панель (десктоп): прилипает к верху экрана, фон-подложка прячет содержимое, уезжающее под неё -->
+                <div class="sticky top-0 z-30 -mt-6 hidden bg-cabinet pt-6 lg:block dark:bg-gray-950">
+                <div class="cab-panel relative flex flex-wrap items-center gap-2.5 !rounded-full py-2 pl-3 pr-2">
                     <Link :href="route('welcome')" class="cab-btn-ghost !min-h-11 !pl-3 !pr-4">
                         <ArrowLeftIcon class="h-[18px] w-[18px]" aria-hidden="true" />
                         На сайт
@@ -127,6 +128,7 @@ watch(() => page.props.flash?.error, (error) => {
                     <span class="flex-1"></span>
                     <MessagesBell />
                     <UserMenu />
+                </div>
                 </div>
 
                 <slot />
