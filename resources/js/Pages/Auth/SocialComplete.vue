@@ -72,6 +72,12 @@ const submit = () => form.post(route('social.store'));
                             </label>
                         </div>
 
+                        <p class="rounded-lg bg-gray-50 p-3 text-sm text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+                            Уже регистрировались на сайте с другим email?
+                            <Link :href="route('login')" class="font-medium text-brandblue hover:underline">Войдите по паролю</Link>
+                            — {{ provider }} привяжется к вашему аккаунту, и второй аккаунт не появится.
+                        </p>
+
                         <div class="flex items-center justify-between pt-2">
                             <Link :href="route('login')" class="text-sm text-brandblue hover:underline">Отмена</Link>
                             <PrimaryButton :disabled="form.processing || !form.privacy_consent || !form.oferta_consent" :class="{ 'opacity-50': form.processing }">

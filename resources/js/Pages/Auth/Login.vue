@@ -19,6 +19,10 @@ defineProps({
     status: {
         type: String,
     },
+    linkProvider: {
+        type: String,
+        default: null,
+    },
 });
 
 const submitting = ref(false);
@@ -117,6 +121,9 @@ const submit = async () => {
                     <div class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
                         <div v-if="status" class="mb-4 rounded-lg bg-green-50 p-4 text-sm font-medium text-green-600 dark:bg-green-900/20">
                             {{ status }}
+                        </div>
+                        <div v-if="linkProvider" class="mb-4 rounded-lg bg-brandblue/5 p-4 text-sm text-gray-700 dark:bg-brandblue/10 dark:text-gray-200">
+                            Войдите по email и паролю — и мы привяжем {{ linkProvider }} к вашему аккаунту. Дальше можно будет входить через {{ linkProvider }}.
                         </div>
 
                         <form @submit.prevent="submit" class="space-y-6">

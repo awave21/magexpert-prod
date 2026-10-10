@@ -17,8 +17,6 @@ Route::middleware('guest')->group(function () {
     // вход через Яндекс ID и VK ID
     Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])
         ->whereIn('provider', ['yandex', 'vkid'])->name('social.redirect');
-    Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback'])
-        ->whereIn('provider', ['yandex', 'vkid'])->middleware('throttle:30,1')->name('social.callback');
     Route::get('auth/complete', [SocialAuthController::class, 'complete'])->name('social.complete');
     Route::post('auth/complete', [SocialAuthController::class, 'store'])->middleware('throttle:10,1')->name('social.store');
 
@@ -73,3 +71,11 @@ Route::get('email/confirm/{id}/{hash}', [EmailConfirmController::class, 'confirm
     ->whereNumber('id')->middleware('throttle:20,1')->name('email.confirm');
 Route::post('email/confirm/resend', [EmailConfirmController::class, 'resend'])
     ->middleware(['auth', 'throttle:3,10'])->name('email.confirm.resend');
+
+// возврат от Яндекса или ВКонтакте: и для входа, и для привязки из профиля (поэтому вне группы guest)
+Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback'])
+    ->whereIn('provider', ['yandex', 'vkid'])->middleware('throttle:30,1')->name('social.callback');
+Route::middleware('auth')->group(function () {
+    Route::get('auth/{provider}/link', [SocialAuthController::class, 'link'])->whereIn('provider', ['yandex', 'vkid'])->name('social.link');
+    Route::delete('auth/{provider}/link', [SocialAuthController::class, 'unlink'])->whereIn('provider', ['yandex', 'vkid'])->name('social.unlink');
+});

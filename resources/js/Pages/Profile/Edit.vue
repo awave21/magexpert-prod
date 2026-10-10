@@ -3,8 +3,9 @@ import ProfileLayout from '@/Layouts/ProfileLayout.vue';
 import DeleteUserForm from './Partials/DeleteUserForm.vue';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
+import SocialAccountsForm from './Partials/SocialAccountsForm.vue';
 import { Head } from '@inertiajs/vue3';
-import { UserCircleIcon, KeyIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
+import { UserCircleIcon, KeyIcon, ExclamationTriangleIcon, LinkIcon } from '@heroicons/vue/24/outline';
 
 defineProps({
     mustVerifyEmail: {
@@ -12,6 +13,14 @@ defineProps({
     },
     status: {
         type: String,
+    },
+    social: {
+        type: Array,
+        default: () => [],
+    },
+    phoneVerified: {
+        type: Boolean,
+        default: false,
     },
 });
 </script>
@@ -39,6 +48,19 @@ defineProps({
                         :status="status"
                         class="max-w-xl"
                     />
+                </div>
+
+                <div class="overflow-hidden rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+                    <div class="mb-6 flex items-center">
+                        <div class="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-brandblue/10 dark:bg-brandblue/20">
+                            <LinkIcon class="h-7 w-7 text-brandblue" />
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-800 dark:text-white">Телефон и вход через соцсети</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Подтвердите номер и привяжите Яндекс или ВКонтакте</p>
+                        </div>
+                    </div>
+                    <SocialAccountsForm :social="social" :phone-verified="phoneVerified" class="max-w-xl" />
                 </div>
 
                 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">

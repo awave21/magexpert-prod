@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\SocialCompleteRequest;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Services\SenderMailService;
+use App\Services\SocialAccounts;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,9 +29,16 @@ use Throwable;
  */
 class SocialAuthController extends Controller
 {
-    private const NAMES = ['yandex' => 'Яндекс', 'vkid' => 'ВКонтакте'];
+    private const NAMES = SocialAccounts::NAMES;
 
-    private const PENDING = 'social_pending';
+    public const PENDING = 'social_pending';
+
+    /**
+     * Пользователь уже вошёл и привязывает Яндекс или ВКонтакте из профиля.
+     */
+    private const LINKING = 'social_linking';
+
+    public function __construct(private readonly SocialAccounts $accounts) {}
 
     public function redirect(string $provider): SymfonyRedirect|RedirectResponse
     {
@@ -40,19 +48,45 @@ class SocialAuthController extends Controller
 
         $driver = $this->driver($provider);
 
+        // телефон просим, только если доступ к нему включён в приложении у Яндекса или ВКонтакте
+        $phone = (bool) config("services.{$provider}.phone");
+
         if ($provider === 'yandex') {
-            $driver->scopes(['login:email', 'login:info']);
+            $driver->scopes(array_merge(['login:email', 'login:info'], $phone ? ['login:default_phone'] : []));
+        } elseif ($phone) {
+            $driver->scopes(['phone']);
         }
 
         return $driver->redirect();
     }
 
+    /**
+     * Привязка из профиля: после возврата от провайдера аккаунт привяжется к текущему пользователю.
+     */
+    public function link(Request $request, string $provider): SymfonyRedirect|RedirectResponse
+    {
+        $request->session()->put(self::LINKING, true);
+
+        return $this->redirect($provider);
+    }
+
+    public function unlink(Request $request, string $provider): RedirectResponse
+    {
+        $request->user()->socialAccounts()->where('provider', $provider)->delete();
+
+        return back()->with('message', self::NAMES[$provider].' отвязан. Входить можно по email и паролю, забытый пароль восстанавливается на странице входа.');
+    }
+
     public function callback(Request $request, string $provider): RedirectResponse
     {
         $name = self::NAMES[$provider];
+        $linking = $request->user() !== null && $request->session()->pull(self::LINKING, false);
+        $fail = $linking ? redirect()->route('profile.edit') : redirect()->route('login');
 
         if ($request->filled('error')) {
-            return redirect()->route('login')->withErrors(['email' => "Вход через {$name} отменён."]);
+            return $linking
+                ? $fail->with('error', "Привязка {$name} отменена.")
+                : $fail->withErrors(['email' => "Вход через {$name} отменён."]);
         }
 
         try {
@@ -60,25 +94,32 @@ class SocialAuthController extends Controller
         } catch (Throwable $exception) {
             Log::warning('Вход через соцсеть не удался', ['provider' => $provider, 'error' => $exception->getMessage()]);
 
-            return redirect()->route('login')->withErrors(['email' => "Не удалось войти через {$name}. Попробуйте ещё раз."]);
+            return $linking
+                ? $fail->with('error', "Не удалось связаться с {$name}. Попробуйте ещё раз.")
+                : $fail->withErrors(['email' => "Не удалось войти через {$name}. Попробуйте ещё раз."]);
         }
 
-        $account = SocialAccount::query()->where('provider', $provider)->where('provider_user_id', (string) $social->getId())->first();
+        $profile = $this->profile($provider, $social);
 
-        if ($account !== null) {
-            return $this->login($request, $account->user);
+        if ($linking) {
+            return $this->linkCurrent($request->user(), $profile);
         }
 
-        $email = Str::lower(trim((string) $social->getEmail()));
-        $existing = $email !== '' ? User::query()->where('email', $email)->first() : null;
-
-        if ($existing !== null) {
-            $existing->socialAccounts()->updateOrCreate(['provider' => $provider], ['provider_user_id' => (string) $social->getId(), 'email' => $email]);
-
-            return $this->login($request, $existing);
+        if ($request->user() !== null) {
+            return redirect()->route('dashboard');
         }
 
-        $request->session()->put(self::PENDING, ['provider' => $provider, 'id' => (string) $social->getId(), 'email' => $email, ...$this->names($social)]);
+        $account = SocialAccount::query()->where('provider', $provider)->where('provider_user_id', $profile['id'])->first();
+        $user = $account?->user ?? ($profile['email'] !== '' ? User::query()->where('email', $profile['email'])->first() : null);
+
+        if ($user !== null) {
+            $this->accounts->link($user, $profile);
+            $this->accounts->applyPhone($user, $profile['phone']);
+
+            return $this->login($request, $user);
+        }
+
+        $request->session()->put(self::PENDING, $profile);
 
         return redirect()->route('social.complete');
     }
@@ -128,7 +169,8 @@ class SocialAuthController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        $user->socialAccounts()->create(['provider' => $pending['provider'], 'provider_user_id' => $pending['id'], 'email' => $email]);
+        $this->accounts->link($user, [...$pending, 'email' => $email]);
+        $this->accounts->applyPhone($user, $pending['phone'] ?? null);
         $request->session()->forget(self::PENDING);
 
         event(new Registered($user));
@@ -154,6 +196,33 @@ class SocialAuthController extends Controller
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard', absolute: false));
+    }
+
+    private function linkCurrent(User $user, array $profile): RedirectResponse
+    {
+        $name = self::NAMES[$profile['provider']];
+
+        if (! $this->accounts->link($user, $profile)) {
+            return redirect()->route('profile.edit')->with('error', "Этот аккаунт {$name} уже привязан к другому профилю на сайте.");
+        }
+
+        return redirect()->route('profile.edit')->with('message', $this->accounts->message($profile['provider'], $this->accounts->applyPhone($user, $profile['phone'])));
+    }
+
+    /**
+     * @return array{provider: string, id: string, email: string, phone: ?string, first_name: string, last_name: string}
+     */
+    private function profile(string $provider, ProviderUser $social): array
+    {
+        $raw = method_exists($social, 'getRaw') ? (array) $social->getRaw() : [];
+
+        return [
+            'provider' => $provider,
+            'id' => (string) $social->getId(),
+            'email' => Str::lower(trim((string) $social->getEmail())),
+            'phone' => $this->accounts->phoneFrom($provider, $raw),
+            ...$this->names($social),
+        ];
     }
 
     /**

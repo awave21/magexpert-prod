@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Services\AccountAnonymizer;
+use App\Services\SocialAccounts;
 use App\Traits\ManagesAvatars;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -33,9 +34,18 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $linked = $request->user()->socialAccounts()->pluck('provider')->all();
+
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
+            'social' => collect(SocialAccounts::NAMES)->map(fn (string $name, string $key): array => [
+                'key' => $key,
+                'name' => $name,
+                'linked' => in_array($key, $linked, true),
+                'available' => (bool) config("services.{$key}.client_id"),
+            ])->values(),
+            'phoneVerified' => $request->user()->phone_verified_at !== null,
         ]);
     }
 
@@ -58,6 +68,12 @@ class ProfileController extends Controller
             'phone' => $validated['phone'] ?? null,
         ];
 
+        // новый номер нужно подтвердить заново
+        $accounts = app(SocialAccounts::class);
+        if ($accounts->normalize($userData['phone']) !== $accounts->normalize($user->phone)) {
+            $userData['phone_verified_at'] = null;
+        }
+
         try {
             // Обработка аватара
             if ($request->hasFile('avatar')) {
@@ -72,7 +88,7 @@ class ProfileController extends Controller
                 $userData['avatar'] = null;
             }
 
-            $user->update($userData);
+            $user->forceFill($userData)->save();
 
             if ($user->isDirty('email')) {
                 $user->email_verified_at = null;

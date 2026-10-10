@@ -40,12 +40,16 @@ return [
         'client_id' => env('YANDEX_CLIENT_ID'),
         'client_secret' => env('YANDEX_CLIENT_SECRET'),
         'redirect' => '/auth/yandex/callback',
+        // включите, когда в приложении Яндекса разрешён «Доступ к номеру телефона»
+        'phone' => (bool) env('YANDEX_PHONE', false),
     ],
 
     'vkid' => [
         'client_id' => env('VKID_CLIENT_ID'),
         'client_secret' => env('VKID_CLIENT_SECRET'),
         'redirect' => '/auth/vkid/callback',
+        // включите, когда в приложении VK ID разрешён доступ к телефону
+        'phone' => (bool) env('VKID_PHONE', false),
     ],
 
     'dadata' => [
