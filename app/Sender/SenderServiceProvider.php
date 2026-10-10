@@ -9,12 +9,15 @@ use App\Sender\Console\DkimExportCommand;
 use App\Sender\Console\DkimImportCommand;
 use App\Sender\Console\DomainCommand;
 use App\Sender\Console\InstallDefaultsCommand;
+use App\Sender\Console\MailLogCommand;
+use App\Sender\Console\PruneCommand;
 use App\Sender\Console\UserCreateCommand;
 use App\Sender\Contracts\SenderClient;
 use App\Sender\Dns\DnsLookup;
 use App\Sender\Dns\PhpDnsLookup;
 use App\Sender\Transport\LaravelMailTransport;
 use App\Sender\Transport\Transport;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -42,7 +45,16 @@ class SenderServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/routes.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([InstallDefaultsCommand::class, DomainCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class]);
+            $this->commands([InstallDefaultsCommand::class, DomainCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, PruneCommand::class]);
+
+            // статусы доставки из журнала Postfix, если он есть на этом сервере
+            $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+                $schedule->command('sender:prune')->dailyAt('03:30')->withoutOverlapping();
+
+                if (is_readable((string) config('sender.mail_log'))) {
+                    $schedule->command('sender:mail-log')->everyMinute()->withoutOverlapping()->runInBackground();
+                }
+            });
         }
     }
 }

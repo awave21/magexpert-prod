@@ -1,11 +1,37 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Search, X } from 'lucide-react'
+import { Eye, MousePointerClick, Search, X } from 'lucide-react'
 import { api, type Message, type Paged } from '../api'
 import { Empty, PageHead, Status, ago, fmtDate } from '../components/ui'
 
-const TABS = [['', 'Все'], ['sent', 'Отправлено'], ['queued', 'В очереди'], ['failed', 'Ошибка'], ['blocked', 'Заблокировано']] as const
+const TABS = [['', 'Все'], ['delivered', 'Доставлено'], ['opened', 'Открыто'], ['clicked', 'Клик'], ['sent', 'Отправлено'], ['queued', 'В очереди'], ['bounced', 'Не доставлено'], ['failed', 'Ошибка'], ['blocked', 'Заблокировано']] as const
+
+// цепочка письма: создано → отправлено → доставлено → открыто → клик
+function Timeline({ m }: { m: Message }) {
+  const steps: { label: string; at: string | null; tone: 'ok' | 'err' | 'wait'; note?: string }[] = [
+    { label: 'Создано', at: m.created_at, tone: 'ok' },
+    { label: 'Отправлено', at: m.sent_at, tone: m.sent_at ? 'ok' : 'wait', note: m.sent_at ? 'принято нашим почтовым сервером' : undefined },
+    m.status === 'bounced'
+      ? { label: 'Не доставлено', at: m.events?.find((e) => e.type === 'bounced')?.created_at ?? null, tone: 'err', note: 'сервер получателя отказал' }
+      : { label: 'Доставлено', at: m.delivered_at, tone: m.delivered_at ? 'ok' : 'wait', note: m.delivered_at ? 'принято сервером получателя' : m.sent_at ? 'ждём ответа сервера получателя' : undefined },
+  ]
+  if (m.tracked) {
+    steps.push({ label: 'Открыто', at: m.opened_at, tone: m.opened_at ? 'ok' : 'wait', note: m.opens_count > 1 ? `открывали ${m.opens_count} раз` : undefined })
+    steps.push({ label: 'Переход по ссылке', at: m.clicked_at, tone: m.clicked_at ? 'ok' : 'wait', note: m.clicks_count > 1 ? `${m.clicks_count} переходов` : undefined })
+  }
+  return (
+    <ol className="timeline">
+      {steps.map((st) => (
+        <li key={st.label} className={st.at ? st.tone : 'wait'}>
+          <i /><div><b>{st.label}</b>{st.at && <span className="sub"> · {fmtDate(st.at)}</span>}{st.note && <div className="sub">{st.note}</div>}</div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+const EVENT_LABEL: Record<string, string> = { delivered: 'Доставлено', deferred: 'Временная ошибка', bounced: 'Отказ', open: 'Открыто', click: 'Переход' }
 
 export default function Messages() {
   const [params, setParams] = useSearchParams()
@@ -55,7 +81,15 @@ export default function Messages() {
               <tbody>
                 {list.map((x) => (
                   <tr key={x.id} className={`click${openId === x.id ? ' selected' : ''}`} onClick={() => setOpenId(x.id)}>
-                    <td style={{ width: 150 }}><Status value={x.status} /></td>
+                    <td style={{ width: 170 }}>
+                      <Status value={x.status} />
+                      {(x.opened_at || x.clicked_at) && (
+                        <div className="engage">
+                          {x.opened_at && <span title={`Открыто ${fmtDate(x.opened_at)}`}><Eye size={13} />открыто</span>}
+                          {x.clicked_at && <span title={`Переход ${fmtDate(x.clicked_at)}`}><MousePointerClick size={13} />клик</span>}
+                        </div>
+                      )}
+                    </td>
                     <td><div className="mono" style={{ fontWeight: openId === x.id ? 500 : 400 }}>{x.to}</div><div className="sub">{x.subject}</div></td>
                     <td>{x.template && <span className="chip mono">{x.template}</span>}</td>
                     <td className="r sub" style={{ whiteSpace: 'nowrap' }}>{ago(x.created_at)}</td>
@@ -82,7 +116,8 @@ export default function Messages() {
             {!m ? <div className="muted">Загрузка…</div> : (
               <div className="stack" style={{ gap: 18, marginTop: 8 }}>
                 <div><Status value={m.status} /><h2 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', marginTop: 8 }}>{m.subject}</h2></div>
-                {m.error && <div className="callout err"><div><b>Причина</b><span>{m.error}</span></div></div>}
+                {m.error && <div className={`callout ${m.status === 'sent' ? 'warn' : 'err'}`}><div><b>{m.status === 'sent' ? 'Повторная попытка' : 'Причина'}</b><span>{m.error}</span></div></div>}
+                <Timeline m={m} />
                 <dl style={{ display: 'grid', gridTemplateColumns: '110px minmax(0,1fr)', gap: '10px 16px', margin: 0 }}>
                   <dt className="muted">Кому</dt><dd className="mono" style={{ margin: 0 }}>{m.to}</dd>
                   <dt className="muted">От кого</dt><dd className="mono" style={{ margin: 0 }}>{m.from}</dd>
@@ -92,6 +127,20 @@ export default function Messages() {
                   <dt className="muted">Отправлено</dt><dd style={{ margin: 0 }}>{fmtDate(m.sent_at)}</dd>
                   <dt className="muted">ID</dt><dd className="mono" style={{ margin: 0, overflowWrap: 'anywhere', fontSize: 12 }}>{m.id}</dd>
                 </dl>
+                {m.events && m.events.length > 0 && (
+                  <div>
+                    <div className="label" style={{ marginBottom: 6 }}>События</div>
+                    <table className="table events-table"><tbody>
+                      {m.events.map((e, i) => (
+                        <tr key={i}>
+                          <td className="sub" style={{ whiteSpace: 'nowrap', width: 110 }}>{fmtDate(e.created_at)}</td>
+                          <td>{EVENT_LABEL[e.type] ?? e.type}{e.is_auto && <span className="chip" style={{ marginLeft: 6 }} title="Почтовая программа или антивирус, а не человек">авто</span>}
+                            {e.detail && <div className="sub mono" style={{ overflowWrap: 'anywhere' }}>{e.detail}</div>}</td>
+                        </tr>
+                      ))}
+                    </tbody></table>
+                  </div>
+                )}
                 {m.variables && Object.keys(m.variables).length > 0 && (
                   <div>
                     <div className="label" style={{ marginBottom: 6 }}>Данные письма</div>

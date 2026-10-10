@@ -55,9 +55,11 @@ export type Domain = {
 }
 export type Template = { id: number; folder_id: number | null; slug: string; name: string; subject: string; sender_address_id: number | null; reply_to: string | null; preheader: string | null; body_html: string; body_text: string | null; editor: 'html' | 'blocks'; design: import('./editor/model').Design | null; updated_at: string }
 export type Message = {
-  id: string; status: 'queued' | 'sending' | 'sent' | 'failed' | 'blocked'; to: string; from: string; subject: string
+  id: string; status: 'queued' | 'sending' | 'sent' | 'delivered' | 'bounced' | 'failed' | 'blocked'; to: string; from: string; subject: string
   template: string | null; attempts: number; error: string | null; sent_at: string | null; created_at: string
+  delivered_at: string | null; opened_at: string | null; clicked_at: string | null; opens_count: number; clicks_count: number; tracked: boolean
   variables?: Record<string, unknown> | null
+  events?: { type: 'delivered' | 'deferred' | 'bounced' | 'open' | 'click'; detail: string | null; is_auto: boolean; created_at: string }[]
 }
 export type ApiKey = { id: number; name: string; key_prefix: string; last_used_at: string | null; revoked_at: string | null; created_at: string }
 export type Suppression = { id: number; email: string; reason: 'bounce' | 'complaint' | 'unsubscribe' | 'manual'; created_at: string }
@@ -81,16 +83,16 @@ export type ContactList = {
   id: number; name: string; description: string | null; contacts_count: number; subscribed_count: number; deliverable_count: number
   checks: Record<CheckStatus | 'unchecked', number>; created_at: string; updated_at: string
 }
-export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; check_status: CheckStatus | null; check_hint: string | null; created_at: string }
+export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; last_opened_at: string | null; check_status: CheckStatus | null; check_hint: string | null; created_at: string }
 export type ImportResult = {
   rows: number; added: number; updated: number; duplicates: number; skipped: number; columns: string[]
   skipped_rows: { line: number; value: string }[]; duplicate_rows: { line: number; email: string; first_line: number }[]
 }
-export type CampaignStats = { queued: number; sent: number; failed: number; blocked: number }
+export type CampaignStats = { queued: number; sent: number; delivered: number; bounced: number; failed: number; blocked: number; opened: number; clicked: number; links: { url: string; clicks: number }[] }
 export type Campaign = {
   id: number; name: string; status: 'draft' | 'sending' | 'sent'
   template: { id: number; name: string } | null; list: { id: number; name: string } | null
-  recipients_count: number; stats: CampaignStats | null; subscribed_count: number | null
+  recipients_count: number; track: boolean; stats: CampaignStats | null; subscribed_count: number | null
   started_at: string | null; finished_at: string | null; created_at: string
 }
 

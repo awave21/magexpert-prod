@@ -13,7 +13,7 @@ class Contact extends SenderModel
 {
     protected $table = 'sender_contacts';
 
-    protected $fillable = ['organization_id', 'list_id', 'email', 'name', 'data', 'unsubscribed_at', 'check_status', 'check_hint', 'checked_at'];
+    protected $fillable = ['organization_id', 'list_id', 'email', 'name', 'data', 'unsubscribed_at', 'check_status', 'check_hint', 'checked_at', 'last_opened_at'];
 
     /**
      * @return array<string, string>
@@ -24,6 +24,7 @@ class Contact extends SenderModel
             'data' => 'array',
             'unsubscribed_at' => 'datetime',
             'checked_at' => 'datetime',
+            'last_opened_at' => 'datetime',
         ];
     }
 

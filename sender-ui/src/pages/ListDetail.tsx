@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileUp, Loader2, Pencil, Plus, RefreshCw, Search, Send, Trash2, Upload, Wand2, X } from 'lucide-react'
 import { api, ApiError, upload, type CheckStatus, type Contact, type ContactList, type ImportResult, type Paged } from '../api'
-import { BackLink, Empty, Modal, PageHead, fmtDate, useToast } from '../components/ui'
+import { BackLink, Empty, Modal, PageHead, ago, fmtDate, useToast } from '../components/ui'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
 type StatusFilter = '' | 'subscribed' | 'unsubscribed'
@@ -164,7 +164,7 @@ export default function ListDetail() {
       ) : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Email</th><th>Имя</th>{columns.map((c) => <th key={c} className="mono" style={{ textTransform: 'none' }}>{c}</th>)}<th>Подписка</th><th>Проверка</th><th>Добавлен</th><th /></tr></thead>
+            <thead><tr><th>Email</th><th>Имя</th>{columns.map((c) => <th key={c} className="mono" style={{ textTransform: 'none' }}>{c}</th>)}<th>Подписка</th><th>Проверка</th><th>Последнее открытие</th><th>Добавлен</th><th /></tr></thead>
             <tbody>
               {contacts.map((c) => (
                 <tr key={c.id}>
@@ -185,6 +185,7 @@ export default function ListDetail() {
                       )
                     })()}
                   </td>
+                  <td className="sub">{c.last_opened_at ? ago(c.last_opened_at) : '—'}</td>
                   <td className="sub">{fmtDate(c.created_at)}</td>
                   <td className="r"><button className="btn icon sm ghost" onClick={() => remove.mutate(c)} aria-label={`Удалить ${c.email}`} title="Удалить из базы"><X size={15} /></button></td>
                 </tr>

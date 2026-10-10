@@ -27,7 +27,7 @@ export default function Campaigns() {
       ) : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Рассылка</th><th>Статус</th><th className="r">Получатели</th><th className="r">Доставлено</th><th>Когда</th><th /></tr></thead>
+            <thead><tr><th>Рассылка</th><th>Статус</th><th className="r">Получатели</th><th className="r">Доставлено</th><th className="r">Открыли</th><th className="r">Клики</th><th>Когда</th><th /></tr></thead>
             <tbody>
               {list.map((c) => (
                 <tr key={c.id} className="click" onClick={() => nav(`/campaigns/${c.id}`)}>
@@ -37,7 +37,9 @@ export default function Campaigns() {
                   </td>
                   <td><CampaignStatus campaign={c} /></td>
                   <td className="r num-cell">{c.status === 'draft' ? '—' : n(c.recipients_count)}</td>
-                  <td className="r num-cell">{c.stats ? n(c.stats.sent) : '—'}</td>
+                  <td className="r num-cell">{c.stats ? n(c.stats.delivered) : '—'}</td>
+                  <td className="r num-cell">{c.stats && c.track ? n(c.stats.opened) : '—'}</td>
+                  <td className="r num-cell">{c.stats && c.track ? n(c.stats.clicked) : '—'}</td>
                   <td className="sub">{ago(c.started_at ?? c.created_at)}</td>
                   <td className="r"><ChevronRight size={16} className="muted" /></td>
                 </tr>

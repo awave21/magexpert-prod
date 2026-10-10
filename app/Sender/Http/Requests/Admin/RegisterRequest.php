@@ -22,6 +22,7 @@ class RegisterRequest extends FormRequest
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'email' => ['required', 'email', 'max:190', Rule::unique(config('sender.connection', 'sender').'.sender_users', 'email')],
             'password' => ['required', 'string', 'min:8', 'max:128'],
+            'accept_policy' => ['accepted'],
         ];
     }
 
@@ -47,6 +48,7 @@ class RegisterRequest extends FormRequest
             'email.unique' => 'Аккаунт с таким email уже есть. Войдите или используйте другой адрес',
             'password.required' => 'Укажите пароль',
             'password.min' => 'Пароль не короче 8 символов',
+            'accept_policy.accepted' => 'Нужно согласиться с политикой обработки персональных данных',
         ];
     }
 }

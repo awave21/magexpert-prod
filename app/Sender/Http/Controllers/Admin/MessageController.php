@@ -15,7 +15,11 @@ class MessageController extends Controller
     {
         $query = $this->organization($request)->messages()->with('template')->latest('id');
 
-        if ($request->filled('status')) {
+        if ($request->input('status') === 'opened') {
+            $query->whereNotNull('opened_at');
+        } elseif ($request->input('status') === 'clicked') {
+            $query->whereNotNull('clicked_at');
+        } elseif ($request->filled('status')) {
             $query->where('status', $request->string('status'));
         }
 

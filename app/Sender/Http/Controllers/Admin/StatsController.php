@@ -33,16 +33,16 @@ class StatsController extends Controller
             return [
                 'date' => $day->toDateString(),
                 'label' => $day->locale('ru')->isoFormat('dd'),
-                'sent' => $ofDay->where('status', Message::STATUS_SENT)->count(),
-                'failed' => $ofDay->where('status', Message::STATUS_FAILED)->count(),
+                'sent' => $ofDay->whereIn('status', Message::SENT_STATUSES)->count(),
+                'failed' => $ofDay->whereIn('status', Message::FAILED_STATUSES)->count(),
             ];
         });
 
         return response()->json([
             'totals' => [
-                'sent' => $messages->where('status', Message::STATUS_SENT)->count(),
+                'sent' => $messages->whereIn('status', Message::SENT_STATUSES)->count(),
                 'queued' => $organization->messages()->whereIn('status', [Message::STATUS_QUEUED, Message::STATUS_SENDING])->count(),
-                'failed' => $messages->where('status', Message::STATUS_FAILED)->count(),
+                'failed' => $messages->whereIn('status', Message::FAILED_STATUSES)->count(),
                 'blocked' => $messages->where('status', Message::STATUS_BLOCKED)->count(),
             ],
             'days' => $days->values(),

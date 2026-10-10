@@ -5,7 +5,7 @@ type Ctx = {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (data: { organization: string; name: string; email: string; password: string }) => Promise<void>
+  register: (data: { organization: string; name: string; email: string; password: string; accept_policy: boolean }) => Promise<void>
   logout: () => Promise<void>
 }
 const AuthContext = createContext<Ctx>(null as never)
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(r.user.data ?? r.user)
   }, [])
 
-  const register = useCallback(async (data: { organization: string; name: string; email: string; password: string }) => {
+  const register = useCallback(async (data: { organization: string; name: string; email: string; password: string; accept_policy: boolean }) => {
     const r = await api<{ token: string; user: { data?: User } & User }>('/register', { method: 'POST', body: data })
     tokenStore.set(r.token)
     setUser(r.user.data ?? r.user)

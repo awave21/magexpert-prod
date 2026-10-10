@@ -6,9 +6,9 @@ import { useAuth } from '../auth'
 import { AuthAside } from './AuthAside'
 import { PasswordInput } from '../components/ui'
 
-type Field = 'organization' | 'name' | 'email' | 'password'
+type Field = 'organization' | 'name' | 'email' | 'password' | 'accept_policy'
 
-const FIELDS: [Field, string, string, string, string][] = [
+const FIELDS: [Exclude<Field, 'accept_policy'>, string, string, string, string][] = [
   ['organization', 'Название организации', 'text', 'МагЭксперт', 'organization'],
   ['name', 'Ваше имя', 'text', 'Анна Иванова', 'name'],
   ['email', 'Email', 'email', 'name@company.ru', 'email'],
@@ -17,7 +17,8 @@ const FIELDS: [Field, string, string, string, string][] = [
 
 export default function Register() {
   const { register } = useAuth()
-  const [form, setForm] = useState<Record<Field, string>>({ organization: '', name: '', email: '', password: '' })
+  const [form, setForm] = useState<Record<Exclude<Field, 'accept_policy'>, string>>({ organization: '', name: '', email: '', password: '' })
+  const [accepted, setAccepted] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -25,7 +26,7 @@ export default function Register() {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true); setError(null); setErrors({})
-    try { await register(form) } catch (err) {
+    try { await register({ ...form, accept_policy: accepted }) } catch (err) {
       if (err instanceof ApiError) {
         const fieldErrors: Partial<Record<Field, string>> = {}
         for (const [key, messages] of Object.entries(err.errors)) fieldErrors[key as Field] = messages[0]
@@ -37,7 +38,7 @@ export default function Register() {
     } finally { setBusy(false) }
   }
 
-  const ready = Object.values(form).every((v) => v.trim() !== '')
+  const ready = Object.values(form).every((v) => v.trim() !== '') && accepted
 
   return (
     <div className="auth">
@@ -77,6 +78,11 @@ export default function Register() {
                 {errors[id] && <div className="hint err" role="alert">{errors[id]}</div>}
               </div>
             ))}
+            <label className="check-row">
+              <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+              <span className="sub" style={{ fontSize: 13 }}>Соглашаюсь с <Link to="/privacy" target="_blank">политикой обработки персональных данных</Link> и подтверждаю, что у получателей моих рассылок есть согласие на получение писем</span>
+            </label>
+            {errors.accept_policy && <div className="hint err" role="alert">{errors.accept_policy}</div>}
             {error && <div className="hint err" role="alert">{error}</div>}
             <button className="btn primary lg" disabled={busy || !ready}>{busy ? 'Создаём…' : 'Создать аккаунт'}</button>
           </form>

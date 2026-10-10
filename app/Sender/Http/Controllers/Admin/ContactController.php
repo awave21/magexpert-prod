@@ -147,6 +147,7 @@ class ContactController extends Controller
             'unsubscribed_at' => $contact->unsubscribed_at?->toIso8601String(),
             'check_status' => $contact->check_status,
             'check_hint' => $contact->check_hint,
+            'last_opened_at' => $contact->last_opened_at?->toIso8601String(),
             'created_at' => $contact->created_at?->toIso8601String(),
         ];
     }

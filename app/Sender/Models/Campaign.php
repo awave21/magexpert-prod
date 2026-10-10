@@ -18,7 +18,7 @@ class Campaign extends SenderModel
 
     protected $table = 'sender_campaigns';
 
-    protected $fillable = ['organization_id', 'name', 'template_id', 'list_id', 'status', 'recipients_count', 'started_at', 'finished_at'];
+    protected $fillable = ['organization_id', 'name', 'template_id', 'list_id', 'track', 'status', 'recipients_count', 'started_at', 'finished_at'];
 
     /**
      * @return array<string, string>
@@ -27,6 +27,7 @@ class Campaign extends SenderModel
     {
         return [
             'recipients_count' => 'integer',
+            'track' => 'boolean',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
         ];

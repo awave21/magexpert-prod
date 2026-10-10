@@ -6,6 +6,7 @@ use App\Sender\Jobs\SendCampaignJob;
 use App\Sender\Models\Campaign;
 use App\Sender\Models\Contact;
 use App\Sender\Models\Message;
+use App\Sender\Models\MessageEvent;
 use Illuminate\Validation\ValidationException;
 
 class CampaignService
@@ -110,17 +111,38 @@ class CampaignService
     }
 
     /**
-     * @return array{queued: int, sent: int, failed: int, blocked: int}
+     * sent — ушло с нашего сервера (в том числе доставлено), delivered — сервер получателя принял,
+     * bounced — отказ сервера получателя, opened и clicked — уникальные получатели.
+     *
+     * @return array{queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, opened: int, clicked: int, links: list<array{url: string, clicks: int}>}
      */
     public function stats(Campaign $campaign): array
     {
         $counts = $campaign->messages()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $count = fn (string $status): int => (int) ($counts[$status] ?? 0);
+
+        $links = MessageEvent::query()
+            ->whereIn('message_id', $campaign->messages()->select('id'))
+            ->where('type', MessageEvent::TYPE_CLICK)
+            ->where('is_auto', false)
+            ->selectRaw('detail as url, count(distinct message_id) as clicks')
+            ->groupBy('detail')
+            ->orderByDesc('clicks')
+            ->limit(10)
+            ->get()
+            ->map(fn ($row): array => ['url' => (string) $row->url, 'clicks' => (int) $row->clicks])
+            ->all();
 
         return [
-            'queued' => (int) ($counts[Message::STATUS_QUEUED] ?? 0) + (int) ($counts[Message::STATUS_SENDING] ?? 0),
-            'sent' => (int) ($counts[Message::STATUS_SENT] ?? 0),
-            'failed' => (int) ($counts[Message::STATUS_FAILED] ?? 0),
-            'blocked' => (int) ($counts[Message::STATUS_BLOCKED] ?? 0),
+            'queued' => $count(Message::STATUS_QUEUED) + $count(Message::STATUS_SENDING),
+            'sent' => $count(Message::STATUS_SENT) + $count(Message::STATUS_DELIVERED),
+            'delivered' => $count(Message::STATUS_DELIVERED),
+            'bounced' => $count(Message::STATUS_BOUNCED),
+            'failed' => $count(Message::STATUS_FAILED),
+            'blocked' => $count(Message::STATUS_BLOCKED),
+            'opened' => $campaign->messages()->whereNotNull('opened_at')->count(),
+            'clicked' => $campaign->messages()->whereNotNull('clicked_at')->count(),
+            'links' => $links,
         ];
     }
 }

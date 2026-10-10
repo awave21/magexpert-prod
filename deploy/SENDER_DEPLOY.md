@@ -106,3 +106,8 @@ php artisan migrate --database=sender --path=app/Sender/Database/Migrations --fo
 php artisan storage:link
 php artisan optimize && php artisan queue:restart
 ```
+
+## Статусы доставки, открытия и очистка
+Статусы «Доставлено / Не доставлено» Sender берёт из журнала Postfix, а старые письма удаляет сам (срок — `SENDER_RETENTION_DAYS`, по умолчанию 365 дней, он указан в политике). Обе задачи запускает планировщик Laravel.
+- Пользователь, от которого работает проект, должен читать журнал: `sudo usermod -aG adm <пользователь>` и перелогиниться. Проверка: `php artisan sender:mail-log` должна вывести «Прочитано строк: …».
+- В cron этого пользователя должна быть строка планировщика: `* * * * * cd /var/www/magexpert && php artisan schedule:run >> /dev/null 2>&1`. Проверка: `php artisan schedule:list` показывает `sender:mail-log` и `sender:prune`.

@@ -48,6 +48,7 @@ export default function Login() {
             Войти через Яндекс
           </button>
           <p style={{ color: 'var(--ink-2)' }}>Нет аккаунта? <Link to="/register" style={{ fontWeight: 500 }}>Зарегистрироваться</Link></p>
+          <p className="sub"><Link to="/privacy">Политика обработки персональных данных</Link></p>
         </div>
       </section>
       <AuthAside />

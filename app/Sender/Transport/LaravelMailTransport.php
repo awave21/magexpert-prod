@@ -25,6 +25,9 @@ class LaravelMailTransport implements Transport
                     ->from($message->from_email, $message->from_name)
                     ->subject($content['subject']);
 
+                // свой Message-ID: по нему статус доставки находится в журнале Postfix
+                $mail->getSymfonyMessage()->getHeaders()->addIdHeader('Message-ID', $message->uuid.'@'.config('sender.mail_host'));
+
                 if ($message->reply_to) {
                     $mail->replyTo($message->reply_to);
                 }

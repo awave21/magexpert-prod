@@ -44,6 +44,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
   const [name, setName] = useState(campaign?.name ?? '')
   const [templateId, setTemplateId] = useState<number | ''>(campaign?.template?.id ?? '')
   const [listId, setListId] = useState<number | ''>(campaign?.list?.id ?? (initialList ? Number(initialList) : ''))
+  const [track, setTrack] = useState(campaign?.track ?? true)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const tq = useQuery({ queryKey: ['templates'], queryFn: () => api<{ data: Template[] }>('/templates') })
@@ -73,8 +74,8 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
     enabled: templateId !== '',
   })
 
-  const dirty = !campaign || name !== campaign.name || (templateId || null) !== (campaign.template?.id ?? null) || (listId || null) !== (campaign.list?.id ?? null)
-  const body = { name: name.trim(), template_id: templateId || null, list_id: listId || null }
+  const dirty = !campaign || name !== campaign.name || (templateId || null) !== (campaign.template?.id ?? null) || (listId || null) !== (campaign.list?.id ?? null) || track !== campaign.track
+  const body = { name: name.trim(), template_id: templateId || null, list_id: listId || null, track }
   const fail = (e: unknown) => {
     if (e instanceof ApiError) setErrors(Object.fromEntries(Object.entries(e.errors).map(([k, v]) => [k, v[0]])))
     toast(e instanceof Error ? e.message : 'Ошибка', true)
@@ -186,6 +187,11 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
               </div>
             </div>
 
+            <label className="check-row">
+              <input type="checkbox" checked={track} onChange={(e) => setTrack(e.target.checked)} />
+              <span><b>Отслеживать открытия и переходы по ссылкам</b><span className="sub">В письмо добавится невидимая картинка, а ссылки пойдут через наш сервер. Открытия считаются примерно: часть почтовых программ не показывает картинки или загружает их сама.</span></span>
+            </label>
+
             <div className={`callout${problems.length ? ' warn' : ''}`}>
               <span className="ic">{problems.length ? <AlertTriangle size={15} /> : <Send size={15} />}</span>
               <div>
@@ -250,10 +256,12 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
 }
 
 function CampaignReport({ campaign: c }: { campaign: Campaign }) {
-  const s = c.stats ?? { queued: 0, sent: 0, failed: 0, blocked: 0 }
-  const total = Math.max(c.recipients_count, s.queued + s.sent + s.failed + s.blocked, 1)
+  const s = c.stats ?? { queued: 0, sent: 0, delivered: 0, bounced: 0, failed: 0, blocked: 0, opened: 0, clicked: 0, links: [] }
+  const total = Math.max(c.recipients_count, s.queued + s.sent + s.failed + s.blocked + s.bounced, 1)
   const pct = (v: number) => `${(v / total) * 100}%`
+  const share = (v: number, of: number) => (of > 0 ? `${Math.round((v / of) * 1000) / 10}%` : '—')
   const preparing = c.status === 'sending'
+  const notSent = s.failed + s.blocked + s.bounced
 
   return (
     <main className="page">
@@ -266,19 +274,35 @@ function CampaignReport({ campaign: c }: { campaign: Campaign }) {
         <Link to="/messages" className="btn">Журнал отправки</Link>
       </div>
 
-      <div className="progress" role="img" aria-label={`Доставлено ${s.sent} из ${total}`}>
+      <div className="progress" role="img" aria-label={`Отправлено ${s.sent} из ${total}`}>
         <i className="ok" style={{ width: pct(s.sent) }} />
-        <i className="err" style={{ width: pct(s.failed) }} />
+        <i className="err" style={{ width: pct(s.failed + s.bounced) }} />
         <i className="neutral" style={{ width: pct(s.blocked) }} />
       </div>
-      <div className="sub" style={{ marginTop: 8 }}>{preparing ? `Ставим письма в очередь: ${n(s.queued + s.sent + s.failed + s.blocked)} из ${n(c.recipients_count)}` : s.queued > 0 ? `Отправляется: осталось ${n(s.queued)}` : `Завершена ${fmtDate(c.finished_at)}`}</div>
+      <div className="sub" style={{ marginTop: 8 }}>{preparing ? `Ставим письма в очередь: ${n(s.queued + s.sent + notSent)} из ${n(c.recipients_count)}` : s.queued > 0 ? `Отправляется: осталось ${n(s.queued)}` : `Отправка завершена ${fmtDate(c.finished_at)}`}</div>
 
-      <div className="metrics" style={{ marginTop: 32 }}>
-        <div className="metric"><div className="label">Получателей</div><div className="num">{n(c.recipients_count)}</div><div className="cap">подписчиков в базе на момент запуска</div></div>
-        <div className="metric"><div className="label">Отправлено</div><div className="num" style={{ color: 'var(--ok)' }}>{n(s.sent)}</div><div className="cap">приняты почтовыми серверами</div></div>
-        <div className="metric"><div className="label">В очереди</div><div className="num" style={{ color: 'var(--warn)' }}>{n(s.queued)}</div><div className="cap">ждут отправки</div></div>
-        <div className="metric"><div className="label">Не отправлено</div><div className="num" style={{ color: 'var(--err)' }}>{n(s.failed + s.blocked)}</div><div className="cap">{n(s.failed)} с ошибкой, {n(s.blocked)} в блокировках</div></div>
+      <div className="funnel">
+        <div><span className="label">Получателей</span><span className="num">{n(c.recipients_count)}</span><span className="pct">в базе при запуске</span></div>
+        <div><span className="label">Отправлено</span><span className="num">{n(s.sent)}</span><span className="pct">{s.queued > 0 ? `ещё ${n(s.queued)} в очереди` : share(s.sent, c.recipients_count)}</span></div>
+        <div><span className="label">Доставлено</span><span className="num" style={{ color: 'var(--ok)' }}>{n(s.delivered)}</span><span className="pct">{share(s.delivered, s.sent)} от отправленных</span></div>
+        {c.track && <div><span className="label">Открыли</span><span className="num">{n(s.opened)}</span><span className="pct">{share(s.opened, s.delivered || s.sent)} от доставленных</span></div>}
+        {c.track && <div><span className="label">Перешли по ссылке</span><span className="num">{n(s.clicked)}</span><span className="pct">{share(s.clicked, s.delivered || s.sent)} от доставленных</span></div>}
+        <div><span className="label">Не отправлено</span><span className="num" style={{ color: notSent ? 'var(--err)' : undefined }}>{n(notSent)}</span>
+          <span className="pct">{[s.bounced && `${n(s.bounced)} отказ сервера`, s.failed && `${n(s.failed)} ошибка`, s.blocked && `${n(s.blocked)} в блокировках`].filter(Boolean).join(', ') || 'без потерь'}</span></div>
       </div>
+
+      {c.track && s.links.length > 0 && (
+        <>
+          <div className="section-title" style={{ marginTop: 36 }}>Ссылки, по которым переходили</div>
+          <table className="table">
+            <thead><tr><th>Ссылка</th><th className="r">Получателей</th></tr></thead>
+            <tbody>{s.links.map((l) => <tr key={l.url}><td className="mono" style={{ overflowWrap: 'anywhere' }}><a href={l.url} target="_blank" rel="noreferrer">{l.url}</a></td><td className="r num-cell">{n(l.clicks)}</td></tr>)}</tbody>
+          </table>
+        </>
+      )}
+
+      {!c.track && <p className="hint" style={{ marginTop: 24 }}>Открытия и переходы не отслеживались: учёт был выключен в настройках рассылки.</p>}
+      <p className="hint" style={{ marginTop: 12 }}>«Доставлено» — сервер получателя принял письмо. Попало ли оно во «Входящие» или в «Спам», почтовые сервисы не сообщают. Открытия считаются примерно, переходы по ссылкам — точнее.</p>
 
       <div className="report-info">
         <div><span className="muted">Письмо</span>{c.template ? <Link to={`/templates/${c.template.id}`}>{c.template.name}</Link> : 'удалено'}</div>

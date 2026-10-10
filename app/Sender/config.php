@@ -15,6 +15,10 @@ return [
         'from_name' => env('SENDER_FROM_NAME', 'МедАльянсГрупп Expert'),
     ],
     'mail_host' => env('SENDER_MAIL_HOST', 'mail.mag-expert.ru'),
+    // сколько дней хранить письма, открытия и клики (указано в политике обработки персональных данных)
+    'retention_days' => (int) env('SENDER_RETENTION_DAYS', 365),
+    // журнал Postfix: из него берутся статусы доставки (sender:mail-log)
+    'mail_log' => env('SENDER_MAIL_LOG', '/var/log/mail.log'),
     // адрес админки на своём поддомене; пусто — админка открывается по /sender
     'ui_url' => env('SENDER_UI_URL'),
 ];

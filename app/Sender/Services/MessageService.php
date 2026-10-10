@@ -54,6 +54,7 @@ class MessageService
             'domain_id' => $domain?->id,
             'template_id' => $template->id,
             'campaign_id' => $campaign?->id,
+            'tracked' => (bool) $campaign?->track,
             'to_email' => $to,
             'from_email' => $fromEmail,
             'from_name' => $fromName,

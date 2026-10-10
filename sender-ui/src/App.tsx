@@ -18,6 +18,7 @@ import Subscribers from './pages/Subscribers'
 import ListDetail from './pages/ListDetail'
 import Campaigns from './pages/Campaigns'
 import CampaignEditor from './pages/CampaignEditor'
+import Privacy from './pages/Privacy'
 // редактор блоков тяжёлый (TipTap), грузится только когда его открывают
 const BlockEditor = lazy(() => import('./pages/BlockEditor'))
 
@@ -27,6 +28,7 @@ export default function App() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="/register" element={<Register />} />
         <Route path="*" element={<Login />} />
       </Routes>
@@ -34,6 +36,7 @@ export default function App() {
   }
   return (
     <Routes>
+      <Route path="privacy" element={<Privacy />} />
       <Route path="templates/:id/blocks" element={<Suspense fallback={<div className="be-center muted">Загрузка редактора…</div>}><BlockEditor /></Suspense>} />
       <Route element={<Layout />}>
         <Route index element={<Overview />} />

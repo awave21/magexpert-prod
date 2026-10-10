@@ -759,3 +759,36 @@ button { font: inherit; color: inherit; }
 .import-details summary { cursor: pointer; font-weight: 500; }
 .import-details .table { margin-top: 8px; }
 .import-details[open] { max-height: 420px; overflow: auto; }
+
+/* журнал: открытия, клики и цепочка письма */
+.engage { display: flex; gap: 8px; margin-top: 4px; font-size: 12px; color: var(--accent-ink); }
+.engage span { display: inline-flex; align-items: center; gap: 3px; }
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.timeline li { position: relative; display: flex; gap: 12px; padding: 0 0 14px; }
+.timeline li:not(:last-child)::before { content: ''; position: absolute; left: 5px; top: 14px; bottom: 0; width: 2px; background: var(--line); }
+.timeline li i { width: 12px; height: 12px; flex: none; margin-top: 4px; border-radius: 50%; border: 2px solid var(--control); background: var(--bg); }
+.timeline li.ok i { border-color: var(--ok); background: var(--ok); }
+.timeline li.err i { border-color: var(--err); background: var(--err); }
+.timeline li.wait b { color: var(--muted); font-weight: 500; }
+.events-table td { padding-top: 8px; padding-bottom: 8px; font-size: 13px; }
+.funnel { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 32px; }
+.funnel > div { padding: 16px 18px; border-radius: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 2px; }
+.funnel .label { font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.funnel .num { font-size: 32px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.funnel .pct { font-size: 13px; color: var(--muted); }
+.check-row { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.check-row input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: none; }
+.check-row > span { display: flex; flex-direction: column; gap: 2px; }
+.check-row b { font-weight: 500; }
+
+/* политика */
+.legal { min-height: 100%; background: var(--bg); }
+.legal-head { position: sticky; top: 0; z-index: 5; height: 56px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.legal-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; color: var(--ink); }
+.legal-brand .logo { width: 28px; height: 28px; border-radius: 8px; }
+.legal-body { max-width: 760px; margin: 0 auto; padding: 40px 16px 80px; line-height: 1.65; color: var(--ink-2); }
+.legal-body h1 { font-size: 30px; line-height: 1.2; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 6px; }
+.legal-body h2 { font-size: 18px; color: var(--ink); margin: 32px 0 8px; letter-spacing: -0.01em; }
+.legal-body p { margin: 0 0 10px; }
+.legal-body ul { margin: 0 0 10px; padding-left: 22px; }
+.legal-body b { color: var(--ink); font-weight: 600; }

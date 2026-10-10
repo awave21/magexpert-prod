@@ -4,6 +4,7 @@ namespace App\Sender\Jobs;
 
 use App\Sender\Models\Message;
 use App\Sender\Services\TemplateRenderer;
+use App\Sender\Services\TrackingService;
 use App\Sender\Transport\Transport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,11 +32,11 @@ class SendMessageJob implements ShouldQueue
         return [30, 120, 600];
     }
 
-    public function handle(TemplateRenderer $renderer, Transport $transport): void
+    public function handle(TemplateRenderer $renderer, Transport $transport, ?TrackingService $tracking = null): void
     {
         $message = Message::query()->with('template')->findOrFail($this->messageId);
 
-        if ($message->status === Message::STATUS_SENT || $message->template === null) {
+        if (in_array($message->status, [...Message::SENT_STATUSES, Message::STATUS_BOUNCED], true) || $message->template === null) {
             return;
         }
 
@@ -44,7 +45,13 @@ class SendMessageJob implements ShouldQueue
             'attempts' => $message->attempts + 1,
         ])->save();
 
-        $transport->send($message, $this->withUnsubscribeLink($message, $renderer->render($message->template, $message->data ?? [])));
+        $content = $this->withUnsubscribeLink($message, $renderer->render($message->template, $message->data ?? []));
+
+        if ($message->tracked) {
+            $content['html'] = ($tracking ?? app(TrackingService::class))->apply($message, $content['html'], $message->data['unsubscribe_url'] ?? null);
+        }
+
+        $transport->send($message, $content);
 
         $message->forceFill([
             'status' => Message::STATUS_SENT,

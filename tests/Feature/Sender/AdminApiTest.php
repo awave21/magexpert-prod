@@ -226,13 +226,13 @@ it('does not move a template into a folder of another organization', function ()
 
 it('registers an organization with its first user', function (): void {
     $this->postJson(adminApi().'/register', [
-        'organization' => 'Клиника Здоровье', 'name' => 'Анна', 'email' => 'Anna@Clinic.ru', 'password' => 'long-password',
+        'organization' => 'Клиника Здоровье', 'name' => 'Анна', 'email' => 'Anna@Clinic.ru', 'password' => 'long-password', 'accept_policy' => true,
     ])->assertCreated()->assertJsonStructure(['token', 'user' => ['id', 'email', 'organization']])
         ->assertJsonPath('user.email', 'anna@clinic.ru');
 
     $this->postJson(adminApi().'/register', [
         'organization' => 'Другая', 'name' => 'Анна', 'email' => 'admin@example.com', 'password' => 'long-password',
-    ])->assertJsonValidationErrors('email');
+    ])->assertJsonValidationErrors(['email', 'accept_policy']);
 });
 
 it('applies default values of custom variables when sending', function (): void {

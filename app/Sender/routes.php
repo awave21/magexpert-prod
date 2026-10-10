@@ -16,6 +16,7 @@ use App\Sender\Http\Controllers\Admin\TemplateFolderController;
 use App\Sender\Http\Controllers\Admin\VariableController;
 use App\Sender\Http\Controllers\ConfirmSenderAddressController;
 use App\Sender\Http\Controllers\MessageController;
+use App\Sender\Http\Controllers\TrackController;
 use App\Sender\Http\Controllers\UnsubscribeController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
@@ -110,6 +111,8 @@ if ($uiHost = SenderUi::host()) {
     Route::domain($uiHost)->group(function (): void {
         Route::get('confirm-address/{token}', ConfirmSenderAddressController::class)
             ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.ui-host.confirm-address');
+        Route::get('t/o/{uuid}', [TrackController::class, 'open'])->whereUuid('uuid');
+        Route::get('t/c/{uuid}', [TrackController::class, 'click'])->whereUuid('uuid');
         Route::get('unsubscribe/{uuid}', [UnsubscribeController::class, 'show'])->whereUuid('uuid')->name('sender.ui-host.unsubscribe');
         Route::post('unsubscribe/{uuid}', [UnsubscribeController::class, 'store'])->middleware('throttle:30,1')->whereUuid('uuid');
         Route::get('{path?}', fn () => SenderUi::indexResponse())
@@ -120,6 +123,10 @@ if ($uiHost = SenderUi::host()) {
 // Подтверждение адреса отправителя по ссылке из письма (страница без входа в админку)
 Route::get('sender/confirm-address/{token}', ConfirmSenderAddressController::class)
     ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.confirm-address');
+
+// Учёт открытий и переходов по ссылкам из писем рассылок
+Route::get('sender/t/o/{uuid}', [TrackController::class, 'open'])->whereUuid('uuid')->name('sender.track.open');
+Route::get('sender/t/c/{uuid}', [TrackController::class, 'click'])->whereUuid('uuid')->name('sender.track.click');
 
 // Отписка от рассылки по ссылке из письма
 Route::get('sender/unsubscribe/{uuid}', [UnsubscribeController::class, 'show'])->whereUuid('uuid')->name('sender.unsubscribe');

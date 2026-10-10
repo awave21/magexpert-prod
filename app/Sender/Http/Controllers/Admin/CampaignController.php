@@ -78,6 +78,7 @@ class CampaignController extends Controller
             'template' => $campaign->template ? ['id' => $campaign->template->id, 'name' => $campaign->template->name] : null,
             'list' => $campaign->list ? ['id' => $campaign->list->id, 'name' => $campaign->list->name] : null,
             'recipients_count' => $campaign->recipients_count,
+            'track' => (bool) ($campaign->track ?? true),
             'stats' => $stats,
             'subscribed_count' => $detailed && $campaign->isDraft() ? ($campaign->list?->contacts()->deliverable()->count() ?? 0) : null,
             'started_at' => $campaign->started_at?->toIso8601String(),

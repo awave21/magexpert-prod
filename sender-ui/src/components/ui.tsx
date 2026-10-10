@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, Eye, EyeOff } from 'lucide-react'
 
 const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'err' | 'neutral' }> = {
+  delivered: { label: 'Доставлено', tone: 'ok' },
   sent: { label: 'Отправлено', tone: 'ok' },
+  bounced: { label: 'Не доставлено', tone: 'err' },
   verified: { label: 'Подтверждён', tone: 'ok' },
   queued: { label: 'В очереди', tone: 'warn' },
   sending: { label: 'Отправляется', tone: 'warn' },
@@ -139,11 +141,11 @@ export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>
 }
 
 // статус рассылки: черновик, идёт отправка (пока есть письма в очереди) или отправлена
-export function CampaignStatus({ campaign }: { campaign: { status: string; stats: { queued: number; sent: number; failed: number; blocked: number } | null } }) {
+export function CampaignStatus({ campaign }: { campaign: { status: string; stats: { queued: number; sent: number; failed: number; blocked: number; bounced?: number } | null } }) {
   const s = campaign.stats
   if (campaign.status === 'draft') return <span className="status neutral"><i />Черновик</span>
   if (campaign.status === 'sending' || (s?.queued ?? 0) > 0) return <span className="status warn"><i />Отправляется</span>
-  const missed = (s?.failed ?? 0) + (s?.blocked ?? 0)
+  const missed = (s?.failed ?? 0) + (s?.blocked ?? 0) + (s?.bounced ?? 0)
   if (missed > 0 && (s?.sent ?? 0) === 0) return <span className="status err"><i />Не отправлена</span>
   if (missed > 0) return <span className="status warn"><i />Отправлена с ошибками</span>
   return <span className="status ok"><i />Отправлена</span>

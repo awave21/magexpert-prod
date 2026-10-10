@@ -3,6 +3,7 @@
 namespace App\Sender\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Message extends SenderModel
 {
@@ -12,9 +13,20 @@ class Message extends SenderModel
 
     public const STATUS_SENT = 'sent';
 
+    public const STATUS_DELIVERED = 'delivered';
+
+    public const STATUS_BOUNCED = 'bounced';
+
     public const STATUS_FAILED = 'failed';
 
     public const STATUS_BLOCKED = 'blocked';
+
+    /**
+     * Письмо ушло с нашего сервера: принято Postfix или уже сервером получателя.
+     */
+    public const SENT_STATUSES = [self::STATUS_SENT, self::STATUS_DELIVERED];
+
+    public const FAILED_STATUSES = [self::STATUS_FAILED, self::STATUS_BOUNCED];
 
     protected $table = 'sender_messages';
 
@@ -34,6 +46,13 @@ class Message extends SenderModel
         'error',
         'data',
         'sent_at',
+        'smtp_queue_id',
+        'tracked',
+        'delivered_at',
+        'opened_at',
+        'clicked_at',
+        'opens_count',
+        'clicks_count',
     ];
 
     /**
@@ -45,6 +64,12 @@ class Message extends SenderModel
             'data' => 'array',
             'attempts' => 'integer',
             'sent_at' => 'datetime',
+            'tracked' => 'boolean',
+            'delivered_at' => 'datetime',
+            'opened_at' => 'datetime',
+            'clicked_at' => 'datetime',
+            'opens_count' => 'integer',
+            'clicks_count' => 'integer',
         ];
     }
 
@@ -61,6 +86,11 @@ class Message extends SenderModel
     public function template(): BelongsTo
     {
         return $this->belongsTo(Template::class, 'template_id');
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(MessageEvent::class, 'message_id');
     }
 
     public function campaign(): BelongsTo

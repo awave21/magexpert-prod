@@ -23,6 +23,7 @@ class CampaignRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:200'],
             'template_id' => ['nullable', 'integer', Rule::exists($connection.'.sender_templates', 'id')->where('organization_id', $organizationId)],
+            'track' => ['sometimes', 'boolean'],
             'list_id' => ['nullable', 'integer', Rule::exists($connection.'.sender_lists', 'id')->where('organization_id', $organizationId)],
         ];
     }
