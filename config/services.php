@@ -35,6 +35,19 @@ return [
         ],
     ],
 
+    // вход через Яндекс ID и VK ID (Socialite)
+    'yandex' => [
+        'client_id' => env('YANDEX_CLIENT_ID'),
+        'client_secret' => env('YANDEX_CLIENT_SECRET'),
+        'redirect' => '/auth/yandex/callback',
+    ],
+
+    'vkid' => [
+        'client_id' => env('VKID_CLIENT_ID'),
+        'client_secret' => env('VKID_CLIENT_SECRET'),
+        'redirect' => '/auth/vkid/callback',
+    ],
+
     'dadata' => [
         'token' => env('DADATA_TOKEN'),
         'secret' => env('DADATA_SECRET'),

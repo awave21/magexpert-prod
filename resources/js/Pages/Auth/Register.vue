@@ -9,6 +9,7 @@ import CityAutocomplete from '@/Components/CityAutocomplete.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import { UserPlusIcon } from '@heroicons/vue/24/outline';
+import SocialLoginButtons from '@/Components/SocialLoginButtons.vue';
 
 const form = useForm({
     first_name: '',
@@ -218,6 +219,7 @@ const submit = () => {
                                 </PrimaryButton>
                             </div>
                         </form>
+                        <SocialLoginButtons title="или зарегистрируйтесь через" />
                     </div>
                 </div>
             </div>

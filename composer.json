@@ -12,8 +12,11 @@
         "laravel/framework": "^11.36",
         "laravel/reverb": "^1.4",
         "laravel/sanctum": "^4.0",
+        "laravel/socialite": "^5.31",
         "laravel/tinker": "^2.9",
         "predis/predis": "^2.3",
+        "socialiteproviders/vkid": "^5.1",
+        "socialiteproviders/yandex": "^4.2",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {

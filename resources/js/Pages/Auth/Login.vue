@@ -10,6 +10,7 @@ import { useToast } from 'vue-toastification';
 import { ref } from 'vue';
 import axios from 'axios';
 import { UserIcon } from '@heroicons/vue/24/outline';
+import SocialLoginButtons from '@/Components/SocialLoginButtons.vue';
 
 defineProps({
     canResetPassword: {
@@ -172,6 +173,8 @@ const submit = async () => {
                                 </PrimaryButton>
                             </div>
                             
+                            <SocialLoginButtons />
+
                             <div class="text-center text-sm text-gray-600 dark:text-gray-400">
                                 Нет аккаунта? 
                                 <Link :href="route('register')" class="text-brandblue hover:underline dark:text-brandblue/90">

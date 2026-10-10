@@ -41,6 +41,8 @@ class AccountAnonymizer
             ])->save();
 
             $user->roles()->detach();
+            // иначе через Яндекс или ВК можно было бы снова войти в обезличенный аккаунт
+            $user->socialAccounts()->delete();
         });
 
         if ($avatar && ! str_starts_with($avatar, 'http')) {
