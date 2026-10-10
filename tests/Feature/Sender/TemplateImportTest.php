@@ -23,6 +23,19 @@ it('imports the welcome template from the repository file', function (): void {
         ->and($template->reply_to)->toBe('info@mag-expert.ru');
 });
 
+it('imports the password reset link template', function (): void {
+    $this->artisan('sender:template-import', ['file' => base_path('deploy/templates/password-reset-link.json')])
+        ->assertSuccessful();
+
+    $template = $this->organization->templates()->where('slug', 'password-reset-link')->firstOrFail();
+
+    expect($template->editor)->toBe('blocks')
+        ->and($template->subject)->toBe('Смена пароля на mag-expert.ru')
+        ->and($template->body_html)->toContain('{{ reset_url }}')
+        ->and($template->body_html)->not->toContain('verify_url')
+        ->and($template->body_text)->toContain('{{ reset_url }}');
+});
+
 it('keeps an edited template unless forced and links a confirmed sender', function (): void {
     $file = base_path('deploy/templates/welcome.json');
     $this->organization->templates()->create(['slug' => 'welcome', 'name' => 'Своё', 'subject' => 'Своя тема', 'body_html' => '<p>своё</p>']);

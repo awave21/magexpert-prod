@@ -18,6 +18,7 @@ return [
             'welcome' => env('SENDER_TEMPLATE_WELCOME', 'welcome'),
             'email_confirmation' => env('SENDER_TEMPLATE_EMAIL_CONFIRMATION', 'email-confirmation'),
             'password_reset' => env('SENDER_TEMPLATE_PASSWORD_RESET', 'password-reset'),
+            'password_reset_link' => env('SENDER_TEMPLATE_PASSWORD_RESET_LINK', 'password-reset-link'),
             'event_registration' => env('SENDER_TEMPLATE_EVENT_REGISTRATION', 'event-registration'),
             'api_registration' => env('SENDER_TEMPLATE_API_REGISTRATION', 'api-registration'),
         ],

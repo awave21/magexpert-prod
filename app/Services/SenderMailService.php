@@ -47,12 +47,16 @@ class SenderMailService
         ], fn ($value): bool => $value !== null && $value !== '' && $value !== false));
     }
 
-    public function sendPasswordResetEmail(string $email, string $newPassword, string $name = ''): bool
+    /**
+     * Ссылка для смены пароля. Пароль меняет сам человек, перейдя по ссылке.
+     */
+    public function sendPasswordResetLink(User $user, string $resetUrl, int $expiresInMinutes): bool
     {
-        return $this->send($this->template('password_reset'), $email, [
-            'user_email' => strtolower($email),
-            'password' => $newPassword,
-            'name' => $name,
+        return $this->send($this->template('password_reset_link'), $user->email, [
+            'first_name' => (string) $user->first_name,
+            'user_email' => strtolower($user->email),
+            'reset_url' => $resetUrl,
+            'expires_in' => $expiresInMinutes,
         ]);
     }
 

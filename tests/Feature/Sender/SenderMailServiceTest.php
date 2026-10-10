@@ -23,13 +23,20 @@ beforeEach(function (): void {
     $this->service = new SenderMailService($this->client);
 });
 
-it('sends a password reset email', function (): void {
-    $sent = $this->service->sendPasswordResetEmail('User@Example.com', 'secret', 'Анна');
+it('sends a password reset link without a password', function (): void {
+    $user = User::make(['first_name' => 'Анна', 'email' => 'User@Example.com']);
+
+    $sent = $this->service->sendPasswordResetLink($user, 'https://mag-expert.ru/reset-password/token', 60);
 
     expect($sent)->toBeTrue()
-        ->and($this->client->calls[0]['template'])->toBe('password-reset')
+        ->and($this->client->calls[0]['template'])->toBe('password-reset-link')
         ->and($this->client->calls[0]['to'])->toBe('User@Example.com')
-        ->and($this->client->calls[0]['data'])->toMatchArray(['user_email' => 'user@example.com', 'password' => 'secret', 'name' => 'Анна'])
+        ->and($this->client->calls[0]['data'])->toBe([
+            'first_name' => 'Анна',
+            'user_email' => 'user@example.com',
+            'reset_url' => 'https://mag-expert.ru/reset-password/token',
+            'expires_in' => 60,
+        ])
         ->and($this->client->calls[0]['from'])->toBe(config('sender.client.from_address'));
 });
 
@@ -76,7 +83,7 @@ it('sends an event registration email with only filled fields', function (): voi
 it('returns false when the sender rejects the message', function (): void {
     $this->client->status = 'blocked';
 
-    expect($this->service->sendPasswordResetEmail('a@b.ru', 'pw'))->toBeFalse();
+    expect($this->service->sendApiRegistrationEmail('a@b.ru', 'pw'))->toBeFalse();
 });
 
 it('returns false instead of throwing when the client fails', function (): void {
@@ -88,7 +95,7 @@ it('returns false instead of throwing when the client fails', function (): void 
         }
     });
 
-    expect($service->sendPasswordResetEmail('a@b.ru', 'pw'))->toBeFalse();
+    expect($service->sendApiRegistrationEmail('a@b.ru', 'pw'))->toBeFalse();
 });
 
 it('sends a welcome email after sign-up without a password', function (): void {

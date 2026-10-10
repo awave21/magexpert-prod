@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Services\SenderMailService;
+use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,72 +18,53 @@ use Inertia\Response;
 class NewPasswordController extends Controller
 {
     /**
-     * Display the password reset view.
+     * Страница ввода нового пароля (открывается по ссылке из письма).
      */
     public function create(Request $request): Response
     {
         return Inertia::render('Auth/ResetPassword', [
-            'email' => $request->email,
+            'email' => (string) $request->email,
             'token' => $request->route('token'),
         ]);
     }
 
     /**
-     * Handle an incoming new password request.
+     * Сохраняет новый пароль, который человек придумал сам.
      *
      * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse
     {
-        // Валидируем входные данные: только токен и email
         $request->validate([
             'token' => 'required',
             'email' => 'required|email',
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Генерируем новый сильный пароль (c fallback на Str::random)
-        $generatedPassword = method_exists(Str::class, 'password')
-            ? Str::password(12)
-            : Str::random(16).'aA1!';
+        $status = Password::reset(
+            [
+                'email' => mb_strtolower(trim($request->email)),
+                'token' => $request->token,
+                'password' => $request->password,
+                'password_confirmation' => $request->password_confirmation,
+            ],
+            function (User $user) use ($request): void {
+                $user->forceFill([
+                    'password' => Hash::make($request->password),
+                    'remember_token' => Str::random(60),
+                ])->save();
 
-        $resetUser = null;
-
-        // Проводим стандартный процесс сброса через брокер, но с нашим сгенерированным паролем
-        $status = Password::reset([
-            'email' => $request->email,
-            'token' => $request->token,
-            'password' => $generatedPassword,
-            'password_confirmation' => $generatedPassword,
-        ], function ($user) use (&$resetUser, $generatedPassword) {
-            $user->forceFill([
-                'password' => Hash::make($generatedPassword),
-                'remember_token' => Str::random(60),
-            ])->save();
-
-            event(new PasswordReset($user));
-
-            $resetUser = $user;
-        });
-
-        // If the password was successfully reset, we will redirect the user back to
-        // the application's home authenticated view. If there is an error we can
-        // redirect them back to where they came from with their error message.
-        if ($status == Password::PASSWORD_RESET) {
-            // Пытаемся отправить письмо с новым паролем через Sender
-            try {
-                /** @var SenderMailService $sender */
-                $sender = app(SenderMailService::class);
-                $name = $resetUser?->full_name ?? '';
-                $sender->sendPasswordResetEmail($request->email, $generatedPassword, $name);
-            } catch (\Throwable $e) {
-                // Игнорируем ошибку отправки письма, пароль уже сброшен
+                event(new PasswordReset($user));
             }
+        );
 
-            return redirect()->route('login')->with('status', __($status));
+        if ($status === Password::PASSWORD_RESET) {
+            return redirect()->route('login')->with('status', 'Пароль изменён. Войдите с новым паролем.');
         }
 
+        // Неверный токен и незнакомый email отвечают одинаково: не раскрываем, кто зарегистрирован
         throw ValidationException::withMessages([
-            'email' => [trans($status)],
+            'email' => ['Ссылка устарела или уже использована. Запросите новую на странице «Забыли пароль».'],
         ]);
     }
 }
