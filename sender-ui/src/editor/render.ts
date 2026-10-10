@@ -38,6 +38,13 @@ function cellTop(b: Block, inner: string, extra = '', top = true): string {
   return b.cond ? `{{#if ${b.cond}}}${row}{{/if}}` : row
 }
 
+// выравнивание задаёт ячейка, а не align у таблицы: таблица с align="left" «плавает»,
+// и фон блока (подложка) не растягивается под неё
+function aligned(align: 'left' | 'center' | 'right', inner: string, full = false): string {
+  const margin = align === 'center' ? '0 auto' : align === 'right' ? '0 0 0 auto' : '0 auto 0 0'
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="${align}"><table role="presentation" cellpadding="0" cellspacing="0" border="0" ${full ? 'width="100%"' : ''} style="margin:${margin}">${inner}</table></td></tr></table>`
+}
+
 function renderBlock(b: Block, s: Settings, width: number, top = true): string {
   const cell = (bb: Block, inner: string, extra = '') => cellTop(bb, inner, extra, top)
   const contentWidth = Math.max(0, width - b.padding.l - b.padding.r)
@@ -62,13 +69,13 @@ function renderBlock(b: Block, s: Settings, width: number, top = true): string {
       const w = b.full ? contentWidth : Math.min(b.width, contentWidth)
       const img = `<img src="${attr(b.src)}" alt="${attr(b.alt)}" width="${w}" style="display:block;width:100%;max-width:${w}px;height:auto;border:0;outline:none;text-decoration:none;border-radius:${b.radius}px">`
       const linked = b.href ? `<a href="${attr(b.href)}" target="_blank" style="text-decoration:none">${img}</a>` : img
-      return cell(b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="${b.align}" style="margin:${b.align === 'center' ? '0 auto' : '0'}"><tr><td>${linked}</td></tr></table>`)
+      return cell(b, aligned(b.align, `<tr><td>${linked}</td></tr>`))
     }
     case 'button': {
       const bg = b.fill ?? s.buttonBg
       const radius = b.radius ?? s.buttonRadius
       const a = `<a href="${attr(b.href)}" target="_blank" style="display:${b.full ? 'block' : 'inline-block'};padding:14px 28px;font-family:${s.font};font-size:15px;font-weight:600;line-height:1.2;color:${b.color};text-decoration:none;text-align:center;border-radius:${radius}px">${text(b.text)}</a>`
-      return cell(b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="${b.align}" ${b.full ? 'width="100%"' : ''} style="margin:${b.align === 'center' ? '0 auto' : '0'}"><tr><td align="center" bgcolor="${bg}" style="background-color:${bg};border-radius:${radius}px">${a}</td></tr></table>`)
+      return cell(b, aligned(b.align, `<tr><td align="center" bgcolor="${bg}" style="background-color:${bg};border-radius:${radius}px">${a}</td></tr>`, b.full))
     }
     case 'divider':
       return cell(b, `<div style="height:${b.thickness}px;line-height:${b.thickness}px;font-size:0;background-color:${b.color}">&nbsp;</div>`)

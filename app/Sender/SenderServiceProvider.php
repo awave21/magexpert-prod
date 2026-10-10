@@ -11,6 +11,7 @@ use App\Sender\Console\DomainCommand;
 use App\Sender\Console\InstallDefaultsCommand;
 use App\Sender\Console\MailLogCommand;
 use App\Sender\Console\PruneCommand;
+use App\Sender\Console\TemplateImportCommand;
 use App\Sender\Console\UserCreateCommand;
 use App\Sender\Contracts\SenderClient;
 use App\Sender\Dns\DnsLookup;
@@ -45,7 +46,7 @@ class SenderServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/routes.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([InstallDefaultsCommand::class, DomainCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, PruneCommand::class]);
+            $this->commands([InstallDefaultsCommand::class, DomainCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, PruneCommand::class, TemplateImportCommand::class]);
 
             // статусы доставки из журнала Postfix, если он есть на этом сервере
             $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {

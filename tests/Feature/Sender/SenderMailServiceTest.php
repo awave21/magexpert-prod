@@ -90,3 +90,20 @@ it('returns false instead of throwing when the client fails', function (): void 
 
     expect($service->sendPasswordResetEmail('a@b.ru', 'pw'))->toBeFalse();
 });
+
+it('sends a welcome email after sign-up without a password', function (): void {
+    $user = new User(['first_name' => 'Анна', 'last_name' => 'Иванова', 'email' => 'Anna@Example.com']);
+
+    expect($this->service->sendWelcomeEmail($user))->toBeTrue()
+        ->and($this->client->calls[0]['template'])->toBe('welcome')
+        ->and($this->client->calls[0]['data'])->toMatchArray(['first_name' => 'Анна', 'name' => 'Анна Иванова', 'user_email' => 'anna@example.com'])
+        ->and($this->client->calls[0]['data'])->not->toHaveKey('password');
+});
+
+it('uses the template id or alias from the config', function (): void {
+    config(['sender.client.templates.welcome' => '42']);
+
+    $this->service->sendWelcomeEmail(new User(['first_name' => 'Анна', 'email' => 'a@b.ru']));
+
+    expect($this->client->calls[0]['template'])->toBe('42');
+});

@@ -1,0 +1,257 @@
+[
+    {
+        "slug": "welcome",
+        "name": "Регистрация на сайте",
+        "subject": "Добро пожаловать в МедАльянсГрупп Expert",
+        "preheader": "Ваш аккаунт создан: мероприятия, библиотека и личный кабинет",
+        "reply_to": "info@mag-expert.ru",
+        "sender_email": "noreply@mag-expert.ru",
+        "editor": "blocks",
+        "design": {
+            "blocks": [
+                {
+                    "id": "781b6c9876",
+                    "padding": {
+                        "t": 28,
+                        "r": 40,
+                        "b": 8,
+                        "l": 40
+                    },
+                    "bg": null,
+                    "inset": false,
+                    "show": "all",
+                    "cond": null,
+                    "type": "image",
+                    "src": "https://mag-expert.ru/images/email/mag-expert-logo.png",
+                    "alt": "МедАльянсГрупп Expert",
+                    "href": "https://mag-expert.ru",
+                    "full": false,
+                    "width": 180,
+                    "align": "left",
+                    "radius": 0,
+                    "name": "mag-expert-logo.png",
+                    "meta": "668×120 · 20 КБ"
+                },
+                {
+                    "id": "5a3880f26a",
+                    "padding": {
+                        "t": 16,
+                        "r": 40,
+                        "b": 8,
+                        "l": 40
+                    },
+                    "bg": null,
+                    "inset": false,
+                    "show": "all",
+                    "cond": null,
+                    "type": "heading",
+                    "html": "<p>Добро пожаловать!</p>",
+                    "align": "left",
+                    "size": null,
+                    "color": null
+                },
+                {
+                    "id": "9c58e8952e",
+                    "padding": {
+                        "t": 12,
+                        "r": 40,
+                        "b": 12,
+                        "l": 40
+                    },
+                    "bg": null,
+                    "inset": false,
+                    "show": "all",
+                    "cond": null,
+                    "type": "text",
+                    "html": "<p>Здравствуйте{{#if first_name}}, {{ first_name }}{{/if}}!</p><p>Вы зарегистрировались на платформе МедАльянсГрупп Expert. Теперь вам доступно всё, что мы делаем для врачей:</p>",
+                    "align": "left",
+                    "size": null,
+                    "color": null
+                },
+                {
+                    "id": "5db8055ecd",
+                    "padding": {
+                        "t": 18,
+                        "r": 24,
+                        "b": 4,
+                        "l": 24
+                    },
+                    "bg": "#F4F6FA",
+                    "inset": true,
+                    "show": "all",
+                    "cond": null,
+                    "type": "text",
+                    "html": "<p><strong>Мероприятия.</strong> Конгрессы, конференции, мастер-классы и вебинары с российскими и зарубежными экспертами, онлайн и офлайн.</p>",
+                    "align": "left",
+                    "size": 15,
+                    "color": null
+                },
+                {
+                    "id": "4b4a2b34cd",
+                    "padding": {
+                        "t": 4,
+                        "r": 24,
+                        "b": 4,
+                        "l": 24
+                    },
+                    "bg": "#F4F6FA",
+                    "inset": true,
+                    "show": "all",
+                    "cond": null,
+                    "type": "text",
+                    "html": "<p><strong>Медицинская библиотека.</strong> Статьи и материалы для практики. <a href=\"https://mag-expert.ru/documents\">Открыть библиотеку</a></p>",
+                    "align": "left",
+                    "size": 15,
+                    "color": null
+                },
+                {
+                    "id": "281fecea88",
+                    "padding": {
+                        "t": 4,
+                        "r": 24,
+                        "b": 18,
+                        "l": 24
+                    },
+                    "bg": "#F4F6FA",
+                    "inset": true,
+                    "show": "all",
+                    "cond": null,
+                    "type": "text",
+                    "html": "<p><strong>Личный кабинет.</strong> Ваши мероприятия, записи трансляций и сертификаты в одном месте. <a href=\"https://mag-expert.ru/dashboard\">Перейти в кабинет</a></p>",
+                    "align": "left",
+                    "size": 15,
+                    "color": null
+                },
+                {
+                    "id": "2768eda333",
+                    "padding": {
+                        "t": 20,
+                        "r": 40,
+                        "b": 8,
+                        "l": 40
+                    },
+                    "bg": null,
+                    "inset": false,
+                    "show": "all",
+                    "cond": null,
+                    "type": "button",
+                    "text": "Смотреть мероприятия",
+                    "href": "https://mag-expert.ru/events",
+                    "fill": null,
+                    "color": "#FFFFFF",
+                    "radius": null,
+                    "full": false,
+                    "align": "center"
+                },
+                {
+                    "id": "2120903c9b",
+                    "padding": {
+                        "t": 8,
+                        "r": 40,
+                        "b": 16,
+                        "l": 40
+                    },
+                    "bg": null,
+                    "inset": false,
+                    "show": "all",
+                    "cond": null,
+                    "type": "text",
+                    "html": "<p>Для входа используйте адрес {{ user_email }} и пароль, который вы указали при регистрации. Если забудете пароль, его можно восстановить на <a href=\"https://mag-expert.ru/login\">странице входа</a>.</p>",
+                    "align": "left",
+                    "size": 14,
+                    "color": "#4A505B"
+                },
+                {
+                    "id": "d8763f1a1c",
+                    "padding": {
+                        "t": 18,
+                        "r": 24,
+                        "b": 4,
+                        "l": 24
+                    },
+                    "bg": "#FFF6EC",
+                    "inset": true,
+                    "show": "all",
+                    "cond": null,
+                    "type": "text",
+                    "html": "<p><strong>Telegram-канал «Красивая гинекология»</strong></p><p>Сообщество более 1000 врачей: клинические случаи, обсуждения и новости эстетической гинекологии.</p>",
+                    "align": "left",
+                    "size": 15,
+                    "color": null
+                },
+                {
+                    "id": "b9f0873506",
+                    "padding": {
+                        "t": 4,
+                        "r": 24,
+                        "b": 18,
+                        "l": 24
+                    },
+                    "bg": "#FFF6EC",
+                    "inset": true,
+                    "show": "all",
+                    "cond": null,
+                    "type": "button",
+                    "text": "Перейти в канал",
+                    "href": "https://t.me/beautifulgynecology",
+                    "fill": "#229ED9",
+                    "color": "#FFFFFF",
+                    "radius": null,
+                    "full": false,
+                    "align": "left"
+                },
+                {
+                    "id": "6f66d7f443",
+                    "padding": {
+                        "t": 20,
+                        "r": 40,
+                        "b": 8,
+                        "l": 40
+                    },
+                    "bg": null,
+                    "inset": false,
+                    "show": "all",
+                    "cond": null,
+                    "type": "divider",
+                    "color": "#DEE1E8",
+                    "thickness": 1
+                },
+                {
+                    "id": "b0ba763dc8",
+                    "padding": {
+                        "t": 16,
+                        "r": 40,
+                        "b": 28,
+                        "l": 40
+                    },
+                    "bg": null,
+                    "inset": false,
+                    "show": "all",
+                    "cond": null,
+                    "type": "footer",
+                    "align": "left",
+                    "html": "<p>Вы получили это письмо, потому что зарегистрировались на сайте mag-expert.ru.</p><p>Вопросы: <a href=\"mailto:info@mag-expert.ru\">info@mag-expert.ru</a>, +7 495 664-67-53</p><p>МедАльянсГрупп Expert · <a href=\"https://mag-expert.ru\">mag-expert.ru</a></p>"
+                }
+            ],
+            "settings": {
+                "width": 600,
+                "bodyBg": "#FFFFFF",
+                "outerBg": "#F4F5F8",
+                "radius": 8,
+                "font": "Arial, Helvetica, sans-serif",
+                "fontSize": 16,
+                "lineHeight": 1.6,
+                "textColor": "#101828",
+                "linkColor": "#C9502A",
+                "headingFont": "inherit",
+                "headingSize": 26,
+                "headingWeight": 700,
+                "buttonBg": "#F27B63",
+                "buttonRadius": 10,
+                "preheader": null
+            }
+        },
+        "body_html": "<!doctype html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"x-apple-disable-message-reformatting\">\n<title>Добро пожаловать в МедАльянсГрупп Expert</title>\n<style>\nbody{margin:0;padding:0;-webkit-text-size-adjust:100%}\ntable{border-collapse:collapse}\nimg{-ms-interpolation-mode:bicubic}\n.hide-desktop{display:none;max-height:0;overflow:hidden;mso-hide:all}\n@media only screen and (max-width:620px){\n  .container{width:100%!important;max-width:100%!important}\n  .col{display:block!important;width:100%!important;padding-left:0!important;padding-right:0!important}\n  .px{padding-left:20px!important;padding-right:20px!important}\n  .hide-mobile{display:none!important}\n  .hide-desktop{display:table-cell!important;max-height:none!important;overflow:visible!important}\n}\n</style>\n</head>\n<body style=\"margin:0;padding:0;background-color:#F4F5F8\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#F4F5F8\" style=\"background-color:#F4F5F8\">\n<tr><td align=\"center\" style=\"padding:24px 12px\">\n<table role=\"presentation\" class=\"container\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:600px;max-width:600px;background-color:#FFFFFF;border-radius:8px;overflow:hidden\">\n<tr><td class=\"px\" style=\"padding:28px 40px 8px 40px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td align=\"left\"><table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"  style=\"margin:0 auto 0 0\"><tr><td><a href=\"https://mag-expert.ru\" target=\"_blank\" style=\"text-decoration:none\"><img src=\"https://mag-expert.ru/images/email/mag-expert-logo.png\" alt=\"МедАльянсГрупп Expert\" width=\"180\" style=\"display:block;width:100%;max-width:180px;height:auto;border:0;outline:none;text-decoration:none;border-radius:0px\"></a></td></tr></table></td></tr></table></td></tr>\n<tr><td class=\"px\" style=\"padding:16px 40px 8px 40px;\"><div style=\"margin:0;font-family:Arial, Helvetica, sans-serif;font-size:26px;line-height:1.25;font-weight:700;color:#101828;text-align:left\"><p style=\"margin: 0px;\">Добро пожаловать!</p></div></td></tr>\n<tr><td class=\"px\" style=\"padding:12px 40px 12px 40px;\"><div style=\"font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1.6;color:#101828;text-align:left\"><p style=\"margin:0 0 12px;\">Здравствуйте{{#if first_name}}, {{ first_name }}{{/if}}!</p><p style=\"margin: 0px;\">Вы зарегистрировались на платформе МедАльянсГрупп Expert. Теперь вам доступно всё, что мы делаем для врачей:</p></div></td></tr>\n<tr><td class=\"px\" style=\"padding:0 40px\"><div style=\"padding:18px 24px 4px 24px;background-color:#F4F6FA;\"><div style=\"font-family:Arial, Helvetica, sans-serif;font-size:15px;line-height:1.6;color:#101828;text-align:left\"><p style=\"margin: 0px;\"><strong>Мероприятия.</strong> Конгрессы, конференции, мастер-классы и вебинары с российскими и зарубежными экспертами, онлайн и офлайн.</p></div></div></td></tr>\n<tr><td class=\"px\" style=\"padding:0 40px\"><div style=\"padding:4px 24px 4px 24px;background-color:#F4F6FA;\"><div style=\"font-family:Arial, Helvetica, sans-serif;font-size:15px;line-height:1.6;color:#101828;text-align:left\"><p style=\"margin: 0px;\"><strong>Медицинская библиотека.</strong> Статьи и материалы для практики. <a href=\"https://mag-expert.ru/documents\" style=\"color:#C9502A;text-decoration:underline\" target=\"_blank\">Открыть библиотеку</a></p></div></div></td></tr>\n<tr><td class=\"px\" style=\"padding:0 40px\"><div style=\"padding:4px 24px 18px 24px;background-color:#F4F6FA;\"><div style=\"font-family:Arial, Helvetica, sans-serif;font-size:15px;line-height:1.6;color:#101828;text-align:left\"><p style=\"margin: 0px;\"><strong>Личный кабинет.</strong> Ваши мероприятия, записи трансляций и сертификаты в одном месте. <a href=\"https://mag-expert.ru/dashboard\" style=\"color:#C9502A;text-decoration:underline\" target=\"_blank\">Перейти в кабинет</a></p></div></div></td></tr>\n<tr><td class=\"px\" style=\"padding:20px 40px 8px 40px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td align=\"center\"><table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"  style=\"margin:0 auto\"><tr><td align=\"center\" bgcolor=\"#F27B63\" style=\"background-color:#F27B63;border-radius:10px\"><a href=\"https://mag-expert.ru/events\" target=\"_blank\" style=\"display:inline-block;padding:14px 28px;font-family:Arial, Helvetica, sans-serif;font-size:15px;font-weight:600;line-height:1.2;color:#FFFFFF;text-decoration:none;text-align:center;border-radius:10px\">Смотреть мероприятия</a></td></tr></table></td></tr></table></td></tr>\n<tr><td class=\"px\" style=\"padding:8px 40px 16px 40px;\"><div style=\"font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.6;color:#4A505B;text-align:left\"><p style=\"margin: 0px;\">Для входа используйте адрес {{ user_email }} и пароль, который вы указали при регистрации. Если забудете пароль, его можно восстановить на <a href=\"https://mag-expert.ru/login\" style=\"color:#C9502A;text-decoration:underline\" target=\"_blank\">странице входа</a>.</p></div></td></tr>\n<tr><td class=\"px\" style=\"padding:0 40px\"><div style=\"padding:18px 24px 4px 24px;background-color:#FFF6EC;\"><div style=\"font-family:Arial, Helvetica, sans-serif;font-size:15px;line-height:1.6;color:#101828;text-align:left\"><p style=\"margin:0 0 11px;\"><strong>Telegram-канал «Красивая гинекология»</strong></p><p style=\"margin: 0px;\">Сообщество более 1000 врачей: клинические случаи, обсуждения и новости эстетической гинекологии.</p></div></div></td></tr>\n<tr><td class=\"px\" style=\"padding:0 40px\"><div style=\"padding:4px 24px 18px 24px;background-color:#FFF6EC;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td align=\"left\"><table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"  style=\"margin:0 auto 0 0\"><tr><td align=\"center\" bgcolor=\"#229ED9\" style=\"background-color:#229ED9;border-radius:10px\"><a href=\"https://t.me/beautifulgynecology\" target=\"_blank\" style=\"display:inline-block;padding:14px 28px;font-family:Arial, Helvetica, sans-serif;font-size:15px;font-weight:600;line-height:1.2;color:#FFFFFF;text-decoration:none;text-align:center;border-radius:10px\">Перейти в канал</a></td></tr></table></td></tr></table></div></td></tr>\n<tr><td class=\"px\" style=\"padding:20px 40px 8px 40px;\"><div style=\"height:1px;line-height:1px;font-size:0;background-color:#DEE1E8\">&nbsp;</div></td></tr>\n<tr><td class=\"px\" style=\"padding:16px 40px 28px 40px;\"><div style=\"font-family:Arial, Helvetica, sans-serif;font-size:12px;line-height:1.55;color:#636976;text-align:left\"><p style=\"margin:0 0 6px;\">Вы получили это письмо, потому что зарегистрировались на сайте mag-expert.ru.</p><p style=\"margin:0 0 6px;\">Вопросы: <a href=\"mailto:info@mag-expert.ru\" style=\"color:#C9502A;text-decoration:underline\" target=\"_blank\">info@mag-expert.ru</a>, +7 495 664-67-53</p><p style=\"margin: 0px;\">МедАльянсГрупп Expert · <a href=\"https://mag-expert.ru\" style=\"color:#C9502A;text-decoration:underline\" target=\"_blank\">mag-expert.ru</a></p></div></td></tr>\n</table>\n</td></tr>\n</table>\n</body>\n</html>",
+        "body_text": "(https://mag-expert.ru)\n\nДобро пожаловать!\n\nЗдравствуйте{{#if first_name}}, {{ first_name }}{{/if}}!\nВы зарегистрировались на платформе МедАльянсГрупп Expert. Теперь вам доступно всё, что мы делаем для врачей:\n\nМероприятия. Конгрессы, конференции, мастер-классы и вебинары с российскими и зарубежными экспертами, онлайн и офлайн.\n\nМедицинская библиотека. Статьи и материалы для практики. Открыть библиотеку (https://mag-expert.ru/documents)\n\nЛичный кабинет. Ваши мероприятия, записи трансляций и сертификаты в одном месте. Перейти в кабинет (https://mag-expert.ru/dashboard)\n\nСмотреть мероприятия (https://mag-expert.ru/events)\n\nДля входа используйте адрес {{ user_email }} и пароль, который вы указали при регистрации. Если забудете пароль, его можно восстановить на странице входа (https://mag-expert.ru/login).\n\nTelegram-канал «Красивая гинекология»\nСообщество более 1000 врачей: клинические случаи, обсуждения и новости эстетической гинекологии.\n\nПерейти в канал (https://t.me/beautifulgynecology)\n\nВы получили это письмо, потому что зарегистрировались на сайте mag-expert.ru.\nВопросы: info@mag-expert.ru (mailto:info@mag-expert.ru), +7 495 664-67-53\nМедАльянсГрупп Expert · mag-expert.ru (https://mag-expert.ru)"
+    }
+]

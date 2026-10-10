@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SenderMailService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -65,10 +66,12 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
+        // письмо «Добро пожаловать» через Sender; если не ушло, регистрация всё равно завершается
+        app(SenderMailService::class)->sendWelcomeEmail($user);
+
         Auth::login($user);
 
-
         return redirect(route('dashboard', absolute: false))
-        ->with('message', 'Регистрация прошла успешно. Добро пожаловать!');
+            ->with('message', 'Регистрация прошла успешно. Добро пожаловать!');
     }
 }

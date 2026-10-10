@@ -257,7 +257,7 @@ export default function TemplateEditor() {
                   </select>
                 </div>
                 <div className="field span2">
-                  <label htmlFor="slug">Ключ для API</label>
+                  <label htmlFor="slug">Алиас для API</label>
                   <div className="row" style={{ flexWrap: 'nowrap', gap: 8 }}>
                     <input id="slug" className={`input mono${err('slug') ? ' err' : ''}`} value={form.slug} onChange={set('slug')} readOnly={slugLocked} placeholder="event-registration" />
                     {!isNew && (

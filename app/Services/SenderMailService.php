@@ -22,7 +22,7 @@ class SenderMailService
 
         $userName = trim($user->first_name.' '.$user->last_name);
 
-        return $this->send('event-registration', $user->email, array_filter([
+        return $this->send($this->template('event_registration'), $user->email, array_filter([
             'user_name' => $userName,
             'first_name' => $user->first_name ?: ($userName !== '' ? explode(' ', $userName)[0] : ''),
             'user_email' => $user->email,
@@ -49,21 +49,45 @@ class SenderMailService
 
     public function sendPasswordResetEmail(string $email, string $newPassword, string $name = ''): bool
     {
-        return $this->send('password-reset', $email, [
+        return $this->send($this->template('password_reset'), $email, [
             'user_email' => strtolower($email),
             'password' => $newPassword,
             'name' => $name,
         ]);
     }
 
+    /**
+     * Приветствие после регистрации на сайте. Пароль пользователь придумал сам, поэтому в письме его нет.
+     */
+    public function sendWelcomeEmail(User $user): bool
+    {
+        $name = trim($user->first_name.' '.$user->last_name);
+
+        return $this->send($this->template('welcome'), $user->email, array_filter([
+            'first_name' => $user->first_name,
+            'name' => $name,
+            'user_name' => $name,
+            'user_email' => strtolower($user->email),
+            'site_url' => url('/'),
+        ], fn ($value): bool => $value !== null && $value !== ''));
+    }
+
     public function sendApiRegistrationEmail(string $email, string $password, string $name = ''): bool
     {
-        return $this->send('api-registration', $email, [
+        return $this->send($this->template('api_registration'), $email, [
             'user_email' => strtolower($email),
             'password' => $password,
             'name' => $name,
             'generated_at' => now()->format('d.m.Y H:i'),
         ]);
+    }
+
+    /**
+     * Ключ или ID шаблона в Sender для письма сайта (настраивается в .env).
+     */
+    private function template(string $email): string
+    {
+        return (string) config('sender.client.templates.'.$email);
     }
 
     /**

@@ -13,6 +13,13 @@ return [
         'api_key' => env('SENDER_API_KEY'),
         'from_address' => env('SENDER_FROM_ADDRESS', 'noreply@mag-expert.ru'),
         'from_name' => env('SENDER_FROM_NAME', 'МедАльянсГрупп Expert'),
+        // какой шаблон отправлять для каждого письма сайта: ключ шаблона (алиас) или его ID из Sender
+        'templates' => [
+            'welcome' => env('SENDER_TEMPLATE_WELCOME', 'welcome'),
+            'password_reset' => env('SENDER_TEMPLATE_PASSWORD_RESET', 'password-reset'),
+            'event_registration' => env('SENDER_TEMPLATE_EVENT_REGISTRATION', 'event-registration'),
+            'api_registration' => env('SENDER_TEMPLATE_API_REGISTRATION', 'api-registration'),
+        ],
     ],
     'mail_host' => env('SENDER_MAIL_HOST', 'mail.mag-expert.ru'),
     // сколько дней хранить письма, открытия и клики (указано в политике обработки персональных данных)

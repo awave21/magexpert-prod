@@ -75,7 +75,7 @@ export default function ApiDocs() {
 
       <section className="api-sec">
         <h2>Шаблоны</h2>
-        <p>ID шаблона не меняется. Вместо ID можно передать ключ шаблона, например <span className="mono">password-reset</span>.</p>
+        <p>ID шаблона не меняется. Вместо ID можно передать алиас шаблона, например <span className="mono">password-reset</span>.</p>
         <div className="table-wrap">
           <table className="table">
             <thead><tr><th>ID</th><th>Шаблон</th><th>Ключ</th><th>Отправитель</th><th>Переменные</th></tr></thead>
