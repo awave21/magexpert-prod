@@ -224,7 +224,20 @@ class SocialAuthController extends Controller
         $name = self::NAMES[$profile['provider']];
 
         if (! $this->accounts->link($user, $profile)) {
-            return redirect()->to($back)->with('error', "Этот аккаунт {$name} уже привязан к другому профилю на сайте.");
+            $owner = SocialAccount::query()->where('provider', $profile['provider'])->where('provider_user_id', $profile['id'])->first()?->user;
+
+            Log::channel('social')->info('Привязка: аккаунт провайдера уже у другого пользователя', [
+                'provider' => $profile['provider'],
+                'user_id' => $user->id,
+                'linked_user_id' => $owner?->id,
+            ]);
+
+            $where = $owner?->email ? ' ('.$this->maskEmail($owner->email).')' : '';
+            $text = "Этот {$name} уже привязан к другому аккаунту на сайте{$where}. Войдите в тот аккаунт через {$name} и отвяжите его в «Вход и безопасность» — после этого подтвердите телефон здесь.";
+
+            return redirect()->to($back)
+                ->with('error', $text)
+                ->with('phone_result', ['ok' => false, 'text' => $text]);
         }
 
         $status = $this->accounts->applyPhone($user, $profile['phone']);
@@ -244,6 +257,16 @@ class SocialAuthController extends Controller
         return redirect()->to($back)
             ->with($verified ? 'message' : 'error', $text)
             ->with('phone_result', ['ok' => $verified, 'text' => $text]);
+    }
+
+    /**
+     * m***@yandex.ru: человек узнает свой адрес, а посторонний не увидит его целиком.
+     */
+    private function maskEmail(string $email): string
+    {
+        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        return mb_substr($local, 0, 1).'***@'.$domain;
     }
 
     /**

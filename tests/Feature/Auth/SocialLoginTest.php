@@ -166,7 +166,7 @@ it('does not overwrite a different phone and refuses an account linked to someon
     fakeSocialUser('vkid', ['id' => '802'], null);
 
     $this->get('/auth/vkid/link');
-    $this->get('/auth/vkid/callback?code=x')->assertSessionHas('error', fn (string $m): bool => str_contains($m, 'уже привязан к другому профилю'));
+    $this->get('/auth/vkid/callback?code=x')->assertSessionHas('error', fn (string $m): bool => str_contains($m, 'уже привязан к другому аккаунту'));
     expect($user->socialAccounts()->where('provider', 'vkid')->exists())->toBeFalse();
 });
 
@@ -247,4 +247,34 @@ it('shows why the phone was not confirmed right in the cabinet and asks yandex t
     $this->get('/dashboard')->assertInertia(fn ($page) => $page
         ->where('flash.phone_result.ok', false)
         ->where('flash.phone_result.text', fn (string $text): bool => str_contains($text, 'указан другой номер')));
+});
+
+it('confirms the phone when the same yandex account is linked again', function (): void {
+    config(['services.yandex.client_id' => 'id', 'services.yandex.phone' => true]);
+    $user = User::factory()->create(['phone' => '+7 999 123-45-67']);
+    $user->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '831']);
+    fakeSocialUser('yandex', ['id' => '831', 'default_phone' => ['number' => '+79991234567']], 'me@yandex.ru');
+
+    $this->actingAs($user)->from(route('dashboard'))->get('/auth/yandex/link');
+    $this->get('/auth/yandex/callback?code=x')
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionHas('message', 'Яндекс привязан, телефон подтверждён.');
+
+    expect($user->fresh()->phone_verified_at)->not->toBeNull();
+});
+
+it('explains in the cabinet which account already has this yandex id', function (): void {
+    config(['services.yandex.client_id' => 'id', 'services.yandex.phone' => true]);
+    $owner = User::factory()->create(['email' => 'moskovec@yandex.ru']);
+    $owner->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '841']);
+    $user = User::factory()->create();
+    fakeSocialUser('yandex', ['id' => '841', 'default_phone' => ['number' => '+79991234567']], 'moskovec@yandex.ru');
+
+    $this->actingAs($user)->from(route('dashboard'))->get('/auth/yandex/link');
+    $this->get('/auth/yandex/callback?code=x')->assertRedirect(route('dashboard'));
+
+    $this->get('/dashboard')->assertInertia(fn ($page) => $page
+        ->where('flash.phone_result.ok', false)
+        ->where('flash.phone_result.text', fn (string $text): bool => str_contains($text, 'm***@yandex.ru') && ! str_contains($text, 'moskovec')));
+    expect($user->fresh()->phone_verified_at)->toBeNull();
 });
