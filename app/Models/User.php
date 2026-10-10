@@ -37,6 +37,15 @@ class User extends Authenticatable
     ];
 
     /**
+     * Значения по умолчанию, совпадающие с базой: всплывающие уведомления на сайте включены.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'site_notifications' => true,
+    ];
+
+    /**
      * The attributes that should be hidden for serialization.
      *
      * @var list<string>
@@ -56,6 +65,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
+            'newsletter_consent' => 'boolean',
+            'site_notifications' => 'boolean',
             'password' => 'hashed',
         ];
     }

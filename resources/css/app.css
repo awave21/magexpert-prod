@@ -5,6 +5,13 @@
 @theme {
   --color-brandblue: rgb(97 134 182);
   --color-brandcoral: rgb(242 123 99);
+  /* Кабинет: тёмный фирменный синий для мелкого текста (контраст 4.5:1+), подложки и линии */
+  --color-brandblue-dark: #3f6596;
+  --color-brandblue-deep: #4f74a3;
+  --color-brandblue-soft: #eef3f9;
+  --color-brandcoral-soft: #fdeee9;
+  --color-cabinet: #f9fafb;
+  --font-display: "Jost", "Manrope", ui-sans-serif, system-ui, sans-serif;
   
   /* Настройка шрифтов */
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -24,3 +31,59 @@
 .theme-transition [class*="transition"] {
   transition-property: transform, opacity, visibility;
 }
+
+/* ---------- Личный кабинет ---------- */
+.cab-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 26px;
+  box-shadow: 0 1px 2px #0f172a0d, 0 12px 32px -24px #0f172a40;
+}
+.dark .cab-panel { background: #1f2937; border-color: #374151; box-shadow: none; }
+.cab-eyebrow {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--color-brandblue-dark);
+  font: 700 13px/18px var(--font-sans); letter-spacing: .16em; text-transform: uppercase;
+}
+.cab-eyebrow::before { content: ''; display: block; width: 36px; height: 1px; background: currentColor; }
+.dark .cab-eyebrow { color: #9db6d6; }
+.cab-h1 { margin: 0; font: 500 36px/42px var(--font-display); letter-spacing: -.02em; }
+.cab-h2 { margin: 0; font: 500 24px/30px var(--font-display); }
+@media (max-width: 639px) { .cab-h1 { font-size: 30px; line-height: 36px; } .cab-h2 { font-size: 21px; line-height: 26px; } }
+.cab-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 0 22px; border-radius: 999px; border: none;
+  background: var(--color-brandblue); color: #fff; font: 700 14px/18px var(--font-sans);
+  box-shadow: 0 1px 2px #0f172a14, 0 12px 24px -14px #6186b6b3; cursor: pointer; white-space: nowrap; text-decoration: none;
+  transition: background .2s ease;
+}
+.cab-btn:hover { background: var(--color-brandblue-deep); }
+.cab-btn:disabled { opacity: .6; cursor: default; }
+.cab-btn--coral { background: var(--color-brandcoral); box-shadow: 0 1px 2px #0f172a14, 0 12px 24px -14px #f27b63b3; }
+.cab-btn--coral:hover { background: #f26b47; }
+.cab-btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #e5e7eb;
+  background: #fff; color: #111827; font: 700 14px/18px var(--font-sans); cursor: pointer; white-space: nowrap; text-decoration: none;
+  transition: border-color .2s ease, color .2s ease;
+}
+.cab-btn-ghost:hover { border-color: var(--color-brandblue); color: var(--color-brandblue-dark); }
+.dark .cab-btn-ghost { background: #111827; border-color: #374151; color: #f9fafb; }
+.cab-btn:focus-visible, .cab-btn-ghost:focus-visible, .cab-focus:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--color-brandblue); }
+.cab-input {
+  height: 48px; width: 100%; box-sizing: border-box; padding: 0 18px;
+  border: 1px solid #e5e7eb; border-radius: 999px; background: #fff; color: #111827;
+  font: 500 15px/20px var(--font-sans); outline: none;
+}
+.cab-input:focus { border-color: var(--color-brandblue); box-shadow: 0 0 0 4px #6186b62e; }
+.dark .cab-input { background: #111827; border-color: #374151; color: #f9fafb; }
+.cab-label { color: #4b5563; font: 600 13px/18px var(--font-sans); }
+.dark .cab-label { color: #9ca3af; }
+.cab-chip-ok { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #e4f1e9; color: #2f6b4f; font: 800 12px/16px var(--font-sans); white-space: nowrap; }
+.cab-chip-warn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #fbecd3; color: #8a5512; font: 800 12px/16px var(--font-sans); white-space: nowrap; }
+.cab-chip-blue { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--color-brandblue-soft); color: var(--color-brandblue-dark); font: 800 12px/16px var(--font-sans); white-space: nowrap; }
+.cab-live { position: relative; display: inline-block; width: 10px; height: 10px; flex-shrink: 0; border-radius: 99px; background: var(--color-brandcoral); }
+.cab-live::before { content: ''; position: absolute; inset: 0; border-radius: 99px; background: var(--color-brandcoral); animation: cab-ping 2s ease-out infinite; }
+@keyframes cab-ping { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(2.4); opacity: 0; } }
+.cab-thumb { position: relative; overflow: hidden; border-radius: 20px; background: linear-gradient(135deg, #f3f7fb, #c7d3e3 60%, #6186b6); }
+@media (prefers-reduced-motion: reduce) { .cab-live::before { animation: none; } }

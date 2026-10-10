@@ -1,280 +1,129 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { Link, usePage, router } from '@inertiajs/vue3';
-import MainLayout from '@/Layouts/MainLayout.vue';
-import { 
-    HomeIcon, 
-    BookOpenIcon, 
-    CalendarIcon, 
-    DocumentTextIcon, 
-    UserIcon,
-    ArrowRightOnRectangleIcon 
-} from '@heroicons/vue/24/outline';
-import axios from 'axios';
+import { computed, watch } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
+import { ArrowLeftIcon, BookOpenIcon, CalendarDaysIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
+import MainLogo from '@/Components/main-logo.vue';
+import MobileBottomNav from '@/Components/MobileBottomNav.vue';
+import CookieConsent from '@/Components/CookieConsent.vue';
+import UserMenu from '@/Components/Cabinet/UserMenu.vue';
+import MessagesBell from '@/Components/Cabinet/MessagesBell.vue';
 
-// Получаем данные авторизованного пользователя
+// Каркас личного кабинета: боковое меню на экран высотой, верхняя панель с колокольчиком и меню пользователя.
 const page = usePage();
-const user = computed(() => page.props.auth.user);
 
-const resending = ref(false);
-const resendConfirmation = () => {
-    resending.value = true;
-    router.post(route('email.confirm.resend'), {}, { preserveScroll: true, onFinish: () => (resending.value = false) });
-};
-
-// Пропсы для статистики (если переданы)
-const props = defineProps({
-    stats: {
-        type: Object,
-        default: () => null
-    }
-});
-
-// Используем статистику из глобальных данных пользователя или переданную статистику
-const displayStats = computed(() => {
-    // Приоритет: глобальная статистика из user.stats, затем переданная
-    const globalStats = user.value?.stats;
-    const localStats = props.stats;
-    
-    if (globalStats) {
-        return {
-            availableEvents: globalStats.availableEvents || globalStats.total || 0,
-            completedEvents: globalStats.archive || 0
-        };
-    }
-    
-    // Fallback на локальную статистику только если нет глобальной
-    if (localStats) {
-        return {
-            availableEvents: localStats.availableEvents || localStats.total || 0,
-            completedEvents: localStats.archive || 0
-        };
-    }
-    
-    return {
-        availableEvents: 0,
-        completedEvents: 0
-    };
-});
-
-// Пункты меню с правильными маршрутами
-const menuItems = [
-    { name: 'Сводка', href: route('dashboard'), route: 'Dashboard', icon: HomeIcon },
-    { name: 'Профиль', href: route('profile.edit'), route: 'Profile/Edit', icon: UserIcon },
-    { name: 'Мероприятия', href: route('my-events'), route: 'MyEvents', icon: CalendarIcon },
-    { name: 'Сертификаты', href: route('certificates'), route: 'Certificates', icon: DocumentTextIcon },
+const nav = [
+    { label: 'Сводка', route: 'dashboard', active: ['dashboard'], icon: Squares2X2Icon },
+    { label: 'Мероприятия', route: 'my-events', active: ['my-events', 'my-events.*'], icon: CalendarDaysIcon },
+    { label: 'Библиотека', route: 'documents.index', active: ['documents.*'], icon: BookOpenIcon },
 ];
 
-// Получаем текущий компонент и его имя
-const currentComponent = computed(() => usePage().component);
-const isMobileMenuOpen = ref(false);
-
-// Проверяем, активен ли пункт меню
-const isActive = (itemRoute) => {
-    // Проверяем точное совпадение или начало строки для вложенных маршрутов
-    return currentComponent.value === itemRoute || 
-           (itemRoute && currentComponent.value.startsWith(itemRoute));
+const crumbs = {
+    dashboard: 'Сводка',
+    'my-events': 'Мероприятия',
+    'my-events.view': 'Мероприятия',
+    'profile.edit': 'Профиль',
+    'cabinet.security': 'Вход и безопасность',
+    'cabinet.notifications': 'Уведомления',
+    'cabinet.payments': 'Платежи',
+    certificates: 'Сертификаты',
 };
 
-// Получаем аватар пользователя или используем компонент иконки
-const userAvatar = computed(() => {
-    return user.value.avatar || null;
+const isActive = (item) => item.active.some((name) => route().current(name));
+const crumb = computed(() => {
+    const name = Object.keys(crumbs).find((key) => route().current(key));
+    return name ? crumbs[name] : 'Личный кабинет';
 });
 
-// Используем иконку профиля как заглушку, если аватар отсутствует
-const hasAvatar = computed(() => Boolean(user.value.avatar));
-
-// Состояние и логика выхода с обходом 419
-const isLoggingOut = ref(false);
 const toast = useToast();
-
-const refreshCsrfToken = async () => {
-    try {
-        const response = await axios.get('/csrf-token');
-        const token = response?.data?.csrf_token;
-        if (token) {
-            document.querySelector('meta[name="csrf-token"]')?.setAttribute('content', token);
-            return true;
-        }
-    } catch (e) {
-        console.error('Ошибка при обновлении CSRF-токена:', e);
+watch(() => page.props.flash?.message, (message) => {
+    if (message) {
+        toast.success(message, { position: 'top-center', timeout: 6000 });
     }
-    return false;
-};
-
-const logout = async () => {
-    if (isLoggingOut.value) return;
-    isLoggingOut.value = true;
-    const doRequest = async () => {
-        try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            // Используем axios для явного контроля заголовков и статусов
-            await axios.post(route('logout'), {}, {
-                headers: { 'X-CSRF-TOKEN': csrfToken || '' },
-            });
-            // После успешного выхода переходим на страницу входа
-            router.visit(route('login'));
-        } catch (error) {
-            const status = error?.response?.status;
-            if (status === 419) {
-                const refreshed = await refreshCsrfToken();
-                if (refreshed) {
-                    toast.info('Сессия обновлена, выходим...');
-                    return doRequest();
-                }
-                toast.error('Ошибка сессии. Пожалуйста, обновите страницу.');
-            } else {
-                toast.error('Ошибка при выходе из системы');
-            }
-        } finally {
-            isLoggingOut.value = false;
-        }
-    };
-    doRequest();
-};
+}, { immediate: true });
+watch(() => page.props.flash?.error, (error) => {
+    if (error) {
+        toast.error(error, { position: 'top-center', timeout: 8000 });
+    }
+}, { immediate: true });
 </script>
 
 <template>
-    <MainLayout>
-        <div class="min-h-screen bg-gradient-to-br from-brandblue/[0.03] to-white/95 dark:from-brandblue/10 dark:to-gray-900">
-            <!-- Шапка профиля -->
-            <div class="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                <div class="mx-auto max-w-[1440px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-                    <div class="flex flex-col items-start justify-between gap-3 sm:gap-4 md:flex-row md:items-center">
-                        <!-- Информация о пользователе -->
-                        <div class="flex items-center">
-                            <div class="mr-3 sm:mr-4 h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 overflow-hidden rounded-full border-2 border-brandblue/20">
-                                <img v-if="hasAvatar" :src="userAvatar" alt="Аватар пользователя" class="h-full w-full object-cover" />
-                                <div v-else class="flex h-full w-full items-center justify-center bg-gray-100 dark:bg-gray-700">
-                                    <UserIcon class="h-6 w-6 sm:h-10 sm:w-10 text-gray-500 dark:text-gray-400" />
-                                </div>
-                            </div>
-                            <div>
-                                <h1 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">{{ user.full_name }}</h1>
-                                <p v-if="user.position" class="text-xs sm:text-sm text-gray-600 dark:text-gray-300">{{ user.position }}</p>
-                                <p v-if="user.company" class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{{ user.company }}</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Статистика -->
-                        <div class="flex w-full flex-col sm:flex-row flex-wrap gap-2 sm:gap-4 md:w-auto">
-                            <div class="flex items-center rounded-full bg-brandblue/10 px-3 sm:px-4 py-2 dark:bg-brandblue/20">
-                                <CalendarIcon class="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-brandblue flex-shrink-0" />
-                                <span class="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">{{ displayStats.availableEvents }} доступных мероприятий</span>
-                            </div>
-                        </div>
-                    </div>
+    <div class="min-h-screen bg-cabinet font-sans text-gray-900 dark:bg-gray-950 dark:text-white">
+        <!-- Мобильная шапка -->
+        <header class="sticky top-0 z-40 flex items-center gap-2 border-b border-gray-200 bg-white px-3 py-2 lg:hidden dark:border-gray-800 dark:bg-gray-900">
+            <Link :href="route('welcome')" class="flex items-center" aria-label="МедАльянсГрупп Expert — на главную">
+                <MainLogo :width="146" :height="26" />
+            </Link>
+            <span class="flex-1"></span>
+            <MessagesBell />
+            <UserMenu compact />
+        </header>
+
+        <div class="mx-auto flex max-w-[1440px] items-start gap-8 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:pb-20 lg:pt-6">
+            <!-- Боковое меню: высотой в экран и остаётся на месте при прокрутке -->
+            <aside class="cab-panel sticky top-6 hidden h-[calc(100vh-48px)] max-h-[900px] w-[272px] shrink-0 flex-col overflow-y-auto px-3.5 pb-4 pt-6 lg:flex">
+                <Link :href="route('welcome')" class="mb-5 flex px-3.5" aria-label="МедАльянсГрупп Expert — на главную">
+                    <MainLogo :width="196" :height="35" />
+                </Link>
+                <nav aria-label="Личный кабинет" class="flex flex-col gap-1">
+                    <Link
+                        v-for="item in nav"
+                        :key="item.route"
+                        :href="route(item.route)"
+                        class="cab-focus flex min-h-[46px] items-center gap-3 rounded-full px-4 text-[15px] font-bold transition"
+                        :class="isActive(item)
+                            ? 'bg-brandblue text-white shadow-[0_10px_22px_-10px_#6186b6bf]'
+                            : 'text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-800'"
+                        :aria-current="isActive(item) ? 'page' : undefined"
+                    >
+                        <component :is="item.icon" class="h-5 w-5 shrink-0" aria-hidden="true" />
+                        {{ item.label }}
+                    </Link>
+                </nav>
+
+                <div class="min-h-6 flex-1"></div>
+
+                <a
+                    href="https://t.me/beautifulgynecology"
+                    target="_blank"
+                    rel="noopener"
+                    class="cab-focus mx-1 flex flex-col gap-2.5 rounded-[22px] bg-gradient-to-br from-brandblue to-brandblue-dark p-[18px] text-white"
+                >
+                    <span class="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#e3ebf5]">Сообщество в Telegram</span>
+                    <span class="font-display text-xl font-medium leading-6">«Красивая гинекология»</span>
+                    <span class="text-[13px] text-[#e3ebf5]">Больше 1 000 врачей в сообществе</span>
+                    <span class="inline-flex min-h-10 items-center self-start rounded-full bg-white px-4 text-[13px] font-extrabold text-brandblue-dark">Вступить в канал</span>
+                </a>
+                <div class="mx-1 mt-3.5 flex flex-col gap-0.5 border-t border-gray-100 px-3.5 pt-3.5 dark:border-gray-800">
+                    <span class="text-sm font-bold">Нужна помощь?</span>
+                    <a href="tel:+79952220779" class="text-[13px] font-semibold leading-[22px] text-gray-500 hover:text-brandblue-dark dark:text-gray-400">+7 (995) 222-07-79</a>
+                    <a href="mailto:info@mag-expert.ru" class="text-[13px] font-semibold leading-[22px] text-gray-500 hover:text-brandblue-dark dark:text-gray-400">info@mag-expert.ru</a>
                 </div>
-            </div>
-            
-            <div class="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-                <div class="py-6">
-                    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-                        <!-- Мобильное меню -->
-                        <div class="lg:hidden">
-                            <button 
-                                @click="isMobileMenuOpen = !isMobileMenuOpen" 
-                                class="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
-                            >
-                                <span class="text-gray-900 dark:text-white">Меню</span>
-                                <svg 
-                                    xmlns="http://www.w3.org/2000/svg" 
-                                    class="h-5 w-5 text-gray-500 dark:text-gray-400" 
-                                    :class="{'transform rotate-180': isMobileMenuOpen}"
-                                    fill="none" 
-                                    viewBox="0 0 24 24" 
-                                    stroke="currentColor"
-                                >
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            
-                            <div v-if="isMobileMenuOpen" class="mt-2">
-                                <nav class="rounded-xl border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
-                                    <Link 
-                                        v-for="item in menuItems" 
-                                        :key="item.name" 
-                                        :href="item.href"
-                                        class="mb-1 flex items-center rounded-xl px-4 py-3 text-gray-600 transition-colors dark:text-gray-300"
-                                        :class="{'bg-brandblue/10 text-brandblue dark:bg-brandblue/20 dark:text-brandblue': isActive(item.route)}"
-                                    >
-                                        <component 
-                                            :is="item.icon" 
-                                            class="mr-3 h-5 w-5" 
-                                            :class="{'text-brandblue': isActive(item.route)}"
-                                        />
-                                        {{ item.name }}
-                                    </Link>
-                                    
-                                    <button 
-                                        type="button"
-                                        @click="logout"
-                                        :disabled="isLoggingOut"
-                                        class="flex w-full items-center rounded-xl px-4 py-3 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-700/50"
-                                    >
-                                        <ArrowRightOnRectangleIcon class="mr-3 h-5 w-5 text-gray-500" />
-                                        Выйти
-                                    </button>
-                                </nav>
-                            </div>
-                        </div>
-                        
-                        <!-- Боковая панель (десктоп) -->
-                        <div class="hidden lg:block lg:col-span-1">
-                            <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                                <div class="p-4">
-                                    <nav class="space-y-1">
-                                        <Link 
-                                            v-for="item in menuItems" 
-                                            :key="item.name" 
-                                            :href="item.href"
-                                            class="flex items-center rounded-xl px-4 py-3 text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50"
-                                            :class="{'bg-brandblue/10 text-brandblue dark:bg-brandblue/20 dark:text-brandblue': isActive(item.route)}"
-                                        >
-                                            <component 
-                                                :is="item.icon" 
-                                                class="mr-3 h-5 w-5" 
-                                                :class="{'text-brandblue': isActive(item.route)}"
-                                            />
-                                            {{ item.name }}
-                                        </Link>
-                                    </nav>
-                                </div>
-                                <div class="border-t border-gray-200 p-4 dark:border-gray-700">
-                                    <button 
-                                        type="button"
-                                        @click="logout"
-                                        :disabled="isLoggingOut"
-                                        class="flex w-full items-center rounded-xl px-4 py-3 text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-700/50"
-                                    >
-                                        <ArrowRightOnRectangleIcon class="mr-3 h-5 w-5 text-gray-500" />
-                                        Выйти
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Основное содержимое -->
-                        <div class="lg:col-span-3">
-                            <!-- email не подтверждён: ссылка была в письме «Добро пожаловать» -->
-                            <div v-if="user && user.email_verified === false" class="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
-                                <div>
-                                    <b class="font-semibold">Подтвердите email</b>
-                                    <p class="mt-0.5">Мы отправили ссылку на {{ user.email }} в письме «Добро пожаловать». Если письма нет, проверьте папку «Спам».</p>
-                                </div>
-                                <button type="button" class="shrink-0 rounded-lg bg-white px-4 py-2 font-medium text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-amber-100 disabled:opacity-50 dark:bg-amber-900/40 dark:text-amber-50 dark:ring-amber-800"
-                                    :disabled="resending" @click="resendConfirmation">
-                                    {{ resending ? 'Отправляем…' : 'Отправить ссылку ещё раз' }}
-                                </button>
-                            </div>
-                            <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                                <slot></slot>
-                            </div>
-                        </div>
-                    </div>
+            </aside>
+
+            <main class="flex min-w-0 flex-1 flex-col gap-8">
+                <!-- Верхняя панель (десктоп) -->
+                <div class="cab-panel relative z-30 hidden flex-wrap items-center gap-2.5 !rounded-full py-2 pl-3 pr-2 lg:flex">
+                    <Link :href="route('welcome')" class="cab-btn-ghost !min-h-11 !pl-3 !pr-4">
+                        <ArrowLeftIcon class="h-[18px] w-[18px]" aria-hidden="true" />
+                        На сайт
+                    </Link>
+                    <nav aria-label="Вы здесь" class="flex items-center gap-2 pl-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                        <Link :href="route('dashboard')" class="hover:text-brandblue-dark">Личный кабинет</Link>
+                        <span aria-hidden="true">/</span>
+                        <span class="font-bold text-gray-900 dark:text-white">{{ crumb }}</span>
+                    </nav>
+                    <span class="flex-1"></span>
+                    <MessagesBell />
+                    <UserMenu />
                 </div>
-            </div>
+
+                <slot />
+            </main>
         </div>
-    </MainLayout>
-</template> 
+
+        <CookieConsent />
+        <MobileBottomNav />
+    </div>
+</template>

@@ -2,13 +2,14 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import ProfileLayout from '@/Layouts/ProfileLayout.vue';
-import { 
-    PlayIcon,
+import {
     ArrowLeftIcon,
+    CalendarDaysIcon,
     ClockIcon,
-    CalendarIcon,
+    DocumentTextIcon,
     MapPinIcon,
-    UsersIcon
+    PlayIcon,
+    VideoCameraIcon,
 } from '@heroicons/vue/24/outline';
 import DOMPurify from 'dompurify';
 
@@ -194,245 +195,127 @@ const sanitizedFullDescription = computed(() => {
     if (!props.event.full_description) return '';
     return DOMPurify.sanitize(props.event.full_description);
 });
+
+const formatLabel = computed(() => ({ online: 'Онлайн', offline: 'Офлайн', hybrid: 'Гибрид' }[props.event.format] ?? null));
+
+// Файл .ics для календаря телефона или компьютера — без обращения к серверу
+const calendarHref = computed(() => {
+    const start = parseEventDateTime(props.event.start_date, props.event.start_time);
+    if (!start || isNaN(start.getTime())) {
+        return null;
+    }
+    const end = parseEventDateTime(props.event.end_date || props.event.start_date, props.event.end_time) || new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    const stamp = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}00`;
+    const escape = (value) => String(value || '').replace(/[,;\\]/g, (m) => `\\${m}`).replace(/\n/g, ' ');
+    const ics = [
+        'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MAG Expert//RU', 'BEGIN:VEVENT',
+        `UID:event-${props.event.id}@mag-expert.ru`,
+        `DTSTART;TZID=Europe/Moscow:${stamp(start)}`,
+        `DTEND;TZID=Europe/Moscow:${stamp(end)}`,
+        `SUMMARY:${escape(props.event.title)}`,
+        `URL:${window.location.href}`,
+        props.event.location ? `LOCATION:${escape(props.event.location)}` : null,
+        'END:VEVENT', 'END:VCALENDAR',
+    ].filter(Boolean).join('\r\n');
+    return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
+});
 </script>
 
 <template>
     <Head :title="`Просмотр: ${event.title}`" />
 
     <ProfileLayout>
-        <div class="p-3 sm:p-4 lg:p-6">
-            <!-- Заголовок и статус -->
-            <div class="mb-4 sm:mb-6">
-                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-                    <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 dark:text-white line-clamp-2 sm:line-clamp-none">
-                        {{ event.title }}
-                    </h1>
-                    
-                    <!-- Live индикатор -->
-                    <div v-if="isLive" class="flex items-center bg-red-100 text-red-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium self-start">
-                        <div class="w-2 h-2 bg-red-500 rounded-full mr-1.5 sm:mr-2 animate-pulse"></div>
-                        В эфире
-                    </div>
-                </div>
+        <Link :href="route('my-events')" class="-mb-3 inline-flex min-h-11 items-center gap-2 self-start text-sm font-bold text-brandblue-dark hover:underline">
+            <ArrowLeftIcon class="h-[18px] w-[18px]" aria-hidden="true" />
+            Мои мероприятия
+        </Link>
 
-                <!-- Информация о мероприятии -->
-                <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                    <div class="flex items-center">
-                        <CalendarIcon class="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-brandblue flex-shrink-0" />
-                        <span class="truncate">{{ formatDate(event.start_date) }}</span>
-                        <span v-if="event.end_date && event.end_date !== event.start_date" class="hidden sm:inline">
-                            - {{ formatDate(event.end_date) }}
+        <div class="flex flex-wrap items-start gap-7">
+            <div class="flex min-w-0 flex-[999_1_560px] flex-col gap-6">
+                <header class="flex flex-col gap-3">
+                    <div v-if="event.categories?.length || isLive" class="flex flex-wrap gap-2">
+                        <span v-if="isLive" class="inline-flex items-center gap-2 rounded-full bg-brandcoral-soft px-3 py-1 text-xs font-extrabold text-[#b4442c]"><span class="cab-live !h-2 !w-2"></span>В эфире</span>
+                        <span v-for="category in event.categories" :key="category.id" class="rounded-full bg-brandcoral-soft px-2.5 py-1 text-xs font-extrabold text-[#b4442c]">{{ category.name }}</span>
+                    </div>
+                    <h1 class="cab-h1">{{ event.title }}</h1>
+                    <div class="flex flex-wrap gap-x-5 gap-y-2 text-[15px] font-semibold text-gray-500 dark:text-gray-400">
+                        <span v-if="formatDate(event.start_date)" class="inline-flex items-center gap-2">
+                            <CalendarDaysIcon class="h-[18px] w-[18px]" aria-hidden="true" />
+                            {{ formatDate(event.start_date) }}<template v-if="event.end_date && event.end_date !== event.start_date"> — {{ formatDate(event.end_date) }}</template>
                         </span>
+                        <span v-if="event.start_time" class="inline-flex items-center gap-2">
+                            <ClockIcon class="h-[18px] w-[18px]" aria-hidden="true" />
+                            {{ formatTime(event.start_time) }}<template v-if="event.end_time">–{{ formatTime(event.end_time) }}</template> МСК
+                        </span>
+                        <span v-if="formatLabel" class="inline-flex items-center gap-2"><VideoCameraIcon class="h-[18px] w-[18px]" aria-hidden="true" />{{ formatLabel }}</span>
+                        <span v-if="event.location" class="inline-flex items-center gap-2"><MapPinIcon class="h-[18px] w-[18px]" aria-hidden="true" />{{ event.location }}</span>
                     </div>
-                    
-                    <div v-if="event.start_time" class="flex items-center">
-                        <ClockIcon class="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-brandblue flex-shrink-0" />
-                        <span>{{ formatTime(event.start_time) }}</span>
-                        <span v-if="event.end_time"> - {{ formatTime(event.end_time) }}</span>
+                </header>
+
+                <!-- Плеер и чат Кинескопа -->
+                <div class="overflow-hidden rounded-[26px] bg-gray-900 shadow-[0_4px_10px_#0f172a0d,0_40px_80px_-40px_#0f172a4d]">
+                    <div class="relative aspect-video">
+                        <iframe
+                            v-if="embedUrl"
+                            :src="embedUrl"
+                            class="absolute inset-0 h-full w-full"
+                            frameborder="0"
+                            allowfullscreen
+                            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write; screen-wake-lock;"
+                        ></iframe>
+                        <div v-else class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#1f2a3a] via-brandblue-dark to-brandblue px-6 text-center text-white">
+                            <span class="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-brandblue-dark"><PlayIcon class="ml-1 h-7 w-7" aria-hidden="true" /></span>
+                            <span class="font-display text-2xl font-medium">Видео скоро будет доступно</span>
+                            <span class="text-sm text-white/80">{{ isLive ? 'Мероприятие в процессе проведения' : 'Запись будет опубликована после окончания мероприятия' }}</span>
+                        </div>
                     </div>
-                    
-                    <div v-if="event.location" class="flex items-center">
-                        <MapPinIcon class="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-brandblue flex-shrink-0" />
-                        <span class="truncate">{{ event.location }}</span>
-                    </div>
-                    
-                    <div v-if="event.format" class="flex items-center">
-                        <UsersIcon class="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-brandblue flex-shrink-0" />
-                        <span>{{ event.format === 'online' ? 'Онлайн' : event.format === 'offline' ? 'Офлайн' : 'Гибрид' }}</span>
+                    <div v-if="shouldShowChat && chatUrl && embedUrl" class="h-80 border-t border-gray-700 bg-gray-50 sm:h-96 lg:h-[500px]">
+                        <iframe :src="chatUrl" class="h-full w-full border-0" frameborder="0" allowfullscreen allow="fullscreen" title="Чат трансляции"></iframe>
                     </div>
                 </div>
+
+                <section v-if="event.short_description || event.full_description" class="cab-panel flex flex-col gap-3 p-6 sm:p-7">
+                    <h2 class="cab-h2">О мероприятии</h2>
+                    <p v-if="event.short_description" class="text-base leading-[26px]">{{ event.short_description }}</p>
+                    <div v-if="event.full_description" class="prose max-w-none text-[15px] leading-6 text-gray-600 dark:prose-invert dark:text-gray-300" v-html="sanitizedFullDescription"></div>
+                </section>
             </div>
 
-            <!-- Основной контент -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
+            <aside class="flex min-w-0 flex-[1_1_320px] flex-col gap-5">
+                <section class="cab-panel flex flex-col gap-2.5 p-5">
+                    <span class="text-xs font-extrabold uppercase tracking-[.12em] text-gray-500">Ваш доступ</span>
+                    <span class="cab-chip-ok self-start !text-[13px]">Доступ открыт</span>
+                    <span class="text-[13px] leading-[19px] text-gray-500 dark:text-gray-400">Трансляция и запись доступны вам в этом разделе.</span>
+                    <a v-if="calendarHref" :href="calendarHref" :download="`${event.slug}.ics`" class="cab-btn-ghost mt-1">
+                        <CalendarDaysIcon class="h-[18px] w-[18px]" aria-hidden="true" />
+                        Добавить в календарь
+                    </a>
+                    <a v-if="event.file_path" :href="event.file_path" target="_blank" rel="noopener" class="cab-btn-ghost">
+                        <DocumentTextIcon class="h-[18px] w-[18px]" aria-hidden="true" />
+                        Программа мероприятия
+                    </a>
+                </section>
 
-                
-                <!-- Видео и чат для live мероприятий -->
-                <div v-if="shouldShowChat && chatUrl && embedUrl" class="flex flex-col">
-                    <!-- Плеер -->
-                    <div class="aspect-video bg-gray-900 relative">
-                        <div class="relative w-full h-full">
-                            <iframe 
-                                :src="embedUrl"
-                                class="absolute inset-0 w-full h-full"
-                                frameborder="0"
-                                allowfullscreen
-                                allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write; screen-wake-lock;"
-                            ></iframe>
+                <section v-if="event.speakers?.length" class="cab-panel px-5 pb-2 pt-[18px]">
+                    <h2 class="pb-2 font-display text-xl font-medium">Спикеры</h2>
+                    <div v-for="speaker in event.speakers" :key="speaker.id" class="flex gap-3 border-t border-gray-100 py-3 dark:border-gray-800">
+                        <img v-if="speaker.photo" :src="speaker.photo" :alt="`${speaker.first_name} ${speaker.last_name}`" class="h-[60px] w-[52px] shrink-0 rounded-[999px_999px_12px_12px] object-cover" />
+                        <span v-else class="flex h-[60px] w-[52px] shrink-0 items-end justify-center rounded-[999px_999px_12px_12px] bg-brandblue-soft pb-2 font-display text-base text-brandblue-dark">{{ speaker.first_name?.[0] }}{{ speaker.last_name?.[0] }}</span>
+                        <div class="min-w-0">
+                            <div class="text-sm font-bold">{{ speaker.last_name }} {{ speaker.first_name }} {{ speaker.middle_name }}</div>
+                            <div v-if="speaker.pivot?.topic" class="text-[13px] italic text-brandblue-dark">{{ speaker.pivot.topic }}</div>
+                            <div v-if="speaker.position || speaker.company" class="text-[13px] text-gray-500">{{ [speaker.position, speaker.company].filter(Boolean).join(', ') }}</div>
+                            <div v-if="speaker.regalia" class="line-clamp-3 text-xs text-gray-500">{{ speaker.regalia }}</div>
                         </div>
                     </div>
-                    
-                    <!-- Чат -->
-                    <div class="bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
-                        <div class="h-80 sm:h-96 lg:h-[500px]">
-                            <iframe 
-                                :src="chatUrl"
-                                class="w-full h-full border-0"
-                                frameborder="0"
-                                allowfullscreen
-                                allow="fullscreen"
-                            ></iframe>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Обычный плеер для не-live мероприятий или когда нет чата -->
-                <div v-else class="aspect-video bg-gray-900 relative">
-                    <template v-if="embedUrl">
-                        <!-- Встроенный плеер Кинескопа -->
-                        <div class="relative w-full h-full">
-                            <iframe 
-                                :src="embedUrl"
-                                class="absolute inset-0 w-full h-full"
-                                frameborder="0"
-                                allowfullscreen
-                                allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write; screen-wake-lock;"
-                            ></iframe>
-                        </div>
-                    </template>
-                    
-                    <template v-else>
-                        <!-- Заглушка, если нет видео -->
-                        <div class="flex items-center justify-center h-full text-white">
-                            <div class="text-center">
-                                <PlayIcon class="w-16 h-16 mx-auto mb-4 opacity-50" />
-                                <h3 class="text-xl font-medium mb-2">Видео скоро будет доступно</h3>
-                                <p class="text-gray-300">
-                                    {{ isLive ? 'Мероприятие в процессе проведения' : 'Запись будет опубликована после окончания мероприятия' }}
-                                </p>
-                            </div>
-                        </div>
-                    </template>
-                </div>
+                </section>
 
-                <!-- Описание мероприятия -->
-                <div class="p-3 sm:p-4 lg:p-6">
-                    <div v-if="event.short_description" class="mb-4">
-                        <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-white mb-2">
-                            Краткое описание
-                        </h3>
-                        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">
-                            {{ event.short_description }}
-                        </p>
-                    </div>
-
-                    <div v-if="event.full_description" class="mb-4">
-                        <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-white mb-2">
-                            Полное описание
-                        </h3>
-                        <div class="text-sm sm:text-base text-gray-600 dark:text-gray-300 prose max-w-none leading-relaxed" v-html="sanitizedFullDescription"></div>
-                    </div>
-
-                    <!-- Спикеры -->
-                    <div v-if="event.speakers && event.speakers.length" class="mb-4">
-                        <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-white mb-3">
-                            Спикеры
-                        </h3>
-                        <div class="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-                            <div 
-                                v-for="speaker in event.speakers" 
-                                :key="speaker.id"
-                                class="flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                            >
-                                <img 
-                                    v-if="speaker.photo" 
-                                    :src="speaker.photo" 
-                                    :alt="`${speaker.first_name} ${speaker.last_name}`"
-                                    class="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover flex-shrink-0"
-                                />
-                                <div v-else class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-lg">
-                                        {{ speaker.first_name.charAt(0) }}{{ speaker.last_name.charAt(0) }}
-                                    </span>
-                                </div>
-                                
-                                <div class="flex-1 min-w-0">
-                                    <!-- Имя спикера -->
-                                    <h4 class="font-semibold text-gray-800 dark:text-white text-sm sm:text-base">
-                                        {{ speaker.first_name }} {{ speaker.last_name }}
-                                    </h4>
-                                    
-                                    <!-- Роль и тема выступления -->
-                                    <div v-if="speaker.pivot && (speaker.pivot.role || speaker.pivot.topic)" class="mt-2 p-2 bg-brandblue/10 rounded border-l-2 border-brandblue">
-                                        <div class="text-xs sm:text-sm">
-                                            <span v-if="speaker.pivot.role" class="font-medium text-brandblue">{{ speaker.pivot.role }}</span>
-                                            <span v-if="speaker.pivot.role && speaker.pivot.topic" class="text-gray-500 dark:text-gray-400"> • </span>
-                                            <span v-if="speaker.pivot.topic" class="italic text-gray-700 dark:text-gray-300">{{ speaker.pivot.topic }}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Должность и компания -->
-                                    <p v-if="speaker.position || speaker.company" class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-2">
-                                        {{ [speaker.position, speaker.company].filter(Boolean).join(', ') }}
-                                    </p>
-                                    
-                                    <!-- Регалии -->
-                                    <div v-if="speaker.regalia" class="mt-2">
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Регалии и достижения:</p>
-                                        <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3 lg:line-clamp-none">
-                                            {{ speaker.regalia }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Категории -->
-                    <div v-if="event.categories && event.categories.length" class="mb-4">
-                        <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-white mb-2">
-                            Категории
-                        </h3>
-                        <div class="flex flex-wrap gap-2">
-                            <span 
-                                v-for="category in event.categories" 
-                                :key="category.id"
-                                class="px-2 sm:px-3 py-1 bg-brandblue/10 text-brandblue text-xs sm:text-sm rounded-full"
-                            >
-                                {{ category.name }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                <section class="cab-panel flex flex-col gap-1 px-5 py-[18px]">
+                    <span class="text-sm font-bold">Не работает трансляция?</span>
+                    <span class="text-[13px] leading-[19px] text-gray-500 dark:text-gray-400">Обновите страницу или откройте её в другом браузере. Если не помогло — позвоните.</span>
+                    <a href="tel:+79952220779" class="pt-1 text-sm font-bold text-brandblue-dark">+7 (995) 222-07-79</a>
+                </section>
+            </aside>
         </div>
     </ProfileLayout>
 </template>
-
-<style scoped>
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-@media (min-width: 640px) {
-  .sm\:line-clamp-none {
-    display: block;
-    -webkit-line-clamp: unset;
-    line-clamp: unset;
-    -webkit-box-orient: unset;
-    overflow: visible;
-  }
-}
-
-@media (min-width: 1024px) {
-  .lg\:line-clamp-none {
-    display: block;
-    -webkit-line-clamp: unset;
-    line-clamp: unset;
-    -webkit-box-orient: unset;
-    overflow: visible;
-  }
-}
-</style>

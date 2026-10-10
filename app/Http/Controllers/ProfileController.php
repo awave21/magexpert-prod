@@ -68,6 +68,11 @@ class ProfileController extends Controller
             'phone' => $validated['phone'] ?? null,
         ];
 
+        // новый email нужно подтвердить заново
+        if (mb_strtolower($userData['email']) !== mb_strtolower((string) $user->email)) {
+            $userData['email_verified_at'] = null;
+        }
+
         // новый номер нужно подтвердить заново
         $accounts = app(SocialAccounts::class);
         if ($accounts->normalize($userData['phone']) !== $accounts->normalize($user->phone)) {
@@ -90,13 +95,7 @@ class ProfileController extends Controller
 
             $user->forceFill($userData)->save();
 
-            if ($user->isDirty('email')) {
-                $user->email_verified_at = null;
-            }
-
-            $user->save();
-
-            return Redirect::route('profile.edit')->with('success', 'Профиль успешно обновлен');
+            return Redirect::route('profile.edit')->with('message', 'Профиль сохранён');
         } catch (\Exception $e) {
             return Redirect::route('profile.edit')->with('error', 'Произошла ошибка при обновлении профиля');
         }
