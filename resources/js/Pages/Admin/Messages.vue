@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
@@ -9,9 +9,6 @@ const props = defineProps({
     events: { type: Array, default: () => [] },
     history: { type: Object, required: true },
 });
-
-const page = usePage();
-const flash = computed(() => page.props.flash?.message);
 
 const form = useForm({
     audience: 'all',
@@ -76,8 +73,6 @@ const eventLabel = (event) => (event.date ? `${new Date(`${event.date}T00:00:00`
                 <p class="text-sm text-zinc-500 dark:text-zinc-400">Сообщение появится в колокольчике личного кабинета. Если человек на сайте и не выключил уведомления, оно всплывёт при следующем открытии страницы.</p>
             </div>
         </template>
-
-        <div v-if="flash" class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{{ flash }}</div>
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <form class="flex flex-col gap-5 rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900" @submit.prevent="send">
