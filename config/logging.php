@@ -73,6 +73,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // вход и привязка через Яндекс/ВК: пишет всегда, независимо от LOG_LEVEL (без номеров и токенов)
+        'social' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/social.log'),
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
         'bitrix24' => [
             'driver' => 'daily',
             'path' => storage_path('logs/bitrix24.log'),

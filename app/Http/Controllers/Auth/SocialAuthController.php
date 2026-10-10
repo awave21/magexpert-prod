@@ -76,6 +76,12 @@ class SocialAuthController extends Controller
         $back = str_starts_with($previous, url('/')) && ! str_contains($previous, '/auth/') ? $previous : route('cabinet.security');
         $request->session()->put(self::LINKING, $back);
 
+        Log::channel('social')->info('Привязка: уходим к провайдеру', [
+            'provider' => $provider,
+            'user_id' => $request->user()?->id,
+            'phone_scope' => (bool) config("services.{$provider}.phone"),
+        ]);
+
         return $this->redirect($provider, askAgain: true);
     }
 
@@ -95,6 +101,13 @@ class SocialAuthController extends Controller
         $back = is_string($back) ? $back : route('cabinet.security');
         $fail = $linking ? redirect()->to($back) : redirect()->route('login');
 
+        Log::channel('social')->info('Вернулись от провайдера', [
+            'provider' => $provider,
+            'logged_in' => $linking,
+            'user_id' => $request->user()?->id,
+            'error' => $request->query('error'),
+        ]);
+
         if ($request->filled('error')) {
             return $linking
                 ? $fail->with('error', "Привязка {$name} отменена.")
@@ -104,7 +117,7 @@ class SocialAuthController extends Controller
         try {
             $social = $this->driver($provider)->user();
         } catch (Throwable $exception) {
-            Log::warning('Вход через соцсеть не удался', ['provider' => $provider, 'error' => $exception->getMessage()]);
+            Log::channel('social')->warning('Провайдер не отдал данные', ['provider' => $provider, 'error' => $exception->getMessage()]);
 
             return $linking
                 ? $fail->with('error', "Не удалось связаться с {$name}. Попробуйте ещё раз.")
@@ -219,7 +232,7 @@ class SocialAuthController extends Controller
         $text = $this->accounts->message($profile['provider'], $status);
 
         // сам номер в журнал не пишем: только пришёл ли он и чем закончилась проверка
-        Log::info('Подтверждение телефона через соцсеть', [
+        Log::channel('social')->info('Подтверждение телефона', [
             'provider' => $profile['provider'],
             'user_id' => $user->id,
             'phone_received' => $profile['phone'] !== null,
