@@ -42,6 +42,7 @@ class HandleInertiaRequests extends Middleware
                     'middle_name' => $request->user()->middle_name,
                     'full_name' => $request->user()->getFullNameAttribute(),
                     'email' => $request->user()->email,
+                    'email_verified' => $request->user()->hasVerifiedEmail(),
                     'avatar' => $request->user()->avatar,
                     'phone' => $request->user()->phone,
                     'company' => $request->user()->company,
@@ -66,8 +67,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Получить статистику пользователя
      *
-     * @param \App\Models\User $user
-     * @return array
+     * @param  \App\Models\User  $user
      */
     private function getUserStats($user): array
     {

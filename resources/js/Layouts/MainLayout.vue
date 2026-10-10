@@ -110,6 +110,13 @@ watch(
     },
     { immediate: true },
 );
+watch(
+    () => page.props.flash?.error,
+    (error) => {
+        if (error) toast.error(error, { position: "top-center", timeout: 8000 });
+    },
+    { immediate: true },
+);
 
 const toPath = (href) => {
     if (!href) return "/";

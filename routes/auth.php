@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\EmailConfirmController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
@@ -66,3 +67,9 @@ Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
 });
+
+// подтверждение email по ссылке из письма: работает и без входа на сайт (подпись проверяет контроллер)
+Route::get('email/confirm/{id}/{hash}', [EmailConfirmController::class, 'confirm'])
+    ->whereNumber('id')->middleware('throttle:20,1')->name('email.confirm');
+Route::post('email/confirm/resend', [EmailConfirmController::class, 'resend'])
+    ->middleware(['auth', 'throttle:3,10'])->name('email.confirm.resend');

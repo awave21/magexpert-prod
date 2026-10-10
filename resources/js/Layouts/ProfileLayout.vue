@@ -17,6 +17,12 @@ import { useToast } from 'vue-toastification';
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 
+const resending = ref(false);
+const resendConfirmation = () => {
+    resending.value = true;
+    router.post(route('email.confirm.resend'), {}, { preserveScroll: true, onFinish: () => (resending.value = false) });
+};
+
 // Пропсы для статистики (если переданы)
 const props = defineProps({
     stats: {
@@ -251,6 +257,17 @@ const logout = async () => {
                         
                         <!-- Основное содержимое -->
                         <div class="lg:col-span-3">
+                            <!-- email не подтверждён: ссылка была в письме «Добро пожаловать» -->
+                            <div v-if="user && user.email_verified === false" class="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
+                                <div>
+                                    <b class="font-semibold">Подтвердите email</b>
+                                    <p class="mt-0.5">Мы отправили ссылку на {{ user.email }} в письме «Добро пожаловать». Если письма нет, проверьте папку «Спам».</p>
+                                </div>
+                                <button type="button" class="shrink-0 rounded-lg bg-white px-4 py-2 font-medium text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-amber-100 disabled:opacity-50 dark:bg-amber-900/40 dark:text-amber-50 dark:ring-amber-800"
+                                    :disabled="resending" @click="resendConfirmation">
+                                    {{ resending ? 'Отправляем…' : 'Отправить ссылку ещё раз' }}
+                                </button>
+                            </div>
                             <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                                 <slot></slot>
                             </div>

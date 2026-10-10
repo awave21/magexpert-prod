@@ -69,7 +69,21 @@ class SenderMailService
             'user_name' => $name,
             'user_email' => strtolower($user->email),
             'site_url' => url('/'),
+            // кнопка «Подтвердить email» в письме показывается только тем, у кого он ещё не подтверждён
+            'verify_url' => $user->exists && ! $user->hasVerifiedEmail() ? app(EmailConfirmation::class)->url($user) : null,
         ], fn ($value): bool => $value !== null && $value !== ''));
+    }
+
+    /**
+     * Повторная ссылка подтверждения email (кнопка в личном кабинете).
+     */
+    public function sendEmailConfirmation(User $user): bool
+    {
+        return $this->send($this->template('email_confirmation'), $user->email, [
+            'first_name' => (string) $user->first_name,
+            'user_email' => strtolower($user->email),
+            'verify_url' => app(EmailConfirmation::class)->url($user),
+        ]);
     }
 
     public function sendApiRegistrationEmail(string $email, string $password, string $name = ''): bool

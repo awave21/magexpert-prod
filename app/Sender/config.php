@@ -16,6 +16,7 @@ return [
         // какой шаблон отправлять для каждого письма сайта: ключ шаблона (алиас) или его ID из Sender
         'templates' => [
             'welcome' => env('SENDER_TEMPLATE_WELCOME', 'welcome'),
+            'email_confirmation' => env('SENDER_TEMPLATE_EMAIL_CONFIRMATION', 'email-confirmation'),
             'password_reset' => env('SENDER_TEMPLATE_PASSWORD_RESET', 'password-reset'),
             'event_registration' => env('SENDER_TEMPLATE_EVENT_REGISTRATION', 'event-registration'),
             'api_registration' => env('SENDER_TEMPLATE_API_REGISTRATION', 'api-registration'),
