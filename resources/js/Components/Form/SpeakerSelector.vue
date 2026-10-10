@@ -20,6 +20,7 @@
                 class="block w-full rounded-lg border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-white dark:focus:ring-white"
                 :placeholder="selected.length ? 'Добавить ещё спикера…' : 'Начните вводить фамилию спикера'"
                 @focus="open"
+                @click="open"
                 @input="open"
                 @keydown="onKeydown"
             />
@@ -111,7 +112,9 @@
                 class="relative rounded-lg border bg-white p-3 dark:bg-zinc-800"
                 :class="dragIndex === index
                     ? 'z-10 !transition-none border-zinc-400 shadow-xl ring-2 ring-zinc-900/10 dark:border-zinc-500 dark:ring-white/10'
-                    : 'border-zinc-200 dark:border-zinc-700'"
+                    : justAdded === item.id
+                        ? 'border-emerald-400 ring-2 ring-emerald-400/30 transition-shadow duration-700'
+                        : 'border-zinc-200 transition-shadow duration-700 dark:border-zinc-700'"
                 :style="dragIndex === index ? { translate: `0 ${dragOffset}px` } : null"
             >
                 <div class="flex items-center gap-3">
@@ -328,10 +331,27 @@ function close() {
     isOpen.value = false;
 }
 
+// Только что добавленную карточку коротко подсвечиваем, чтобы было видно, куда она попала
+const justAdded = ref(null);
+let justAddedTimer = null;
+function highlight(speakerId) {
+    justAdded.value = speakerId;
+    clearTimeout(justAddedTimer);
+    justAddedTimer = setTimeout(() => { justAdded.value = null; }, 1500);
+    nextTick(() => {
+        const index = selected.value.findIndex((item) => item.id === speakerId);
+        itemEls[index]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+}
+
 function choose(speaker) {
     selected.value.push({ id: speaker.id, role: "", topic: "" });
     query.value = "";
     activeIndex.value = 0;
+    // закрываем список, чтобы он не закрывал добавленную карточку; поле остаётся в фокусе —
+    // можно сразу печатать следующую фамилию или кликнуть по полю
+    close();
+    highlight(speaker.id);
     nextTick(() => inputRef.value?.focus());
 }
 
@@ -368,7 +388,10 @@ const handleClickOutside = (event) => {
     }
 };
 onMounted(() => document.addEventListener("mousedown", handleClickOutside));
-onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside));
+onUnmounted(() => {
+    document.removeEventListener("mousedown", handleClickOutside);
+    clearTimeout(justAddedTimer);
+});
 
 // ---------- Новый спикер ----------
 const creating = ref(false);
@@ -399,6 +422,7 @@ async function saveNew() {
         selected.value.push({ id: data.id, role: "", topic: "" });
         creating.value = false;
         query.value = "";
+        highlight(data.id);
     } catch (e) {
         const errors = e.response?.data?.errors;
         if (errors) {
