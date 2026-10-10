@@ -102,33 +102,54 @@
             </div>
         </div>
 
-        <!-- Выбранные спикеры в том порядке, в каком их покажет сайт -->
-        <ol v-if="selected.length" class="space-y-2">
+        <!-- Выбранные спикеры в том порядке, в каком их покажет сайт. Порядок меняется перетаскиванием за ручку -->
+        <TransitionGroup v-if="selected.length" ref="listRef" tag="ol" move-class="transition-transform duration-150 ease-out" class="relative space-y-2">
             <li
                 v-for="(item, index) in selected"
                 :key="item.id"
-                class="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-800"
+                :ref="(el) => (itemEls[index] = el)"
+                class="relative rounded-lg border bg-white p-3 dark:bg-zinc-800"
+                :class="dragIndex === index
+                    ? 'z-10 !transition-none border-zinc-400 shadow-xl ring-2 ring-zinc-900/10 dark:border-zinc-500 dark:ring-white/10'
+                    : 'border-zinc-200 dark:border-zinc-700'"
+                :style="dragIndex === index ? { translate: `0 ${dragOffset}px` } : null"
             >
                 <div class="flex items-center gap-3">
+                    <button
+                        type="button"
+                        class="-ml-1 flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 active:cursor-grabbing dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                        :aria-label="`Перетащите, чтобы изменить порядок: ${nameOf(speakerOf(item))}. С клавиатуры — стрелки вверх и вниз`"
+                        title="Перетащите, чтобы изменить порядок"
+                        :data-handle="index"
+                        @pointerdown="startDrag($event, index)"
+                        @pointermove="onDrag"
+                        @pointerup="endDrag"
+                        @pointercancel="endDrag"
+                        @keydown.up.prevent="moveByKey(index, -1)"
+                        @keydown.down.prevent="moveByKey(index, 1)"
+                    >
+                        <svg viewBox="0 0 12 20" fill="currentColor" class="h-4 w-3" aria-hidden="true">
+                            <circle cx="3" cy="4" r="1.4" /><circle cx="9" cy="4" r="1.4" />
+                            <circle cx="3" cy="10" r="1.4" /><circle cx="9" cy="10" r="1.4" />
+                            <circle cx="3" cy="16" r="1.4" /><circle cx="9" cy="16" r="1.4" />
+                        </svg>
+                    </button>
                     <span class="w-4 shrink-0 text-center text-xs font-semibold text-zinc-400">{{ index + 1 }}</span>
                     <SpeakerPhoto :speaker="speakerOf(item)" class="size-9" />
                     <span class="min-w-0 flex-1">
                         <span class="block truncate text-sm font-medium text-zinc-900 dark:text-white">{{ nameOf(speakerOf(item)) }}</span>
                         <span v-if="detailsOf(speakerOf(item))" class="block truncate text-xs text-zinc-500 dark:text-zinc-400">{{ detailsOf(speakerOf(item)) }}</span>
                     </span>
-                    <span class="flex shrink-0 items-center">
-                        <button type="button" :class="iconButton" :disabled="index === 0" title="Выше" aria-label="Переместить выше" @click="move(index, -1)"><ChevronUpIcon class="size-4" /></button>
-                        <button type="button" :class="iconButton" :disabled="index === selected.length - 1" title="Ниже" aria-label="Переместить ниже" @click="move(index, 1)"><ChevronDownIcon class="size-4" /></button>
-                        <button type="button" :class="[iconButton, 'hover:!text-red-600']" title="Убрать" :aria-label="`Убрать ${nameOf(speakerOf(item))}`" @click="remove(index)"><XMarkIcon class="size-4" /></button>
-                    </span>
+                    <button type="button" :class="[iconButton, 'hover:!text-red-600']" title="Убрать" :aria-label="`Убрать ${nameOf(speakerOf(item))}`" @click="remove(index)"><XMarkIcon class="size-4" /></button>
                 </div>
-                <div class="mt-2 grid grid-cols-1 gap-2 pl-7 sm:grid-cols-[180px_1fr]">
+                <div class="mt-2 grid grid-cols-1 gap-2 pl-14 sm:grid-cols-[180px_1fr]">
                     <input v-model="item.role" :list="`${id}-roles`" :class="smallInput" placeholder="Роль, напр. ведущий" :aria-label="`Роль: ${nameOf(speakerOf(item))}`" />
                     <input v-model="item.topic" :class="smallInput" placeholder="Тема выступления — необязательно" :aria-label="`Тема выступления: ${nameOf(speakerOf(item))}`" />
                 </div>
             </li>
-        </ol>
+        </TransitionGroup>
         <p v-else class="text-xs text-zinc-500 dark:text-zinc-400">Спикеров пока нет. Порядок, в котором вы их добавите, будет на странице мероприятия.</p>
+        <p v-if="selected.length > 1" class="text-xs text-zinc-500 dark:text-zinc-400">Порядок на сайте — как здесь. Чтобы поменять, перетащите спикера за ⠿.</p>
 
         <datalist :id="`${id}-roles`">
             <option value="Ведущий" />
@@ -144,7 +165,7 @@
 <script setup>
 import { computed, defineComponent, h, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import axios from "axios";
-import { ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon, PlusIcon, UserIcon, XMarkIcon } from "@heroicons/vue/20/solid";
+import { MagnifyingGlassIcon, PlusIcon, UserIcon, XMarkIcon } from "@heroicons/vue/20/solid";
 
 const props = defineProps({
     id: { type: String, required: true },
@@ -199,9 +220,77 @@ watch(() => props.modelValue, (value) => {
 }, { deep: true });
 watch(selected, () => emit("update:modelValue", asModel()), { deep: true });
 
-function move(index, step) {
-    const list = selected.value;
-    [list[index], list[index + step]] = [list[index + step], list[index]];
+// ---------- Перетаскивание ----------
+const listRef = ref(null);
+const itemEls = [];
+const dragIndex = ref(null);
+const dragOffset = ref(0);
+let grabOffset = 0;
+
+const listTop = () => (listRef.value?.$el ?? listRef.value)?.getBoundingClientRect().top ?? 0;
+
+function startDrag(event, index) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+        return;
+    }
+    event.preventDefault();
+    try {
+        // курсор может уйти с ручки — события всё равно приходят ей
+        event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+        // без захвата перетаскивание тоже работает, пока курсор над ручкой
+    }
+    dragIndex.value = index;
+    // offsetTop не зависит от анимаций, поэтому место под курсором считаем по нему
+    grabOffset = event.clientY - listTop() - itemEls[index].offsetTop;
+    dragOffset.value = 0;
+}
+
+function onDrag(event) {
+    if (dragIndex.value === null) {
+        return;
+    }
+    const pointer = event.clientY - listTop();
+    let target = dragIndex.value;
+    selected.value.forEach((_, i) => {
+        if (i === dragIndex.value || !itemEls[i]) {
+            return;
+        }
+        const middle = itemEls[i].offsetTop + itemEls[i].offsetHeight / 2;
+        if (i < dragIndex.value && pointer - grabOffset < middle && target > i) {
+            target = i;
+        }
+        if (i > dragIndex.value && pointer - grabOffset + itemEls[dragIndex.value].offsetHeight > middle) {
+            target = i;
+        }
+    });
+    if (target !== dragIndex.value) {
+        const [moved] = selected.value.splice(dragIndex.value, 1);
+        selected.value.splice(target, 0, moved);
+        dragIndex.value = target;
+    }
+    nextTick(() => {
+        const el = itemEls[dragIndex.value];
+        if (el) {
+            dragOffset.value = pointer - grabOffset - el.offsetTop;
+        }
+    });
+}
+
+function endDrag() {
+    dragIndex.value = null;
+    dragOffset.value = 0;
+}
+
+// С клавиатуры: фокус на ручке и стрелки вверх/вниз
+function moveByKey(index, step) {
+    const target = index + step;
+    if (target < 0 || target >= selected.value.length) {
+        return;
+    }
+    const [moved] = selected.value.splice(index, 1);
+    selected.value.splice(target, 0, moved);
+    nextTick(() => rootRef.value?.querySelector(`[data-handle="${target}"]`)?.focus());
 }
 function remove(index) {
     selected.value.splice(index, 1);
