@@ -51,14 +51,14 @@ class HealthMonitor
 
         $minutes = (int) Carbon::parse((clone $stuck)->min('created_at'))->diffInMinutes(now());
 
-        return "Служебные письма не уходят: {$count} в очереди, самое старое ждёт {$minutes} мин. Проверьте воркер очереди (supervisorctl status), он должен слушать sender-transactional.";
+        return "Служебные письма не уходят: {$count} в очереди, самое старое ждёт {$minutes} мин. Проверьте процесс служебных писем: supervisorctl status sender-transactional.";
     }
 
     private function stuckCampaigns(): ?string
     {
         $count = Message::query()->whereNotNull('campaign_id')->where('status', Message::STATUS_QUEUED)->where('dispatched_at', '<', now()->subMinutes(30))->count();
 
-        return $count > 0 ? "Письма рассылок больше 30 минут стоят в очереди: {$count}. Воркер не успевает или не слушает очередь sender." : null;
+        return $count > 0 ? "Письма рассылок больше 30 минут стоят в очереди: {$count}. Проверьте процесс рассылок: supervisorctl status sender-campaigns." : null;
     }
 
     private function stuckSending(): ?string

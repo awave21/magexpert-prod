@@ -66,11 +66,35 @@ sudo php artisan sender:dkim-import mag-expert.ru /etc/opendkim/keys/mag-expert.
 ## 6. Пользователь админки
 `php artisan sender:user-create <мой email> --name="<имя>"`: спроси у меня email и имя. Пароль сгенерируется. **Не пиши его в чат**, скажи мне посмотреть его в терминале.
 
-## 7. Воркер очереди
-Служебные письма сайта (сброс пароля, подтверждение почты) идут в очередь `sender-transactional`, письма рассылок — в `sender`. Воркер должен слушать обе, причём служебную первой: тогда сброс пароля не ждёт, пока уйдёт рассылка. Если воркер не слушает `sender-transactional`, письма сайта будут висеть в статусе «В очереди».
-- Если воркер уже есть, поменяй его `--queue` на `--queue=sender-transactional,sender,default`. Покажи изменение конфига перед применением.
-- Если воркера нет, предложи конфиг supervisor: `php artisan queue:work redis --queue=sender-transactional,sender,default --sleep=3 --tries=1 --max-time=3600` (повторы делает сама задача, поэтому `--tries=1`).
-- Затем `supervisorctl reread && supervisorctl update`.
+## 7. Воркеры очередей
+Письма Sender идут в две очереди Redis: служебные письма сайта (сброс пароля, подтверждение почты) — в `sender-transactional`, рассылки, подготовка баз и проверка адресов — в `sender`. Каждую очередь слушает свой процесс: тогда сброс пароля уходит за секунды, даже пока рассылочный воркер занят долгой задачей (подготовка базы, проверка адресов). Если очередь `sender-transactional` никто не слушает, письма сайта висят в статусе «В очереди».
+
+Конфиг supervisor, например `/etc/supervisor/conf.d/sender.conf` (путь к проекту и пользователя взять из шага 0, покажи конфиг мне перед применением):
+```
+[program:sender-transactional]
+command=php /var/www/magexpert/artisan queue:work redis --queue=sender-transactional --sleep=1 --tries=1 --max-time=3600
+user=<пользователь проекта>
+numprocs=1
+autostart=true
+autorestart=true
+stopwaitsecs=90
+redirect_stderr=true
+stdout_logfile=/var/www/magexpert/storage/logs/sender-transactional.log
+
+[program:sender-campaigns]
+command=php /var/www/magexpert/artisan queue:work redis --queue=sender,default --sleep=3 --tries=1 --max-time=3600
+user=<пользователь проекта>
+numprocs=1
+autostart=true
+autorestart=true
+stopwaitsecs=90
+redirect_stderr=true
+stdout_logfile=/var/www/magexpert/storage/logs/sender-campaigns.log
+```
+- Если уже есть общий воркер сайта со своим `--queue` (например, `default`), убери из него очереди `sender` и `sender-transactional`, если они там есть: их теперь слушают процессы выше. Очередь `default` можно оставить в общем воркере или в `sender-campaigns`, но не в обоих.
+- `--tries=1`: повторы делает сама задача. `--sleep=1` у служебных писем: пустую очередь воркер опрашивает раз в секунду.
+- Задачи короткие (до 80 секунд) и укладываются в `retry_after` Redis (90 секунд), поэтому один и тот же процесс можно масштабировать `numprocs` без двойной обработки.
+- Применить: `supervisorctl reread && supervisorctl update`, проверить: `supervisorctl status` — оба процесса `RUNNING`.
 
 ## 8. Кэши и перезапуск
 ```
@@ -100,7 +124,7 @@ composer install --no-dev --optimize-autoloader && npm ci && npm run build
 
 ## Обновление после новых коммитов
 Если обновление приносит плавную отправку рассылок (миграция `2026_10_10_000018_add_schedule_to_sender_campaigns_table`), до `queue:restart`:
-- поменяй `--queue` воркера на `--queue=sender-transactional,sender,default` (шаг 7), иначе письма сайта перестанут уходить;
+- настрой два процесса supervisor из шага 7 (`sender-transactional` и `sender-campaigns`), иначе письма сайта перестанут уходить;
 - перед миграцией проверь, что в рассылках нет повторных адресов, иначе уникальный индекс не создастся:
   `php artisan tinker --execute="echo App\Sender\Models\Message::query()->whereNotNull('campaign_id')->selectRaw('campaign_id, to_email')->groupBy('campaign_id','to_email')->havingRaw('count(*) > 1')->count();"` должно быть `0`;
 - в `.env`: `SENDER_HOURLY_LIMIT` — сколько писем всех рассылок в час можно отдать Postfix (на время прогрева IP, например 300; пусто — без лимита). Регистрация новых организаций в админке выключена, включает её `SENDER_REGISTRATION=true`.

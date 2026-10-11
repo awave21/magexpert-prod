@@ -1,0 +1,38 @@
+flowchart TB
+  spa["<b>Админка</b><br/>[Container: React]"]:::container
+  site["<b>Код сайта</b><br/>[Container: Laravel]<br/>SenderMailService"]:::ext
+
+  subgraph module["Модуль app/Sender"]
+    adminApi["<b>Админ-API</b><br/>[Component: Controllers]<br/><br/>Роли и журнал действий"]:::component
+    campaigns["<b>CampaignService</b><br/>[Component]<br/><br/>Запуск, пачки,<br/>пауза, отмена"]:::component
+    schedule["<b>CampaignSchedule, Warmup</b><br/>[Component]<br/><br/>Окно МСК, прогрев IP"]:::component
+    subscriptions["<b>SubscriptionService</b><br/>[Component]<br/><br/>Отписка, база с сайта"]:::component
+    messages["<b>MessageService</b><br/>[Component]<br/><br/>Проверки, блок-лист,<br/>лимиты, очередь"]:::component
+    jobs["<b>SendMessageJob</b><br/>[Component]<br/><br/>Захват письма,<br/>заголовки FBL"]:::component
+    delivery["<b>MailLog, Complaint</b><br/>[Component]<br/><br/>Статусы, жалобы"]:::component
+    monitoring["<b>HealthMonitor, Webhooks</b><br/>[Component]<br/><br/>Алерты, события"]:::component
+  end
+
+  redis[["<b>Redis</b><br/>[Queue]"]]:::container
+  postfix["<b>Postfix</b><br/>[Container]"]:::container
+
+  spa -- "JSON" --> adminApi
+  site -- "Служебные письма" --> messages
+  site -- "Согласие" --> subscriptions
+  adminApi --> campaigns
+  campaigns -- "Когда и сколько" --> schedule
+  campaigns -- "Готовит письма" --> messages
+  campaigns -- "Обновляет базу" --> subscriptions
+  messages --> redis
+  redis --> jobs
+  jobs -- "SMTP" --> postfix
+  postfix -. "mail.log" .-> delivery
+  delivery -- "Блок после жалобы" --> subscriptions
+  delivery -- "События" --> monitoring
+  classDef person fill:#08427b,stroke:#052e56,color:#ffffff
+  classDef system fill:#1168bd,stroke:#0b4884,color:#ffffff
+  classDef ext fill:#8a8a8a,stroke:#6b6b6b,color:#ffffff
+  classDef container fill:#438dd5,stroke:#2e6295,color:#ffffff
+  classDef component fill:#85bbf0,stroke:#5d82a8,color:#0b2540
+  classDef boundary fill:none,stroke:#888888,stroke-dasharray:6 4,color:#555555
+  class module boundary

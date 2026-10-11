@@ -168,11 +168,24 @@ class MessageService
      * Если Postfix успел принять письмо (в журнале есть его Message-ID), оно отправлено. Если нет — ставится заново.
      * Без журнала Postfix узнать нельзя, и письмо помечается ошибкой, чтобы не отправить его дважды.
      *
-     * @return array{sent: int, requeued: int, failed: int}
+     * Письма «в очереди» дольше 15 минут, вероятно, потеряли задачу (Redis перезапустился без сохранения):
+     * задача ставится заново. Дубля не будет: письмо забирает только одна задача.
+     *
+     * @return array{sent: int, requeued: int, failed: int, redispatched: int}
      */
     public function recoverStuck(): array
     {
-        $result = ['sent' => 0, 'requeued' => 0, 'failed' => 0];
+        $result = ['sent' => 0, 'requeued' => 0, 'failed' => 0, 'redispatched' => 0];
+
+        // updated_at обновляется при каждой постановке, поэтому длинная очередь рассылки не размножается чаще раза в 15 минут
+        Message::query()->where('status', Message::STATUS_QUEUED)->where('updated_at', '<', now()->subMinutes(15))
+            ->chunkById(500, function ($messages) use (&$result): void {
+                foreach ($messages as $message) {
+                    $message->touch();
+                    $this->dispatch($message);
+                    $result['redispatched']++;
+                }
+            });
         $logReadable = is_readable((string) config('sender.mail_log'));
 
         Message::query()->where('status', Message::STATUS_SENDING)->where('updated_at', '<', now()->subMinutes(15))

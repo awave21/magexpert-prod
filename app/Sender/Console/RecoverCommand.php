@@ -12,13 +12,13 @@ class RecoverCommand extends Command
 {
     protected $signature = 'sender:recover';
 
-    protected $description = 'Найти письма, зависшие при отправке, и отправить их заново или отметить отправленными';
+    protected $description = 'Найти письма, зависшие при отправке или потерявшие задачу в очереди, и разобрать их';
 
     public function handle(MessageService $messages): int
     {
         $result = $messages->recoverStuck();
 
-        $this->info("Отправлены ранее: {$result['sent']}, поставлены заново: {$result['requeued']}, с ошибкой: {$result['failed']}");
+        $this->info("Отправлены ранее: {$result['sent']}, поставлены заново: {$result['requeued']}, с ошибкой: {$result['failed']}, потерянные задачи восстановлены: {$result['redispatched']}");
 
         return self::SUCCESS;
     }

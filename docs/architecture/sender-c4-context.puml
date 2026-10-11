@@ -1,0 +1,28 @@
+@startuml sender-c4-context
+!include <C4/C4_Context>
+LAYOUT_WITH_LEGEND()
+title Sender: контекст системы (C4, уровень 1)
+
+Person(staff, "Сотрудник MagExpert", "Готовит письма, базы и рассылки; роли: администратор, редактор, просмотр")
+Person(doctor, "Врач", "Получает служебные письма и рассылки, открывает, переходит по ссылкам, отписывается")
+
+System(sender, "Sender", "Сервис рассылок mail.mag-expert.ru: служебные письма сайта и рассылки по базам")
+
+System_Ext(site, "Сайт MagExpert", "Регистрация, мероприятия, кабинет; галочка «Письма о мероприятиях»")
+System_Ext(mailboxes, "Почтовые сервисы", "Mail.ru, Яндекс, Gmail: принимают письма, присылают жалобы FBL")
+System_Ext(fbl, "Ящик FBL", "fbl@mag-expert.ru в Mail.ru для бизнеса")
+System_Ext(telegram, "Telegram", "Чат с алертами")
+System_Ext(apps, "Внешние приложения", "CRM и другие проекты")
+
+Rel(staff, sender, "Управляет рассылками", "HTTPS, админка")
+Rel(site, sender, "Служебные письма, согласие на рассылку", "вызов в одном приложении")
+Rel(sender, site, "Отписка снимает согласие", "событие")
+Rel(sender, mailboxes, "Отправляет письма", "SMTP, DKIM")
+Rel(mailboxes, doctor, "Доставляет письма")
+Rel(doctor, sender, "Открытия, клики, отписка", "HTTPS")
+Rel(mailboxes, fbl, "Отчёты о жалобах", "ARF")
+Rel(sender, fbl, "Забирает отчёты", "IMAP")
+Rel(sender, telegram, "Алерты о проблемах", "Bot API")
+Rel(apps, sender, "Отправка писем, подписки", "REST API, ключ")
+Rel(sender, apps, "События писем", "вебхуки, HMAC")
+@enduml

@@ -1,0 +1,25 @@
+flowchart TB
+  staff["<b>Сотрудник MagExpert</b><br/>[Person]<br/><br/>Готовит письма и базы,<br/>запускает рассылки"]:::person
+  doctor["<b>Врач</b><br/>[Person]<br/><br/>Получает письма,<br/>отписывается"]:::person
+  site["<b>Сайт MagExpert</b><br/>[Software System]<br/><br/>Регистрация, мероприятия,<br/>галочка рассылки"]:::ext
+  sender["<b>Sender</b><br/>[Software System]<br/><br/>Сервис рассылок<br/>mail.mag-expert.ru"]:::system
+  apps["<b>Внешние приложения</b><br/>[Software System]<br/><br/>CRM и другие проекты"]:::ext
+  mailboxes["<b>Почтовые сервисы</b><br/>[Software System]<br/><br/>Mail.ru, Яндекс, Gmail"]:::ext
+  fbl["<b>Ящик FBL</b><br/>[Software System]<br/><br/>Отчёты о жалобах"]:::ext
+  telegram["<b>Telegram</b><br/>[Software System]<br/><br/>Чат с алертами"]:::ext
+
+  staff -- "Управляет рассылками<br/>[HTTPS]" --> sender
+  site -- "Служебные письма, согласия<br/>[вызов в приложении]" --> sender
+  apps -- "Отправка, подписки<br/>[REST API]" --> sender
+  sender -- "Письма<br/>[SMTP, DKIM]" --> mailboxes
+  mailboxes -- "Доставляет" --> doctor
+  doctor -. "Открытия, клики, отписка<br/>[HTTPS]" .-> sender
+  mailboxes -- "Жалобы<br/>[ARF]" --> fbl
+  sender -- "Забирает жалобы<br/>[IMAP]" --> fbl
+  sender -- "Алерты<br/>[Bot API]" --> telegram
+  classDef person fill:#08427b,stroke:#052e56,color:#ffffff
+  classDef system fill:#1168bd,stroke:#0b4884,color:#ffffff
+  classDef ext fill:#8a8a8a,stroke:#6b6b6b,color:#ffffff
+  classDef container fill:#438dd5,stroke:#2e6295,color:#ffffff
+  classDef component fill:#85bbf0,stroke:#5d82a8,color:#0b2540
+  classDef boundary fill:none,stroke:#888888,stroke-dasharray:6 4,color:#555555

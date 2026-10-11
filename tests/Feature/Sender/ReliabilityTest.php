@@ -100,3 +100,22 @@ it('reads the tail of the rotated log before the new file', function (): void {
     array_map('unlink', glob($dir.'/*'));
     rmdir($dir);
 });
+
+it('puts back letters whose queue job was lost, without sending them twice', function (): void {
+    Queue::fake();
+    $lost = reliabilityMessage(Message::STATUS_QUEUED);
+    $recent = reliabilityMessage(Message::STATUS_QUEUED);
+    Message::query()->whereKey($lost->id)->update(['updated_at' => now()->subMinutes(20)]);
+
+    $this->artisan('sender:recover')->expectsOutputToContain('потерянные задачи восстановлены: 1')->assertSuccessful();
+
+    Queue::assertPushed(SendMessageJob::class, 1);
+    Queue::assertPushedOn('sender-transactional', SendMessageJob::class, fn (SendMessageJob $job): bool => $job->messageId === $lost->id);
+
+    // и старая, и новая задача сработали — письмо ушло один раз
+    $job = fn () => (new SendMessageJob($lost->id))->handle(app(TemplateRenderer::class), app(Transport::class));
+    $job();
+    $job();
+    expect(Mail::mailer('array')->getSymfonyTransport()->messages())->toHaveCount(1)
+        ->and($recent->fresh()->status)->toBe(Message::STATUS_QUEUED);
+});

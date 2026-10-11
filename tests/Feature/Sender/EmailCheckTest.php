@@ -154,3 +154,22 @@ it('does not send a campaign to rejected addresses', function (): void {
     expect(Message::query()->where('campaign_id', $campaign->id)->pluck('to_email')->sort()->values()->all())
         ->toBe(['info@clinic.ru', 'new@clinic.ru', 'ok@mail.ru']);
 });
+
+it('checks a large base in short jobs that continue each other', function (): void {
+    Illuminate\Support\Facades\Queue::fake();
+    $rows = [];
+    foreach (range(1, App\Sender\Jobs\CheckContactsJob::PER_JOB + 5) as $i) {
+        $rows[] = ['organization_id' => $this->organization->id, 'list_id' => $this->list->id, 'email' => "doctor{$i}@clinic.ru", 'created_at' => now(), 'updated_at' => now()];
+    }
+    App\Sender\Models\Contact::query()->insert($rows);
+
+    (new App\Sender\Jobs\CheckContactsJob($this->list->id))->handle(app(EmailChecker::class));
+
+    expect($this->list->contacts()->whereNotNull('checked_at')->count())->toBe(App\Sender\Jobs\CheckContactsJob::PER_JOB);
+    Illuminate\Support\Facades\Queue::assertPushed(App\Sender\Jobs\CheckContactsJob::class, fn ($job): bool => $job->afterContactId > 0);
+
+    Illuminate\Support\Facades\Queue::pushed(App\Sender\Jobs\CheckContactsJob::class)->last()->handle(app(EmailChecker::class));
+
+    expect($this->list->contacts()->whereNull('checked_at')->count())->toBe(0)
+        ->and((new App\Sender\Jobs\CheckContactsJob($this->list->id))->timeout)->toBeLessThan((int) config('queue.connections.redis.retry_after'));
+});
