@@ -1,10 +1,10 @@
-Задача: выложить на мой VPS ветку `feature/sender` проекта MagExpert (Laravel). В ней сервис отправки писем Sender: сайт перестаёт отправлять письма через Sendsay и отправляет их сам через локальный Postfix. Ещё в ветке админка Sender по адресу `/sender`. Postfix и OpenDKIM на сервере уже настроены и отправляют письма (селектор DKIM `mail`, ключ `/etc/opendkim/keys/mag-expert.ru/mail.private`).
+Задача: выложить на мой VPS ветку `main` проекта MagExpert (Laravel). В ней сервис отправки писем Sender: сайт перестаёт отправлять письма через Sendsay и отправляет их сам через локальный Postfix. Ещё в ней админка Sender по адресу `/sender`. Postfix и OpenDKIM на сервере уже настроены и отправляют письма (селектор DKIM `mail`, ключ `/etc/opendkim/keys/mag-expert.ru/mail.private`).
 
 Работай по шагам. После каждого шага коротко покажи результат. Перед необратимыми действиями спрашивай меня. Пароли, ключи и содержимое `.env` в чат не выводи, только имена переменных.
 
 ## 0. Разведка (ничего не меняя)
 - Где лежит проект: найди по конфигу nginx (`grep -R "root " /etc/nginx/sites-enabled/`) и покажи путь. Дальше все команды выполняются в этой папке и от того пользователя, которому она принадлежит.
-- `git status`, `git branch --show-current`, `git log --oneline -3`. Если есть незакоммиченные изменения на сервере, остановись и покажи их мне.
+- `git status`, `git branch --show-current`, `git log --oneline -3`. Если есть незакоммиченные изменения на сервере, остановись и покажи их мне. Сервер может стоять на `main` или на старой ветке `feature/sender`: вся её работа уже в `main`, поэтому дальше переходим на `main`.
 - Версии: `php -v`, `composer -V`, `node -v`, `npm -v`, `psql --version`.
 - Как запущены воркеры очереди: `supervisorctl status` и `systemctl list-units | grep -i -E "queue|horizon|worker"`. Покажи команду воркера, в частности параметр `--queue`.
 - В `.env` покажи только значения `QUEUE_CONNECTION`, `DB_CONNECTION`, `DB_HOST`, `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT` и есть ли переменные `SENDER_*`.
@@ -19,7 +19,8 @@
 ## 3. Код
 ```
 git fetch origin
-git checkout feature/sender
+git checkout main
+git pull --ff-only origin main
 composer install --no-dev --optimize-autoloader
 npm ci && npm run build
 npm --prefix sender-ui ci && npm --prefix sender-ui run build
@@ -131,7 +132,7 @@ composer install --no-dev --optimize-autoloader && npm ci && npm run build
 ## Ограничения
 - Не трогай nginx, файрвол, Postfix, OpenDKIM и конфиг Redis без моего подтверждения.
 - Не меняй MX и DNS: записи я вношу сам в Beget.
-- Не делай `git push`, не меняй ветки в репозитории.
+- Не делай `git push`, не создавай и не удаляй ветки в репозитории. Сервер работает только с `main`.
 
 ## Обновление после новых коммитов
 Если обновление приносит плавную отправку рассылок (миграция `2026_10_10_000018_add_schedule_to_sender_campaigns_table`), до `queue:restart`:
@@ -142,9 +143,11 @@ composer install --no-dev --optimize-autoloader && npm ci && npm run build
 - после выкладки `php artisan schedule:list` должен показывать `sender:campaigns-tick`: без планировщика плавные и отложенные рассылки не начнутся;
 - проверь, что в Redis включён журнал на диск (`appendonly yes`, конец шага 7).
 
+Если сервер ещё на ветке `feature/sender`, сначала `git checkout main`.
 ```
-git pull --ff-only origin feature/sender
+git pull --ff-only origin main
 composer install --no-dev --optimize-autoloader
+npm ci && npm run build
 npm --prefix sender-ui ci && npm --prefix sender-ui run build
 php artisan migrate --force
 php artisan migrate --database=sender --path=app/Sender/Database/Migrations --force
