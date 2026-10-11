@@ -2,6 +2,7 @@
 
 namespace App\Sender\Http\Requests\Admin;
 
+use App\Sender\Services\SubscriberSources;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,6 +26,10 @@ class ContactListRequest extends FormRequest
                     ->ignore($this->route('list')),
             ],
             'description' => ['nullable', 'string', 'max:500'],
+            // источник задаётся только при создании базы
+            'source' => $this->isMethod('POST')
+                ? ['nullable', 'string', Rule::in(array_keys(app(SubscriberSources::class)->available($this->attributes->get('sender_organization'))))]
+                : ['prohibited'],
         ];
     }
 
@@ -45,6 +50,8 @@ class ContactListRequest extends FormRequest
             'name.unique' => 'База с таким названием уже есть',
             'name.max' => 'Название слишком длинное',
             'description.max' => 'Описание слишком длинное',
+            'source.in' => 'Такого источника подписчиков нет',
+            'source.prohibited' => 'Источник базы изменить нельзя',
         ];
     }
 }

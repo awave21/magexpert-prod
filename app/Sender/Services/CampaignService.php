@@ -6,10 +6,13 @@ use App\Sender\Jobs\SendCampaignJob;
 use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Models\Campaign;
 use App\Sender\Models\Contact;
+use App\Sender\Models\Domain;
 use App\Sender\Models\Message;
 use App\Sender\Models\MessageEvent;
+use App\Sender\Support\SenderUi;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -26,6 +29,7 @@ class CampaignService
     public function __construct(
         private readonly MessageService $messages,
         private readonly CampaignSchedule $schedule,
+        private readonly SubscriberSources $sources,
     ) {}
 
     /**
@@ -45,6 +49,11 @@ class CampaignService
 
         if ($campaign->list === null) {
             $errors['list_id'] = 'Выберите базу подписчиков';
+        }
+
+        // база из приложения обновляется перед запуском: письмо получат те, кто согласен на рассылку сейчас
+        if ($campaign->isDraft() && $campaign->list?->isSynced()) {
+            $this->sources->sync($campaign->list);
         }
 
         $recipients = $campaign->list?->contacts()->deliverable()->count() ?? 0;
@@ -271,6 +280,42 @@ class CampaignService
     }
 
     /**
+     * Тестовое письмо рассылки на свой адрес: как его увидит подписчик (его переменные, ссылка отписки внизу),
+     * тема с пометкой «Тест». В статистику рассылки не попадает.
+     *
+     * @throws ValidationException
+     */
+    public function sendTest(Campaign $campaign, string $to, ?string $contactEmail = null): Message
+    {
+        $campaign->loadMissing(['organization', 'template.senderAddress', 'list']);
+
+        if ($campaign->template === null) {
+            throw ValidationException::withMessages(['template_id' => 'Выберите контент']);
+        }
+
+        $contacts = $campaign->list?->contacts();
+        $contact = $contactEmail !== null
+            ? $contacts?->where('email', Str::lower(trim($contactEmail)))->first()
+            : $contacts?->deliverable()->orderBy('id')->first();
+
+        if ($contactEmail !== null && $contact === null) {
+            throw ValidationException::withMessages(['contact_email' => 'Такого адреса нет в базе рассылки']);
+        }
+
+        $data = $contact !== null ? array_merge($contact->data ?? [], $this->contactVariables($contact)) : [];
+        $domain = $campaign->organization->domains()->where('status', Domain::STATUS_VERIFIED)->oldest('id')->first();
+
+        return $this->messages->send(
+            $campaign->organization,
+            $campaign->template,
+            $to,
+            $domain !== null ? 'noreply@'.$domain->domain : null,
+            $campaign->organization->name,
+            [...$data, 'campaign_test' => true, 'unsubscribe_url' => SenderUi::url('unsubscribe/'.Str::uuid())],
+        );
+    }
+
+    /**
      * Имя подписчика доступно в письме под теми же ключами, что и в служебных письмах сайта.
      *
      * @return array<string, string>
@@ -313,6 +358,57 @@ class CampaignService
             ->all();
 
         return [
+            ...$this->countsByStatus($count),
+            'opened' => $campaign->messages()->whereNotNull('opened_at')->count(),
+            'clicked' => $campaign->messages()->whereNotNull('clicked_at')->count(),
+            'links' => $links,
+        ];
+    }
+
+    /**
+     * Статистика для списка рассылок: три запроса на все рассылки сразу, без ссылок.
+     *
+     * @param  iterable<Campaign>  $campaigns
+     * @return array<int, array{pending: int, queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, cancelled: int, opened: int, clicked: int, links: list<array{url: string, clicks: int}>}>
+     */
+    public function statsForMany(iterable $campaigns): array
+    {
+        $ids = collect($campaigns)->pluck('id')->all();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $byStatus = Message::query()->whereIn('campaign_id', $ids)
+            ->selectRaw('campaign_id, status, count(*) as total')->groupBy('campaign_id', 'status')->get()
+            ->groupBy('campaign_id');
+
+        $engagement = Message::query()->whereIn('campaign_id', $ids)
+            ->selectRaw('campaign_id, count(opened_at) as opened, count(clicked_at) as clicked')->groupBy('campaign_id')->get()
+            ->keyBy('campaign_id');
+
+        $stats = [];
+
+        foreach ($ids as $id) {
+            $counts = ($byStatus[$id] ?? collect())->pluck('total', 'status');
+            $stats[$id] = [
+                ...$this->countsByStatus(fn (string $status): int => (int) ($counts[$status] ?? 0)),
+                'opened' => (int) ($engagement[$id]->opened ?? 0),
+                'clicked' => (int) ($engagement[$id]->clicked ?? 0),
+                'links' => [],
+            ];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @param  callable(string): int  $count
+     * @return array{pending: int, queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, cancelled: int}
+     */
+    private function countsByStatus(callable $count): array
+    {
+        return [
             'pending' => $count(Message::STATUS_PENDING),
             'queued' => $count(Message::STATUS_QUEUED) + $count(Message::STATUS_SENDING),
             'sent' => $count(Message::STATUS_SENT) + $count(Message::STATUS_DELIVERED),
@@ -321,9 +417,6 @@ class CampaignService
             'failed' => $count(Message::STATUS_FAILED),
             'blocked' => $count(Message::STATUS_BLOCKED),
             'cancelled' => $count(Message::STATUS_CANCELLED),
-            'opened' => $campaign->messages()->whereNotNull('opened_at')->count(),
-            'clicked' => $campaign->messages()->whereNotNull('clicked_at')->count(),
-            'links' => $links,
         ];
     }
 
@@ -340,6 +433,12 @@ class CampaignService
             if ($campaign->daily_limit) {
                 $limits[] = $campaign->daily_limit - $this->dispatchedToday($campaign, $now);
             }
+        }
+
+        $campaign->loadMissing('organization');
+        $remaining = $this->messages->remainingToday($campaign->organization);
+        if ($remaining !== null) {
+            $limits[] = $remaining;
         }
 
         $hourly = (int) config('sender.hourly_limit');

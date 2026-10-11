@@ -43,4 +43,15 @@ return [
     'mail_log' => env('SENDER_MAIL_LOG', '/var/log/mail.log'),
     // адрес админки на своём поддомене; пусто — админка открывается по /sender
     'ui_url' => env('SENDER_UI_URL'),
+    // алерты в Telegram (sender:health раз в 5 минут): воркер, очередь Postfix, отказы, чёрные списки
+    'alerts' => [
+        'telegram_token' => env('SENDER_TELEGRAM_BOT_TOKEN'),
+        'telegram_chat_id' => env('SENDER_TELEGRAM_CHAT_ID'),
+        'postqueue' => env('SENDER_POSTQUEUE', '/usr/sbin/postqueue'),
+        // писем в очереди Postfix, после которых это уже проблема
+        'postfix_queue' => (int) env('SENDER_ALERT_POSTFIX_QUEUE', 500),
+        // доля отказов за час, %
+        'bounce_rate' => (float) env('SENDER_ALERT_BOUNCE_RATE', 5),
+        'blacklists' => ['zen.spamhaus.org', 'bl.spamcop.net', 'b.barracudacentral.org', 'psbl.surriel.com'],
+    ],
 ];

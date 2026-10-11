@@ -52,6 +52,10 @@ class SendMessageJob implements ShouldQueue
 
         $content = $this->withUnsubscribeLink($message, $renderer->render($message->template, $message->data ?? []));
 
+        if ($message->data['campaign_test'] ?? false) {
+            $content['subject'] = 'Тест: '.$content['subject'];
+        }
+
         if ($message->tracked) {
             $content['html'] = ($tracking ?? app(TrackingService::class))->apply($message, $content['html'], $message->data['unsubscribe_url'] ?? null);
         }
@@ -89,14 +93,14 @@ class SendMessageJob implements ShouldQueue
     }
 
     /**
-     * В письмо рассылки без ссылки отписки она добавляется внизу автоматически.
+     * В письмо рассылки (и в его тест) без ссылки отписки она добавляется внизу автоматически.
      *
      * @param  array{subject: string, html: string, text?: string|null}  $content
      * @return array{subject: string, html: string, text?: string|null}
      */
     private function withUnsubscribeLink(Message $message, array $content): array
     {
-        $url = $message->campaign_id ? ($message->data['unsubscribe_url'] ?? null) : null;
+        $url = $message->campaign_id || ($message->data['campaign_test'] ?? false) ? ($message->data['unsubscribe_url'] ?? null) : null;
 
         if (! is_string($url) || str_contains($content['html'], $url)) {
             return $content;

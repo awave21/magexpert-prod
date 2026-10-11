@@ -2,10 +2,12 @@
 
 namespace App\Sender\Http\Controllers\Admin;
 
+use App\Sender\Contracts\SubscriberSource;
 use App\Sender\Http\Requests\Admin\ContactListRequest;
 use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Models\ContactList;
 use App\Sender\Services\EmailChecker;
+use App\Sender\Services\SubscriberSources;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +16,8 @@ use Illuminate\Routing\Controller;
 class ContactListController extends Controller
 {
     use ResolvesOrganization;
+
+    public function __construct(private readonly SubscriberSources $sources) {}
 
     private const CHECKS = [
         EmailChecker::STATUS_OK, EmailChecker::STATUS_ROLE, EmailChecker::STATUS_TYPO,
@@ -38,7 +42,36 @@ class ContactListController extends Controller
     {
         $list = $this->organization($request)->lists()->create($request->validated());
 
-        return response()->json(['data' => $this->present($list)], 201);
+        if ($list->isSynced()) {
+            $this->sources->sync($list);
+        }
+
+        return response()->json(['data' => $this->present($this->withCounts(ContactList::query())->findOrFail($list->id))], 201);
+    }
+
+    /**
+     * Откуда можно взять подписчиков для синхронизируемой базы.
+     */
+    public function sources(Request $request): JsonResponse
+    {
+        $sources = collect($this->sources->available($this->organization($request)))
+            ->map(fn (SubscriberSource $source): array => ['key' => $source->key(), 'label' => $source->label()])
+            ->values();
+
+        return response()->json(['data' => $sources]);
+    }
+
+    /**
+     * Обновить синхронизируемую базу из источника сейчас.
+     */
+    public function sync(Request $request, int $list): JsonResponse
+    {
+        $model = $this->organization($request)->lists()->findOrFail($list);
+        abort_unless($model->isSynced(), 422, 'Эта база не связана с источником: адреса в неё загружаются из файла');
+
+        $result = $this->sources->sync($model);
+
+        return response()->json(['data' => $this->present($this->withCounts(ContactList::query())->findOrFail($model->id)), 'result' => $result]);
     }
 
     public function update(ContactListRequest $request, int $list): JsonResponse
@@ -88,7 +121,7 @@ class ContactListController extends Controller
             $counts['contacts as '.$status.'_count'] = fn (Builder $q) => $q->where('check_status', $status);
         }
 
-        return $query->withCount($counts);
+        return $query->with('organization')->withCount($counts);
     }
 
     /**
@@ -100,6 +133,9 @@ class ContactListController extends Controller
             'id' => $list->id,
             'name' => $list->name,
             'description' => $list->description,
+            'source' => $list->source,
+            'source_label' => $list->isSynced() ? ($this->sources->available($list->organization)[$list->source] ?? null)?->label() : null,
+            'synced_at' => $list->synced_at?->toIso8601String(),
             'contacts_count' => (int) ($list->contacts_count ?? 0),
             'subscribed_count' => (int) ($list->subscribed_count ?? 0),
             'deliverable_count' => (int) ($list->deliverable_count ?? 0),

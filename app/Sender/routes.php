@@ -84,6 +84,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::delete('variables/{variable}', [VariableController::class, 'destroy'])->name('variables.destroy');
 
             Route::get('lists', [ContactListController::class, 'index'])->name('lists.index');
+            Route::get('list-sources', [ContactListController::class, 'sources'])->name('lists.sources');
             Route::post('lists', [ContactListController::class, 'store'])->name('lists.store');
             Route::get('lists/{list}', [ContactListController::class, 'show'])->name('lists.show');
             Route::put('lists/{list}', [ContactListController::class, 'update'])->name('lists.update');
@@ -95,12 +96,14 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::post('lists/{list}/contacts/{contact}/fix', [ContactController::class, 'fix'])->name('contacts.fix');
             Route::post('lists/{list}/fix-typos', [ContactController::class, 'fixAll'])->name('contacts.fix-all');
             Route::post('lists/{list}/check', [ContactListController::class, 'check'])->middleware('throttle:10,1')->name('lists.check');
+            Route::post('lists/{list}/sync', [ContactListController::class, 'sync'])->middleware('throttle:10,1')->name('lists.sync');
 
             Route::get('campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
             Route::post('campaigns', [CampaignController::class, 'store'])->name('campaigns.store');
             Route::get('campaigns/{campaign}', [CampaignController::class, 'show'])->name('campaigns.show');
             Route::put('campaigns/{campaign}', [CampaignController::class, 'update'])->name('campaigns.update');
             Route::post('campaigns/{campaign}/send', [CampaignController::class, 'send'])->name('campaigns.send');
+            Route::post('campaigns/{campaign}/test', [CampaignController::class, 'test'])->middleware('throttle:20,1')->name('campaigns.test');
             Route::post('campaigns/{campaign}/pause', [CampaignController::class, 'pause'])->name('campaigns.pause');
             Route::post('campaigns/{campaign}/resume', [CampaignController::class, 'resume'])->name('campaigns.resume');
             Route::post('campaigns/{campaign}/cancel', [CampaignController::class, 'cancel'])->name('campaigns.cancel');

@@ -2,6 +2,7 @@
 
 namespace App\Sender\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -11,7 +12,28 @@ class ContactList extends SenderModel
 {
     protected $table = 'sender_lists';
 
-    protected $fillable = ['organization_id', 'name', 'description'];
+    protected $fillable = ['organization_id', 'name', 'description', 'source', 'synced_at'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return ['synced_at' => 'datetime'];
+    }
+
+    /**
+     * База повторяет подписчиков из приложения: вручную в неё не добавляют.
+     */
+    public function isSynced(): bool
+    {
+        return $this->source !== null;
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'organization_id');
+    }
 
     public function contacts(): HasMany
     {

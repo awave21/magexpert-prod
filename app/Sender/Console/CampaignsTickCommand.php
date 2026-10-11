@@ -3,7 +3,9 @@
 namespace App\Sender\Console;
 
 use App\Sender\Services\CampaignService;
+use App\Sender\Services\HealthMonitor;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Раз в минуту: начинает рассылки по расписанию, ставит в очередь очередные пачки плавных рассылок
@@ -18,6 +20,7 @@ class CampaignsTickCommand extends Command
     public function handle(CampaignService $campaigns): int
     {
         $campaigns->tickAll();
+        Cache::forever(HealthMonitor::TICK_KEY, now());
 
         return self::SUCCESS;
     }

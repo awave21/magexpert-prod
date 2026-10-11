@@ -17,6 +17,8 @@ class ContactController extends Controller
 {
     use ResolvesOrganization;
 
+    private const SYNCED = 'База обновляется из источника автоматически: добавлять адреса вручную нельзя';
+
     public function index(Request $request, int $list): JsonResponse
     {
         $query = $this->list($request, $list)->contacts()->latest('id');
@@ -55,6 +57,7 @@ class ContactController extends Controller
     public function store(StoreContactRequest $request, int $list): JsonResponse
     {
         $model = $this->list($request, $list);
+        abort_if($model->isSynced(), 422, self::SYNCED);
         $contact = $model->contacts()->updateOrCreate(
             ['email' => $request->validated('email')],
             ['organization_id' => $model->organization_id, 'name' => $request->validated('name')],
@@ -72,6 +75,7 @@ class ContactController extends Controller
             : (string) $request->input('text');
 
         $model = $this->list($request, $list);
+        abort_if($model->isSynced(), 422, self::SYNCED);
         $result = $importer->import($model, $content);
         CheckContactsJob::dispatch($model->id)->onQueue(config('sender.queue'));
 

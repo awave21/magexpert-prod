@@ -3,6 +3,8 @@
 namespace App\Sender\Http\Controllers\Admin;
 
 use App\Sender\Http\Requests\Admin\CampaignRequest;
+use App\Sender\Http\Requests\Admin\TestCampaignRequest;
+use App\Sender\Http\Resources\MessageResource;
 use App\Sender\Models\Campaign;
 use App\Sender\Services\CampaignSchedule;
 use App\Sender\Services\CampaignService;
@@ -23,8 +25,9 @@ class CampaignController extends Controller
     public function index(Request $request): JsonResponse
     {
         $campaigns = $this->organization($request)->campaigns()->with(['template:id,name', 'list:id,name'])->latest('id')->get();
+        $stats = $this->campaigns->statsForMany($campaigns->reject(fn (Campaign $c): bool => $c->isDraft()));
 
-        return response()->json(['data' => $campaigns->map(fn (Campaign $c): array => $this->present($c))]);
+        return response()->json(['data' => $campaigns->map(fn (Campaign $c): array => $this->present($c, stats: $stats[$c->id] ?? null))]);
     }
 
     public function show(Request $request, int $campaign): JsonResponse
@@ -53,6 +56,13 @@ class CampaignController extends Controller
         $model = $this->campaigns->start($this->find($request, $campaign));
 
         return response()->json(['data' => $this->present($model, true)]);
+    }
+
+    public function test(TestCampaignRequest $request, int $campaign): JsonResponse
+    {
+        $message = $this->campaigns->sendTest($this->find($request, $campaign), $request->string('to')->toString(), $request->validated('contact_email'));
+
+        return (new MessageResource($message->load('template')))->response()->setStatusCode(201);
     }
 
     public function pause(Request $request, int $campaign): JsonResponse
@@ -99,11 +109,12 @@ class CampaignController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>|null  $stats  посчитанная заранее статистика (список рассылок)
      * @return array<string, mixed>
      */
-    private function present(Campaign $campaign, bool $detailed = false): array
+    private function present(Campaign $campaign, bool $detailed = false, ?array $stats = null): array
     {
-        $stats = $campaign->isDraft() ? null : $this->campaigns->stats($campaign);
+        $stats ??= $campaign->isDraft() ? null : $this->campaigns->stats($campaign);
 
         return [
             'id' => $campaign->id,

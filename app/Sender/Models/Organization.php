@@ -8,14 +8,14 @@ class Organization extends SenderModel
 {
     protected $table = 'sender_organizations';
 
-    protected $fillable = ['name', 'slug', 'is_active'];
+    protected $fillable = ['name', 'slug', 'is_active', 'daily_limit'];
 
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'daily_limit' => 'integer'];
     }
 
     public function domains(): HasMany

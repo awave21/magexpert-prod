@@ -81,8 +81,10 @@ export type SenderAddress = { id: number; email: string; name: string; domain: s
 export type CheckStatus = 'ok' | 'role' | 'typo' | 'disposable' | 'no_mx' | 'invalid'
 export type ContactList = {
   id: number; name: string; description: string | null; contacts_count: number; subscribed_count: number; deliverable_count: number
+  source: string | null; source_label: string | null; synced_at: string | null
   checks: Record<CheckStatus | 'unchecked', number>; created_at: string; updated_at: string
 }
+export type ListSource = { key: string; label: string }
 export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; last_opened_at: string | null; check_status: CheckStatus | null; check_hint: string | null; created_at: string }
 export type ImportResult = {
   rows: number; added: number; updated: number; duplicates: number; skipped: number; columns: string[]

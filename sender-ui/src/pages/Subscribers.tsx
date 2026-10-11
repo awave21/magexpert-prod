@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, Plus, Users } from 'lucide-react'
-import { api, ApiError, type ContactList } from '../api'
+import { ChevronRight, Plus, RefreshCw, Users } from 'lucide-react'
+import { api, ApiError, type ContactList, type ListSource } from '../api'
 import { Empty, Modal, PageHead, ago, useToast } from '../components/ui'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
@@ -18,13 +18,20 @@ export default function Subscribers() {
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [source, setSource] = useState('')
   const [err, setErr] = useState<string | null>(null)
+  const sq = useQuery({ queryKey: ['list-sources'], queryFn: () => api<{ data: ListSource[] }>('/list-sources') })
+  const sources = sq.data?.data ?? []
   const create = useMutation({
-    mutationFn: () => api<{ data: ContactList }>('/lists', { method: 'POST', body: { name, description: description || null } }),
-    onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['lists'] }); toast('База создана'); nav(`/subscribers/${r.data.id}?import=1`) },
-    onError: (e) => setErr(e instanceof ApiError ? (e.errors.name?.[0] ?? e.message) : 'Ошибка'),
+    mutationFn: () => api<{ data: ContactList }>('/lists', { method: 'POST', body: { name, description: description || null, source: source || null } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['lists'] })
+      toast(r.data.source ? `База создана: ${n(r.data.contacts_count)} адресов` : 'База создана')
+      nav(r.data.source ? `/subscribers/${r.data.id}` : `/subscribers/${r.data.id}?import=1`)
+    },
+    onError: (e) => setErr(e instanceof ApiError ? (e.errors.name?.[0] ?? e.errors.source?.[0] ?? e.message) : 'Ошибка'),
   })
-  const open = () => { setName(''); setDescription(''); setErr(null); setCreating(true) }
+  const open = () => { setName(''); setDescription(''); setSource(''); setErr(null); setCreating(true) }
 
   return (
     <main className="page">
@@ -44,7 +51,7 @@ export default function Subscribers() {
                   <td>
                     <div className="row" style={{ gap: 12, flexWrap: 'nowrap' }}>
                       <span className="list-ic"><Users size={16} /></span>
-                      <div style={{ minWidth: 0 }}><div style={{ fontWeight: 500 }}>{l.name}</div>{l.description && <div className="sub">{l.description}</div>}</div>
+                      <div style={{ minWidth: 0 }}><div style={{ fontWeight: 500 }}>{l.name}</div>{l.source_label ? <div className="sub row" style={{ gap: 4 }}><RefreshCw size={12} />{l.source_label}</div> : l.description && <div className="sub">{l.description}</div>}</div>
                     </div>
                   </td>
                   <td className="r num-cell">{n(l.deliverable_count)}{l.checks.unchecked > 0 && <div className="sub">проверяется {n(l.checks.unchecked)}</div>}</td>
@@ -67,13 +74,23 @@ export default function Subscribers() {
               <input id="list-name" autoFocus className={`input${err ? ' err' : ''}`} placeholder="Врачи-кардиологи" value={name} onChange={(e) => setName(e.target.value)} />
               {err && <div className="hint err">{err}</div>}
             </div>
+            {sources.length > 0 && (
+              <div className="field">
+                <label id="list-source-label">Откуда адреса</label>
+                <div className="seg" role="group" aria-labelledby="list-source-label" style={{ alignSelf: 'flex-start' }}>
+                  <button type="button" className={!source ? 'on' : ''} aria-pressed={!source} onClick={() => setSource('')}>Из файла</button>
+                  {sources.map((s) => <button key={s.key} type="button" className={source === s.key ? 'on' : ''} aria-pressed={source === s.key} onClick={() => { setSource(s.key); if (!name.trim()) setName('Пользователи сайта') }}>{s.label}</button>)}
+                </div>
+                {source && <div className="hint">База повторяет этот список: обновляется по кнопке и сама перед каждой рассылкой. Кто выключил согласие, из базы пропадает.</div>}
+              </div>
+            )}
             <div className="field">
               <label htmlFor="list-desc">Описание <span className="muted">· необязательно</span></label>
               <input id="list-desc" className="input" placeholder="Откуда адреса и для каких рассылок" value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="btn" onClick={() => setCreating(false)}>Отмена</button>
-              <button className="btn primary" disabled={!name.trim() || create.isPending}>Создать и загрузить адреса</button>
+              <button className="btn primary" disabled={!name.trim() || create.isPending}>{source ? (create.isPending ? 'Собираем адреса…' : 'Создать базу') : 'Создать и загрузить адреса'}</button>
             </div>
           </form>
         </Modal>

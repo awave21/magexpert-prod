@@ -138,10 +138,16 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
 
   const [testOpen, setTestOpen] = useState(false)
   const [testTo, setTestTo] = useState('')
+  const [testAs, setTestAs] = useState('')
+  // тест идёт от имени рассылки: несохранённые изменения сначала сохраняются
   const test = useMutation({
-    mutationFn: () => api(`/templates/${templateId}/test`, { method: 'POST', body: { to: testTo, data: sampleData } }),
-    onSuccess: () => { setTestOpen(false); toast(`Тест отправлен на ${testTo}`) },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Ошибка', true),
+    mutationFn: async () => {
+      const saved = dirty || !campaign ? (await api<{ data: Campaign }>(campaign ? `/campaigns/${campaign.id}` : '/campaigns', { method: campaign ? 'PUT' : 'POST', body })).data : campaign
+      await api(`/campaigns/${saved.id}/test`, { method: 'POST', body: { to: testTo, contact_email: testAs.trim() || null } })
+      return saved
+    },
+    onSuccess: (saved) => { setTestOpen(false); toast(`Тест отправлен на ${testTo}`); if (saved !== campaign) onSaved(saved) },
+    onError: fail,
   })
 
   const [removing, setRemoving] = useState(false)
@@ -178,7 +184,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
           </div>
           <div className="row">
             {campaign && <button type="button" className="btn icon" onClick={() => setRemoving(true)} aria-label="Удалить черновик" title="Удалить черновик"><Trash2 size={15} /></button>}
-            <button type="button" className="btn" disabled={!template} onClick={() => setTestOpen(true)}><Send size={15} />Отправить тест</button>
+            <button type="button" className="btn" disabled={!template} onClick={() => { setErrors({}); setTestOpen(true) }}><Send size={15} />Отправить тест</button>
             <button className="btn" disabled={!dirty || !name.trim() || save.isPending}>{save.isPending ? 'Сохраняем…' : 'Сохранить черновик'}</button>
             <button type="button" className="btn primary" disabled={!ready || send.isPending} onClick={() => setConfirm(true)}>{later ? 'Запланировать' : 'Отправить'}</button>
           </div>
@@ -349,8 +355,14 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
             <div className="field">
               <label htmlFor="t-to">Кому</label>
               <input id="t-to" type="email" autoFocus className="input mono" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="you@example.com" />
-              <div className="hint">{sample ? `Переменные возьмём у подписчика ${sample.email}` : 'Переменные подставятся значениями по умолчанию'}</div>
             </div>
+            {list && (
+              <div className="field">
+                <label htmlFor="t-as">Как увидит подписчик</label>
+                <input id="t-as" type="email" className={`input mono${errors.contact_email ? ' err' : ''}`} value={testAs} onChange={(e) => setTestAs(e.target.value)} placeholder={sample?.email ?? 'адрес из базы'} />
+                <div className={`hint${errors.contact_email ? ' err' : ''}`}>{errors.contact_email ?? `Имя и другие поля возьмём у этого подписчика базы «${list.name}»${sample ? `, по умолчанию ${sample.email}` : ''}. В теме будет пометка «Тест», внизу ссылка отписки.`}</div>
+              </div>
+            )}
             <div className="row" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="btn" onClick={() => setTestOpen(false)}>Отмена</button>
               <button className="btn primary" disabled={!testTo.trim() || test.isPending}><Send size={15} />Отправить</button>

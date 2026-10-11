@@ -15,7 +15,10 @@ use Illuminate\Support\Str;
 
 class MessageService
 {
-    public function __construct(private readonly TemplateRenderer $renderer) {}
+    public function __construct(
+        private readonly TemplateRenderer $renderer,
+        private readonly CampaignSchedule $schedule,
+    ) {}
 
     /**
      * Ставит письмо в очередь. Если отправка запрещена, письмо сохраняется со статусом blocked.
@@ -59,6 +62,7 @@ class MessageService
         ]);
 
         $blockReason = $this->senderBlockReason($domain, $fromEmail, $sender)
+            ?? $this->limitReason($organization)
             ?? $this->suppressionReason(Suppression::query()
                 ->where('organization_id', $organization->id)
                 ->where('email', $to)
@@ -138,6 +142,27 @@ class MessageService
         return Message::query()->insertOrIgnore($rows);
     }
 
+    /**
+     * Сколько писем организации ушло в очередь с начала суток (по часовому поясу окна отправки).
+     * Письма рассылок считаются по моменту постановки в очередь, служебные — по созданию.
+     */
+    public function sentToday(Organization $organization): int
+    {
+        $start = $this->schedule->startOfLocalDay(now());
+        $messages = fn () => Message::query()->where('organization_id', $organization->id);
+
+        return $messages()->whereNull('campaign_id')->where('created_at', '>=', $start)->where('status', '!=', Message::STATUS_BLOCKED)->count()
+            + $messages()->whereNotNull('campaign_id')->where('dispatched_at', '>=', $start)->count();
+    }
+
+    /**
+     * Сколько писем организация ещё может отправить сегодня. null — без ограничения.
+     */
+    public function remainingToday(Organization $organization): ?int
+    {
+        return $organization->daily_limit ? max(0, $organization->daily_limit - $this->sentToday($organization)) : null;
+    }
+
     public function dispatch(Message $message): void
     {
         $queue = $message->campaign_id !== null ? config('sender.queue') : config('sender.transactional_queue');
@@ -188,6 +213,13 @@ class MessageService
         }
 
         return null;
+    }
+
+    private function limitReason(Organization $organization): ?string
+    {
+        return $this->remainingToday($organization) === 0
+            ? "Дневной лимит организации исчерпан: {$organization->daily_limit} писем в сутки"
+            : null;
     }
 
     /**

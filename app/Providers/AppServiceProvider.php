@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Models\User;
 use App\Sender\Contracts\SubscriptionClient;
 use App\Sender\Events\RecipientUnsubscribed;
+use App\Sender\Services\SubscriberSources;
+use App\Services\NewsletterSubscribers;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Vite;
@@ -19,7 +21,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // база «Пользователи сайта» в Sender
+        $this->app->tag([NewsletterSubscribers::class], SubscriberSources::TAG);
     }
 
     /**

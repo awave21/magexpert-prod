@@ -9,8 +9,10 @@ use App\Sender\Console\CampaignsTickCommand;
 use App\Sender\Console\DkimExportCommand;
 use App\Sender\Console\DkimImportCommand;
 use App\Sender\Console\DomainCommand;
+use App\Sender\Console\HealthCommand;
 use App\Sender\Console\InstallDefaultsCommand;
 use App\Sender\Console\MailLogCommand;
+use App\Sender\Console\OrganizationCommand;
 use App\Sender\Console\PruneCommand;
 use App\Sender\Console\TemplateImportCommand;
 use App\Sender\Console\UserCreateCommand;
@@ -58,11 +60,15 @@ class SenderServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/routes.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([CampaignsTickCommand::class, InstallDefaultsCommand::class, DomainCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, PruneCommand::class, TemplateImportCommand::class]);
+            $this->commands([CampaignsTickCommand::class, InstallDefaultsCommand::class, DomainCommand::class, HealthCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, OrganizationCommand::class, PruneCommand::class, TemplateImportCommand::class]);
 
             $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
                 $schedule->command('sender:prune')->dailyAt('03:30')->withoutOverlapping();
                 $schedule->command('sender:campaigns-tick')->everyMinute()->withoutOverlapping();
+
+                if (filled(config('sender.alerts.telegram_token')) && filled(config('sender.alerts.telegram_chat_id'))) {
+                    $schedule->command('sender:health')->everyFiveMinutes()->withoutOverlapping();
+                }
 
                 // статусы доставки из журнала Postfix, если он есть на этом сервере
                 if (is_readable((string) config('sender.mail_log'))) {

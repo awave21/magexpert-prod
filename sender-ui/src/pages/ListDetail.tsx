@@ -79,6 +79,12 @@ export default function ListDetail() {
     mutationFn: () => api<{ data: { fixed: number } }>(`/lists/${id}/fix-typos`, { method: 'POST' }),
     onSuccess: (r) => { toast(`Исправлено адресов: ${n(r.data.fixed)}`); refresh() },
   })
+  const synced = Boolean(list?.source)
+  const sync = useMutation({
+    mutationFn: () => api<{ result: { added: number; removed: number; total: number } }>(`/lists/${id}/sync`, { method: 'POST' }),
+    onSuccess: (r) => { toast(`Обновлено: ${n(r.result.total)} адресов, новых ${n(r.result.added)}, убрано ${n(r.result.removed)}`); refresh() },
+    onError: (e) => toast(e instanceof Error ? e.message : 'Ошибка', true),
+  })
   const recheck = useMutation({
     mutationFn: () => api(`/lists/${id}/check`, { method: 'POST' }),
     onSuccess: () => { toast('Проверяем адреса заново'); refresh() },
@@ -106,15 +112,24 @@ export default function ListDetail() {
   return (
     <main className="page">
       <BackLink to="/subscribers">Все базы</BackLink>
-      <PageHead title={list?.name ?? '…'} sub={list?.description ?? (list ? `${n(list.subscribed_count)} подписчиков` : undefined)}
+      <PageHead title={list?.name ?? '…'}
+        sub={list?.source_label ? `${list.source_label} · обновлена ${ago(list.synced_at)}` : list?.description ?? (list ? `${n(list.subscribed_count)} подписчиков` : undefined)}
         actions={<>
           <button className="btn icon" onClick={() => { setEditErr(null); list && setEditing({ name: list.name, description: list.description ?? '' }) }} aria-label="Переименовать базу" title="Переименовать базу"><Pencil size={15} /></button>
           <button className="btn icon" onClick={() => setRemoving(true)} aria-label="Удалить базу" title="Удалить базу"><Trash2 size={15} /></button>
-          <button className="btn" onClick={() => { setAddErr(null); setAdding(true) }}><Plus size={16} />Добавить адрес</button>
-          <button className="btn primary" onClick={() => setImportOpen(!importOpen)} aria-expanded={importOpen}><Upload size={16} />Загрузить из файла</button>
+          {synced ? (
+            <button className="btn primary" disabled={sync.isPending} onClick={() => sync.mutate()}>{sync.isPending ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}Обновить сейчас</button>
+          ) : (
+            <>
+              <button className="btn" onClick={() => { setAddErr(null); setAdding(true) }}><Plus size={16} />Добавить адрес</button>
+              <button className="btn primary" onClick={() => setImportOpen(!importOpen)} aria-expanded={importOpen}><Upload size={16} />Загрузить из файла</button>
+            </>
+          )}
         </>} />
 
-      {id && list && (importOpen || list.contacts_count === 0) && (
+      {synced && <p className="hint" style={{ marginTop: -8, marginBottom: 16 }}>База обновляется сама перед каждой рассылкой: новые пользователи с согласием добавляются, выключившие согласие пропадают. Вручную адреса сюда не добавляются.</p>}
+
+      {id && list && !synced && (importOpen || list.contacts_count === 0) && (
         <ImportPanel listId={id} onDone={refresh} onClose={list.contacts_count > 0 ? () => setImportOpen(false) : undefined} />
       )}
 
@@ -126,7 +141,7 @@ export default function ListDetail() {
               <span className="sub">Формат, опечатки, одноразовые ящики и почтовый сервер домена. Существует ли сам ящик, покажет первая отправка.</span>
             </div>
             <div className="row">
-              {list.checks.typo > 0 && <button className="btn sm" disabled={fixAll.isPending} onClick={() => fixAll.mutate()}><Wand2 size={14} />Исправить опечатки ({n(list.checks.typo)})</button>}
+              {!synced && list.checks.typo > 0 && <button className="btn sm" disabled={fixAll.isPending} onClick={() => fixAll.mutate()}><Wand2 size={14} />Исправить опечатки ({n(list.checks.typo)})</button>}
               <button className="btn sm ghost" disabled={recheck.isPending || checking} onClick={() => recheck.mutate()} title="Проверить все адреса заново"><RefreshCw size={14} />Проверить заново</button>
               {list.deliverable_count > 0 && <button className="btn sm primary" onClick={() => nav(`/campaigns/new?list=${list.id}`)}><Send size={14} />Новая рассылка</button>}
             </div>
@@ -178,7 +193,7 @@ export default function ListDetail() {
                       return (
                         <div className="check-cell">
                           <span className={`status ${CHECKS[k].tone}`} title={CHECKS[k].text}><i />{CHECKS[k].label}</span>
-                          {k === 'typo' && c.check_hint && (
+                          {!synced && k === 'typo' && c.check_hint && (
                             <button className="btn sm text" onClick={() => fix.mutate(c)} disabled={fix.isPending} title={`Заменить на ${c.check_hint}`}>→ {c.check_hint.split('@')[1]}</button>
                           )}
                         </div>
