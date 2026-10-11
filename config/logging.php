@@ -82,6 +82,18 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // ошибки сайта в Telegram; без токена или чата канал молчит. По умолчанию тот же бот и чат, что у алертов Sender
+        'telegram' => [
+            'driver' => 'custom',
+            'via' => App\Logging\CreateTelegramLogger::class,
+            'token' => env('LOG_TELEGRAM_BOT_TOKEN') ?: env('SENDER_TELEGRAM_BOT_TOKEN'),
+            'chat_id' => env('LOG_TELEGRAM_CHAT_ID') ?: env('SENDER_TELEGRAM_CHAT_ID'),
+            'level' => env('LOG_TELEGRAM_LEVEL', 'error'),
+            // одна и та же ошибка приходит не чаще раза за окно
+            'dedup_seconds' => 600,
+            'dedup_store' => storage_path('logs/telegram-dedup.log'),
+        ],
+
         'bitrix24' => [
             'driver' => 'daily',
             'path' => storage_path('logs/bitrix24.log'),
