@@ -9,7 +9,18 @@ class User extends SenderModel
 {
     protected $table = 'sender_users';
 
-    protected $fillable = ['organization_id', 'name', 'email', 'password', 'is_active'];
+    /**
+     * admin — всё, включая домены, ключи, вебхуки и команду; editor — письма, базы и рассылки; viewer — только просмотр.
+     */
+    public const ROLE_ADMIN = 'admin';
+
+    public const ROLE_EDITOR = 'editor';
+
+    public const ROLE_VIEWER = 'viewer';
+
+    public const ROLES = [self::ROLE_ADMIN, self::ROLE_EDITOR, self::ROLE_VIEWER];
+
+    protected $fillable = ['organization_id', 'name', 'email', 'role', 'password', 'is_active'];
 
     protected $hidden = ['password'];
 
@@ -22,6 +33,16 @@ class User extends SenderModel
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return ($this->role ?? self::ROLE_ADMIN) === self::ROLE_ADMIN;
+    }
+
+    public function canEdit(): bool
+    {
+        return in_array($this->role ?? self::ROLE_ADMIN, [self::ROLE_ADMIN, self::ROLE_EDITOR], true);
     }
 
     public function organization(): BelongsTo

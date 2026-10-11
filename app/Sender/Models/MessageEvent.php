@@ -16,6 +16,11 @@ class MessageEvent extends SenderModel
 
     public const TYPE_CLICK = 'click';
 
+    /**
+     * Получатель нажал «Это спам»: отчёт пришёл по FBL от почтового сервиса.
+     */
+    public const TYPE_COMPLAINT = 'complaint';
+
     public const UPDATED_AT = null;
 
     protected $table = 'sender_message_events';

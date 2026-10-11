@@ -5,7 +5,9 @@ namespace App\Sender\Http\Controllers;
 use App\Sender\Events\RecipientUnsubscribed;
 use App\Sender\Models\Message;
 use App\Sender\Models\Suppression;
+use App\Sender\Models\Webhook;
 use App\Sender\Services\SubscriptionService;
+use App\Sender\Services\WebhookService;
 use App\Sender\Support\SenderUi;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -46,6 +48,7 @@ class UnsubscribeController extends Controller
         $subscriptions->unsubscribe($message->organization, $message->to_email);
 
         RecipientUnsubscribed::dispatch($message->organization->slug, $message->to_email);
+        app(WebhookService::class)->dispatch($message->organization_id, Webhook::EVENT_UNSUBSCRIBED, ['email' => $message->to_email, 'campaign_id' => $message->campaign_id]);
 
         return $this->page('Вы отписались', 'Рассылки на адрес '.e($message->to_email).' больше не будут приходить.', true);
     }

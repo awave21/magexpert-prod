@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, Plus } from 'lucide-react'
-import { api, type Campaign } from '../api'
+import { api, type Campaign, type Warmup } from '../api'
 import { CampaignStatus, Empty, PageHead, ago } from '../components/ui'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
@@ -10,16 +10,26 @@ export default function Campaigns() {
   const nav = useNavigate()
   const q = useQuery({
     queryKey: ['campaigns'],
-    queryFn: () => api<{ data: Campaign[] }>('/campaigns'),
+    queryFn: () => api<{ data: Campaign[]; warmup: Warmup | null }>('/campaigns'),
     refetchInterval: (query) => (query.state.data?.data.some((c) => c.status === 'sending' || c.status === 'scheduled' || (c.stats?.queued ?? 0) > 0) ? 4000 : false),
   })
   const list = q.data?.data ?? []
+  const warmup = q.data?.warmup
   const create = () => nav('/campaigns/new')
 
   return (
     <main className="page">
       <PageHead title="Рассылки" sub="Письмо из раздела «Контент» по базе из раздела «Подписчики»"
         actions={<button className="btn primary" onClick={create}><Plus size={16} />Новая рассылка</button>} />
+
+      {warmup && (
+        <div className="callout" style={{ marginBottom: 20 }}>
+          <div>
+            <b>Прогрев IP: день {warmup.day} из {warmup.days}</b>
+            <span>Сегодня все рассылки вместе могут отправить {n(warmup.limit)} писем, ушло {n(warmup.sent)}, осталось {n(warmup.remaining)}. Остальные письма подождут следующего дня. Служебные письма в лимит не входят.</span>
+          </div>
+        </div>
+      )}
 
       {q.isSuccess && list.length === 0 ? (
         <Empty title="Рассылок пока нет" text="Выберите письмо и базу подписчиков, проверьте и отправьте."

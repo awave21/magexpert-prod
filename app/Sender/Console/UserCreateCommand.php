@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 class UserCreateCommand extends Command
 {
-    protected $signature = 'sender:user-create {email} {--name= : имя} {--organization= : slug организации} {--password= : пароль (если не указан, будет сгенерирован)}';
+    protected $signature = 'sender:user-create {email} {--name= : имя} {--organization= : slug организации} {--password= : пароль (если не указан, будет сгенерирован)} {--role=admin : admin, editor или viewer}';
 
     protected $description = 'Создаёт пользователя для входа в интерфейс Sender (повторный запуск обновляет пароль)';
 
@@ -24,6 +24,14 @@ class UserCreateCommand extends Command
             return self::FAILURE;
         }
 
+        $role = (string) $this->option('role');
+
+        if (! in_array($role, User::ROLES, true)) {
+            $this->error('Роль: admin (всё), editor (письма, базы, рассылки) или viewer (только просмотр)');
+
+            return self::FAILURE;
+        }
+
         $email = Str::lower((string) $this->argument('email'));
         $password = $this->option('password') ?: Str::random(14);
 
@@ -32,6 +40,7 @@ class UserCreateCommand extends Command
             [
                 'organization_id' => $organization->id,
                 'name' => $this->option('name') ?: $email,
+                'role' => $role,
                 'password' => $password,
                 'is_active' => true,
             ],

@@ -19,6 +19,7 @@ import ListDetail from './pages/ListDetail'
 import Campaigns from './pages/Campaigns'
 import CampaignEditor from './pages/CampaignEditor'
 import Privacy from './pages/Privacy'
+import Team from './pages/Team'
 // редактор блоков тяжёлый (TipTap), грузится только когда его открывают
 const BlockEditor = lazy(() => import('./pages/BlockEditor'))
 
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="api" element={<ApiDocs />} />
         <Route path="api-keys" element={<ApiKeys />} />
         <Route path="blocked" element={<Blocked />} />
+        <Route path="team" element={<Team />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

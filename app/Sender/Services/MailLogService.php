@@ -5,6 +5,7 @@ namespace App\Sender\Services;
 use App\Sender\Models\Message;
 use App\Sender\Models\MessageEvent;
 use App\Sender\Models\Suppression;
+use App\Sender\Models\Webhook;
 use Illuminate\Support\Str;
 
 /**
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
  */
 class MailLogService
 {
+    public function __construct(private readonly WebhookService $webhooks) {}
+
     /**
      * Постоянные ошибки адреса: ящика или домена нет. Такие адреса блокируются, чтобы не портить репутацию.
      * Отказы из-за спам-фильтров (5.7.x) адрес не блокируют: проблема в письме или отправителе, а не в ящике.
@@ -72,6 +75,7 @@ class MailLogService
     {
         $message->forceFill(['status' => Message::STATUS_DELIVERED, 'delivered_at' => now(), 'error' => null])->save();
         $message->events()->create(['type' => MessageEvent::TYPE_DELIVERED, 'detail' => $reply]);
+        $this->webhooks->messageEvent($message, Webhook::EVENT_DELIVERED, ['response' => $reply]);
     }
 
     private function bounced(Message $message, string $dsn, string $reply): void
@@ -83,6 +87,7 @@ class MailLogService
             'error' => ($dead ? 'Адреса не существует. ' : 'Сервер получателя отказал. ').'Ответ сервера: '.$reply,
         ])->save();
         $message->events()->create(['type' => MessageEvent::TYPE_BOUNCED, 'detail' => $dsn.' '.$reply]);
+        $this->webhooks->messageEvent($message, Webhook::EVENT_BOUNCED, ['dsn' => $dsn, 'response' => $reply, 'address_dead' => $dead]);
 
         if ($dead) {
             Suppression::query()->firstOrCreate(

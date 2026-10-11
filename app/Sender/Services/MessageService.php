@@ -163,6 +163,41 @@ class MessageService
         return $organization->daily_limit ? max(0, $organization->daily_limit - $this->sentToday($organization)) : null;
     }
 
+    /**
+     * Письма, зависшие в статусе «отправляется» дольше 15 минут: воркер упал посреди отправки.
+     * Если Postfix успел принять письмо (в журнале есть его Message-ID), оно отправлено. Если нет — ставится заново.
+     * Без журнала Postfix узнать нельзя, и письмо помечается ошибкой, чтобы не отправить его дважды.
+     *
+     * @return array{sent: int, requeued: int, failed: int}
+     */
+    public function recoverStuck(): array
+    {
+        $result = ['sent' => 0, 'requeued' => 0, 'failed' => 0];
+        $logReadable = is_readable((string) config('sender.mail_log'));
+
+        Message::query()->where('status', Message::STATUS_SENDING)->where('updated_at', '<', now()->subMinutes(15))
+            ->chunkById(500, function ($messages) use (&$result, $logReadable): void {
+                foreach ($messages as $message) {
+                    if ($message->smtp_queue_id !== null) {
+                        $message->forceFill(['status' => Message::STATUS_SENT, 'sent_at' => $message->updated_at, 'error' => null])->save();
+                        $result['sent']++;
+                    } elseif ($logReadable) {
+                        $message->forceFill(['status' => Message::STATUS_QUEUED, 'error' => 'Отправка прервалась, письмо поставлено в очередь заново'])->save();
+                        $this->dispatch($message);
+                        $result['requeued']++;
+                    } else {
+                        $message->forceFill([
+                            'status' => Message::STATUS_FAILED,
+                            'error' => "Отправка прервалась, а журнал Postfix недоступен: неизвестно, ушло ли письмо. Найдите в /var/log/mail.log Message-ID {$message->uuid}",
+                        ])->save();
+                        $result['failed']++;
+                    }
+                }
+            });
+
+        return $result;
+    }
+
     public function dispatch(Message $message): void
     {
         $queue = $message->campaign_id !== null ? config('sender.queue') : config('sender.transactional_queue');

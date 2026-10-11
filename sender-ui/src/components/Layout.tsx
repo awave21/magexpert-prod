@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Globe, LayoutDashboard, LogOut, Mail, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, ShieldBan, Sun, KeyRound, FileText, Braces, Code2, Send, Users } from 'lucide-react'
+import { Bell, Globe, LayoutDashboard, LogOut, Mail, Menu, Moon, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Search, ShieldBan, Sun, KeyRound, FileText, Braces, Code2, Send, UserCog, Users } from 'lucide-react'
 import { api, type Domain } from '../api'
 import { useAuth } from '../auth'
 
 const TITLES: Record<string, string> = {
-  '/': 'Обзор', '/campaigns': 'Рассылки', '/subscribers': 'Подписчики', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Контент', '/variables': 'Переменные', '/api': 'API', '/api-keys': 'API-ключи', '/blocked': 'Блокировки',
+  '/': 'Обзор', '/campaigns': 'Рассылки', '/subscribers': 'Подписчики', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Контент', '/variables': 'Переменные', '/api': 'API', '/api-keys': 'API-ключи', '/blocked': 'Блокировки', '/team': 'Команда',
 }
 
 function useTheme() {
@@ -78,6 +78,7 @@ export function Layout() {
         {item('/api', <Code2 size={20} />, 'API')}
         {item('/api-keys', <KeyRound size={20} />, 'API-ключи')}
         {item('/blocked', <ShieldBan size={20} />, 'Блокировки')}
+        {item('/team', <UserCog size={20} />, 'Команда')}
         <div className="spacer" />
         <div className="help"><b>Нужна помощь?</b>Как подключить домен и отправить первое письмо: раздел «Домены».</div>
         <div className="userrow">

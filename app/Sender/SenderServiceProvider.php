@@ -3,9 +3,11 @@
 namespace App\Sender;
 
 use App\Sender\Client\HttpSenderClient;
+use App\Sender\Client\ImapFeedbackMailbox;
 use App\Sender\Client\LocalSenderClient;
 use App\Sender\Console\AddressConfirmCommand;
 use App\Sender\Console\CampaignsTickCommand;
+use App\Sender\Console\ComplaintCommand;
 use App\Sender\Console\DkimExportCommand;
 use App\Sender\Console\DkimImportCommand;
 use App\Sender\Console\DomainCommand;
@@ -14,8 +16,11 @@ use App\Sender\Console\InstallDefaultsCommand;
 use App\Sender\Console\MailLogCommand;
 use App\Sender\Console\OrganizationCommand;
 use App\Sender\Console\PruneCommand;
+use App\Sender\Console\RecoverCommand;
 use App\Sender\Console\TemplateImportCommand;
 use App\Sender\Console\UserCreateCommand;
+use App\Sender\Console\WarmupCommand;
+use App\Sender\Contracts\FeedbackMailbox;
 use App\Sender\Contracts\SenderClient;
 use App\Sender\Contracts\SubscriptionClient;
 use App\Sender\Dns\DnsLookup;
@@ -43,6 +48,7 @@ class SenderServiceProvider extends ServiceProvider
 
         $this->app->bind(DnsLookup::class, PhpDnsLookup::class);
         $this->app->bind(Transport::class, LaravelMailTransport::class);
+        $this->app->bind(FeedbackMailbox::class, ImapFeedbackMailbox::class);
         $this->app->bind(SenderClient::class, fn () => config('sender.client.driver') === 'http'
             ? app(HttpSenderClient::class)
             : app(LocalSenderClient::class));
@@ -60,11 +66,16 @@ class SenderServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/routes.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([CampaignsTickCommand::class, InstallDefaultsCommand::class, DomainCommand::class, HealthCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, OrganizationCommand::class, PruneCommand::class, TemplateImportCommand::class]);
+            $this->commands([CampaignsTickCommand::class, ComplaintCommand::class, InstallDefaultsCommand::class, DomainCommand::class, HealthCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, OrganizationCommand::class, PruneCommand::class, RecoverCommand::class, TemplateImportCommand::class, WarmupCommand::class]);
 
             $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
                 $schedule->command('sender:prune')->dailyAt('03:30')->withoutOverlapping();
                 $schedule->command('sender:campaigns-tick')->everyMinute()->withoutOverlapping();
+                $schedule->command('sender:recover')->everyFiveMinutes()->withoutOverlapping();
+
+                if (filled(config('sender.fbl.host'))) {
+                    $schedule->command('sender:complaints --fetch')->everyTenMinutes()->withoutOverlapping();
+                }
 
                 if (filled(config('sender.alerts.telegram_token')) && filled(config('sender.alerts.telegram_chat_id'))) {
                     $schedule->command('sender:health')->everyFiveMinutes()->withoutOverlapping();

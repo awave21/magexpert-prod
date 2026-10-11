@@ -45,10 +45,14 @@ class SendMessageJob implements ShouldQueue
             return;
         }
 
-        $message->forceFill([
-            'status' => Message::STATUS_SENDING,
-            'attempts' => $message->attempts + 1,
-        ])->save();
+        // письмо забирает одна задача: дубль задачи (повтор очереди, восстановление зависших) его не отправит второй раз
+        $claimed = Message::query()->whereKey($message->id)
+            ->whereIn('status', [Message::STATUS_QUEUED, Message::STATUS_FAILED])
+            ->update(['status' => Message::STATUS_SENDING, 'attempts' => $message->attempts + 1, 'updated_at' => now()]);
+
+        if ($claimed === 0) {
+            return;
+        }
 
         $content = $this->withUnsubscribeLink($message, $renderer->render($message->template, $message->data ?? []));
 
@@ -60,7 +64,17 @@ class SendMessageJob implements ShouldQueue
             $content['html'] = ($tracking ?? app(TrackingService::class))->apply($message, $content['html'], $message->data['unsubscribe_url'] ?? null);
         }
 
-        $transport->send($message, $content);
+        try {
+            $transport->send($message, $content);
+        } catch (Throwable $exception) {
+            // Postfix не принял письмо: оно снова ждёт, следующую попытку сделает очередь
+            Message::query()->whereKey($message->id)->update([
+                'status' => Message::STATUS_QUEUED,
+                'error' => mb_substr($exception->getMessage(), 0, 1000),
+            ]);
+
+            throw $exception;
+        }
 
         $message->forceFill([
             'status' => Message::STATUS_SENT,

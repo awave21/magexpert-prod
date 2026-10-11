@@ -30,6 +30,7 @@ class CampaignService
         private readonly MessageService $messages,
         private readonly CampaignSchedule $schedule,
         private readonly SubscriberSources $sources,
+        private readonly Warmup $warmup,
     ) {}
 
     /**
@@ -56,10 +57,12 @@ class CampaignService
             $this->sources->sync($campaign->list);
         }
 
-        $recipients = $campaign->list?->contacts()->deliverable()->count() ?? 0;
+        $recipients = $campaign->list?->contacts()->deliverable()->inSegment($campaign->segment)->count() ?? 0;
 
         if ($campaign->list !== null && $recipients === 0) {
-            $errors['list_id'] = 'В базе нет подписчиков, которым можно отправить письмо: все отписались или адреса не прошли проверку';
+            $errors['list_id'] = empty($campaign->segment)
+                ? 'В базе нет подписчиков, которым можно отправить письмо: все отписались или адреса не прошли проверку'
+                : 'Под условия отбора не подходит ни один подписчик базы';
         }
 
         if ($campaign->isDrip() && ($campaign->batch_size ?? 0) < 1) {
@@ -100,7 +103,7 @@ class CampaignService
             return null;
         }
 
-        $contacts = $campaign->list->contacts()->deliverable()
+        $contacts = $campaign->list->contacts()->deliverable()->inSegment($campaign->segment)
             ->where('id', '>', $afterContactId)
             ->orderBy('id')
             ->limit(self::PREPARE_PER_JOB + 1)
@@ -296,7 +299,7 @@ class CampaignService
         $contacts = $campaign->list?->contacts();
         $contact = $contactEmail !== null
             ? $contacts?->where('email', Str::lower(trim($contactEmail)))->first()
-            : $contacts?->deliverable()->orderBy('id')->first();
+            : $contacts?->deliverable()->inSegment($campaign->segment)->orderBy('id')->first();
 
         if ($contactEmail !== null && $contact === null) {
             throw ValidationException::withMessages(['contact_email' => 'Такого адреса нет в базе рассылки']);
@@ -338,7 +341,7 @@ class CampaignService
      * sent — ушло с нашего сервера (в том числе доставлено), delivered — сервер получателя принял,
      * bounced — отказ сервера получателя, cancelled — не ушли из-за отмены, opened и clicked — уникальные получатели.
      *
-     * @return array{pending: int, queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, cancelled: int, opened: int, clicked: int, links: list<array{url: string, clicks: int}>}
+     * @return array{pending: int, queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, cancelled: int, opened: int, clicked: int, complained: int, links: list<array{url: string, clicks: int}>}
      */
     public function stats(Campaign $campaign): array
     {
@@ -361,15 +364,16 @@ class CampaignService
             ...$this->countsByStatus($count),
             'opened' => $campaign->messages()->whereNotNull('opened_at')->count(),
             'clicked' => $campaign->messages()->whereNotNull('clicked_at')->count(),
+            'complained' => MessageEvent::query()->whereIn('message_id', $campaign->messages()->select('id'))->where('type', MessageEvent::TYPE_COMPLAINT)->count(),
             'links' => $links,
         ];
     }
 
     /**
-     * Статистика для списка рассылок: три запроса на все рассылки сразу, без ссылок.
+     * Статистика для списка рассылок: четыре запроса на все рассылки сразу, без ссылок.
      *
      * @param  iterable<Campaign>  $campaigns
-     * @return array<int, array{pending: int, queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, cancelled: int, opened: int, clicked: int, links: list<array{url: string, clicks: int}>}>
+     * @return array<int, array{pending: int, queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, cancelled: int, opened: int, clicked: int, complained: int, links: list<array{url: string, clicks: int}>}>
      */
     public function statsForMany(iterable $campaigns): array
     {
@@ -387,6 +391,13 @@ class CampaignService
             ->selectRaw('campaign_id, count(opened_at) as opened, count(clicked_at) as clicked')->groupBy('campaign_id')->get()
             ->keyBy('campaign_id');
 
+        $complaints = MessageEvent::query()
+            ->join('sender_messages', 'sender_messages.id', '=', 'sender_message_events.message_id')
+            ->whereIn('sender_messages.campaign_id', $ids)
+            ->where('sender_message_events.type', MessageEvent::TYPE_COMPLAINT)
+            ->selectRaw('sender_messages.campaign_id, count(*) as total')->groupBy('sender_messages.campaign_id')
+            ->pluck('total', 'campaign_id');
+
         $stats = [];
 
         foreach ($ids as $id) {
@@ -395,6 +406,7 @@ class CampaignService
                 ...$this->countsByStatus(fn (string $status): int => (int) ($counts[$status] ?? 0)),
                 'opened' => (int) ($engagement[$id]->opened ?? 0),
                 'clicked' => (int) ($engagement[$id]->clicked ?? 0),
+                'complained' => (int) ($complaints[$id] ?? 0),
                 'links' => [],
             ];
         }
@@ -439,6 +451,11 @@ class CampaignService
         $remaining = $this->messages->remainingToday($campaign->organization);
         if ($remaining !== null) {
             $limits[] = $remaining;
+        }
+
+        $warmup = $this->warmup->remainingToday($now);
+        if ($warmup !== null) {
+            $limits[] = $warmup;
         }
 
         $hourly = (int) config('sender.hourly_limit');

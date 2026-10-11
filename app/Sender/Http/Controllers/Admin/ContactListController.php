@@ -4,7 +4,9 @@ namespace App\Sender\Http\Controllers\Admin;
 
 use App\Sender\Contracts\SubscriberSource;
 use App\Sender\Http\Requests\Admin\ContactListRequest;
+use App\Sender\Http\Requests\Admin\SegmentRequest;
 use App\Sender\Jobs\CheckContactsJob;
+use App\Sender\Models\Contact;
 use App\Sender\Models\ContactList;
 use App\Sender\Services\EmailChecker;
 use App\Sender\Services\SubscriberSources;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 
 class ContactListController extends Controller
 {
@@ -47,6 +50,42 @@ class ContactListController extends Controller
         }
 
         return response()->json(['data' => $this->present($this->withCounts(ContactList::query())->findOrFail($list->id))], 201);
+    }
+
+    /**
+     * Дополнительные поля подписчиков базы и их частые значения: из них собирается условие отбора рассылки.
+     */
+    public function fields(Request $request, int $list): JsonResponse
+    {
+        $model = $this->organization($request)->lists()->findOrFail($list);
+
+        $rows = Contact::query()
+            ->where('list_id', $model->id)
+            // после загрузки файла без лишних колонок data бывает пустым массивом []
+            ->whereRaw("json_typeof(sender_contacts.data) = 'object'")
+            ->crossJoin(DB::raw('json_each_text(sender_contacts.data) as field'))
+            ->where('field.value', '!=', '')
+            ->selectRaw('field.key as key, field.value as value, count(*) as total')
+            ->groupBy('field.key', 'field.value')
+            ->orderByDesc('total')
+            ->get();
+
+        $fields = $rows->groupBy('key')->map(fn ($values, string $key): array => [
+            'key' => $key,
+            'values' => $values->take(30)->map(fn ($row): array => ['value' => (string) $row->value, 'count' => (int) $row->total])->values()->all(),
+        ])->values();
+
+        return response()->json(['data' => $fields]);
+    }
+
+    /**
+     * Сколько подписчиков базы получит рассылку с таким условием отбора.
+     */
+    public function count(SegmentRequest $request, int $list): JsonResponse
+    {
+        $model = $this->organization($request)->lists()->findOrFail($list);
+
+        return response()->json(['data' => ['count' => $model->contacts()->deliverable()->inSegment($request->validated('segment'))->count()]]);
     }
 
     /**

@@ -53,6 +53,21 @@ class Organization extends SenderModel
         return $this->hasMany(Variable::class, 'organization_id');
     }
 
+    public function webhooks(): HasMany
+    {
+        return $this->hasMany(Webhook::class, 'organization_id');
+    }
+
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class, 'organization_id');
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class, 'organization_id');
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class, 'organization_id');

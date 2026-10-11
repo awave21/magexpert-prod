@@ -54,4 +54,18 @@ return [
         'bounce_rate' => (float) env('SENDER_ALERT_BOUNCE_RATE', 5),
         'blacklists' => ['zen.spamhaus.org', 'bl.spamcop.net', 'b.barracudacentral.org', 'psbl.surriel.com'],
     ],
+    // ящик для отчётов о жалобах (FBL Mail.ru и Яндекса): sender:complaints --fetch раз в 10 минут
+    'fbl' => [
+        'host' => env('SENDER_FBL_HOST'),
+        'port' => (int) env('SENDER_FBL_PORT', 993),
+        'username' => env('SENDER_FBL_USERNAME'),
+        'password' => env('SENDER_FBL_PASSWORD'),
+        'folder' => env('SENDER_FBL_FOLDER', 'INBOX'),
+    ],
+    // прогрев IP: с даты SENDER_WARMUP_START письма всех рассылок ограничены по дням графиком (писем в сутки),
+    // после последнего дня ограничение снимается. Пусто — прогрева нет.
+    'warmup' => [
+        'start' => env('SENDER_WARMUP_START'),
+        'schedule' => array_map('intval', array_filter(explode(',', (string) env('SENDER_WARMUP_SCHEDULE', '200,200,500,500,1000,1000,1000,2000,2000,2000,3500,3500,3500,3500')))),
+    ],
 ];

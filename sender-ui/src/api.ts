@@ -46,7 +46,13 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   return data as T
 }
 
-export type User = { id: number; name: string; email: string; organization: string | null }
+export type Role = 'admin' | 'editor' | 'viewer'
+export type User = { id: number; name: string; email: string; role: Role; organization: string | null }
+export type TeamMember = { id: number; name: string; email: string; role: Role; is_active: boolean; last_seen_at: string | null; created_at: string }
+export type AuditEntry = { id: number; action: string; subject: string | null; user: string; ip: string | null; created_at: string }
+export type Segment = { active_days?: number | null; field?: string | null; values?: string[] | null }
+export type ListField = { key: string; values: { value: string; count: number }[] }
+export type Warmup = { day: number; days: number; limit: number; sent: number; remaining: number }
 export type DnsRecord = { key: 'verification' | 'dkim' | 'spf' | 'dmarc'; type: string; host: string; value: string; required: boolean }
 export type Domain = {
   id: number; domain: string; status: 'pending' | 'verified' | 'failed'; dkim_selector: string
@@ -90,14 +96,14 @@ export type ImportResult = {
   rows: number; added: number; updated: number; duplicates: number; skipped: number; columns: string[]
   skipped_rows: { line: number; value: string }[]; duplicate_rows: { line: number; email: string; first_line: number }[]
 }
-export type CampaignStats = { pending: number; cancelled: number; queued: number; sent: number; delivered: number; bounced: number; failed: number; blocked: number; opened: number; clicked: number; links: { url: string; clicks: number }[] }
+export type CampaignStats = { pending: number; cancelled: number; complained?: number; queued: number; sent: number; delivered: number; bounced: number; failed: number; blocked: number; opened: number; clicked: number; links: { url: string; clicks: number }[] }
 export type Campaign = {
   id: number; name: string; status: 'draft' | 'scheduled' | 'sending' | 'paused' | 'cancelled' | 'sent'
   template: { id: number; name: string } | null; list: { id: number; name: string } | null
   recipients_count: number; track: boolean; stats: CampaignStats | null; subscribed_count: number | null
   send_mode: 'now' | 'drip'; batch_size: number | null; batch_interval: number | null; daily_limit: number | null
   window_start: string | null; window_end: string | null; window_days: number[] | null
-  scheduled_at: string | null; next_batch_at: string | null; estimated_finish_at: string | null; prepared: boolean
+  scheduled_at: string | null; next_batch_at: string | null; estimated_finish_at: string | null; prepared: boolean; segment: Segment | null
   started_at: string | null; finished_at: string | null; created_at: string
 }
 

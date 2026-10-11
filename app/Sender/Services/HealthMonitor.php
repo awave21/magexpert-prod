@@ -35,6 +35,7 @@ class HealthMonitor
             'postfix_queue' => $this->postfixQueue(),
             'bounces' => $this->bounceRate(),
             'failed' => $this->failed(),
+            'complaints' => $this->complaints(),
             'blacklist' => $this->blacklisted(),
         ]);
     }
@@ -127,6 +128,24 @@ class HealthMonitor
         $count = Message::query()->where('status', Message::STATUS_FAILED)->where('updated_at', '>=', now()->subHour())->count();
 
         return $count >= 20 ? "За час не удалось отправить {$count} писем. Причина в журнале отправки Sender, поле «Ошибка»." : null;
+    }
+
+    /**
+     * Почтовые сервисы начинают резать доставку уже при 0,1–0,3% жалоб.
+     */
+    private function complaints(): ?string
+    {
+        $since = now()->subDay();
+        $complaints = MessageEvent::query()->where('type', MessageEvent::TYPE_COMPLAINT)->where('created_at', '>=', $since)->count();
+        $delivered = MessageEvent::query()->where('type', MessageEvent::TYPE_DELIVERED)->where('created_at', '>=', $since)->count();
+
+        if ($complaints < 3 || $complaints / max(1, $delivered) * 100 <= 0.1) {
+            return null;
+        }
+
+        $rate = round($complaints / max(1, $delivered) * 100, 2);
+
+        return "За сутки {$complaints} жалоб «Это спам» ({$rate}% от доставленных, норма до 0,1%). Пожаловавшиеся уже отписаны; проверьте, кому и что отправляли.";
     }
 
     private function blacklisted(): ?string

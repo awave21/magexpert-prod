@@ -8,6 +8,7 @@ use App\Sender\Http\Resources\MessageResource;
 use App\Sender\Models\Campaign;
 use App\Sender\Services\CampaignSchedule;
 use App\Sender\Services\CampaignService;
+use App\Sender\Services\Warmup;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,10 @@ class CampaignController extends Controller
         $campaigns = $this->organization($request)->campaigns()->with(['template:id,name', 'list:id,name'])->latest('id')->get();
         $stats = $this->campaigns->statsForMany($campaigns->reject(fn (Campaign $c): bool => $c->isDraft()));
 
-        return response()->json(['data' => $campaigns->map(fn (Campaign $c): array => $this->present($c, stats: $stats[$c->id] ?? null))]);
+        return response()->json([
+            'data' => $campaigns->map(fn (Campaign $c): array => $this->present($c, stats: $stats[$c->id] ?? null)),
+            'warmup' => app(Warmup::class)->status(),
+        ]);
     }
 
     public function show(Request $request, int $campaign): JsonResponse
@@ -136,7 +140,8 @@ class CampaignController extends Controller
             'prepared' => $campaign->prepared_at !== null,
             'estimated_finish_at' => $detailed ? $this->campaigns->estimatedFinish($campaign)?->toIso8601String() : null,
             'stats' => $stats,
-            'subscribed_count' => $detailed && $campaign->isDraft() ? ($campaign->list?->contacts()->deliverable()->count() ?? 0) : null,
+            'subscribed_count' => $detailed && $campaign->isDraft() ? ($campaign->list?->contacts()->deliverable()->inSegment($campaign->segment)->count() ?? 0) : null,
+            'segment' => $campaign->segment,
             'started_at' => $campaign->started_at?->toIso8601String(),
             'finished_at' => $campaign->finished_at?->toIso8601String(),
             'created_at' => $campaign->created_at?->toIso8601String(),

@@ -39,6 +39,25 @@ class Contact extends SenderModel
     }
 
     /**
+     * Часть базы: открывали письма за последние active_days дней и (или) поле field из загруженных колонок
+     * равно одному из values. Пустой сегмент — вся база.
+     *
+     * @param  array{active_days?: int|null, field?: string|null, values?: list<string>|null}|null  $segment
+     */
+    public function scopeInSegment(Builder $query, ?array $segment): void
+    {
+        if (! empty($segment['active_days'])) {
+            $query->where('last_opened_at', '>=', now()->subDays((int) $segment['active_days']));
+        }
+
+        $field = (string) ($segment['field'] ?? '');
+
+        if (preg_match('~^[a-z0-9_]{1,64}$~', $field) && ! empty($segment['values'])) {
+            $query->whereIn('data->'.$field, array_values($segment['values']));
+        }
+    }
+
+    /**
      * Кому уйдёт рассылка: подписан и адрес не забракован проверкой (непроверенные тоже получают).
      */
     public function scopeDeliverable(Builder $query): void

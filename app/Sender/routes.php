@@ -13,7 +13,9 @@ use App\Sender\Http\Controllers\Admin\StatsController;
 use App\Sender\Http\Controllers\Admin\SuppressionController;
 use App\Sender\Http\Controllers\Admin\TemplateController;
 use App\Sender\Http\Controllers\Admin\TemplateFolderController;
+use App\Sender\Http\Controllers\Admin\UserController;
 use App\Sender\Http\Controllers\Admin\VariableController;
+use App\Sender\Http\Controllers\Admin\WebhookController;
 use App\Sender\Http\Controllers\ConfirmSenderAddressController;
 use App\Sender\Http\Controllers\MessageController;
 use App\Sender\Http\Controllers\OAuthController;
@@ -22,6 +24,8 @@ use App\Sender\Http\Controllers\TrackController;
 use App\Sender\Http\Controllers\UnsubscribeController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
+use App\Sender\Http\Middleware\AuthorizeRole;
+use App\Sender\Http\Middleware\RecordAuditLog;
 use App\Sender\Support\SenderUi;
 use Illuminate\Support\Facades\Route;
 
@@ -40,7 +44,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
         Route::get('oauth/pending', [AuthController::class, 'oauthPending'])->middleware('throttle:30,1')->name('oauth.pending');
         Route::post('oauth/register', [AuthController::class, 'oauthRegister'])->middleware('throttle:10,60')->name('oauth.register');
 
-        Route::middleware(AuthenticateUser::class)->group(function (): void {
+        Route::middleware([AuthenticateUser::class, AuthorizeRole::class, RecordAuditLog::class])->group(function (): void {
             Route::get('me', [AuthController::class, 'me'])->name('me');
             Route::get('stats', StatsController::class)->name('stats');
             Route::post('logout', [AuthController::class, 'logout'])->name('logout');
@@ -96,6 +100,8 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::post('lists/{list}/contacts/{contact}/fix', [ContactController::class, 'fix'])->name('contacts.fix');
             Route::post('lists/{list}/fix-typos', [ContactController::class, 'fixAll'])->name('contacts.fix-all');
             Route::post('lists/{list}/check', [ContactListController::class, 'check'])->middleware('throttle:10,1')->name('lists.check');
+            Route::get('lists/{list}/fields', [ContactListController::class, 'fields'])->name('lists.fields');
+            Route::post('lists/{list}/count', [ContactListController::class, 'count'])->name('lists.count');
             Route::post('lists/{list}/sync', [ContactListController::class, 'sync'])->middleware('throttle:10,1')->name('lists.sync');
 
             Route::get('campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
@@ -111,6 +117,17 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
 
             Route::get('messages', [AdminMessageController::class, 'index'])->name('messages.index');
             Route::get('messages/{uuid}', [AdminMessageController::class, 'show'])->name('messages.show');
+
+            Route::get('users', [UserController::class, 'index'])->name('users.index');
+            Route::post('users', [UserController::class, 'store'])->name('users.store');
+            Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
+            Route::get('audit-log', [UserController::class, 'auditLog'])->name('audit-log.index');
+
+            Route::get('webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
+            Route::post('webhooks', [WebhookController::class, 'store'])->name('webhooks.store');
+            Route::put('webhooks/{webhook}', [WebhookController::class, 'update'])->name('webhooks.update');
+            Route::delete('webhooks/{webhook}', [WebhookController::class, 'destroy'])->name('webhooks.destroy');
+            Route::post('webhooks/{webhook}/test', [WebhookController::class, 'test'])->middleware('throttle:10,1')->name('webhooks.test');
 
             Route::get('suppressions', [SuppressionController::class, 'index'])->name('suppressions.index');
             Route::post('suppressions', [SuppressionController::class, 'store'])->name('suppressions.store');

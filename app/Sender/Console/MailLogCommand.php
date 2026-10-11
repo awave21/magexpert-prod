@@ -32,11 +32,39 @@ class MailLogCommand extends Command
         $inode = (int) fileinode($file);
         $size = (int) filesize($file);
 
-        // журнал повернули (logrotate) или обрезали: читаем новый файл с начала
-        $offset = ! $this->option('from-start') && ($state['inode'] ?? null) === $inode && ($state['offset'] ?? 0) <= $size
-            ? (int) $state['offset']
+        $lines = 0;
+        $matched = 0;
+        $rotated = ! $this->option('from-start') && isset($state['inode']) && $state['inode'] !== $inode;
+
+        // журнал повернули (logrotate): сначала дочитываем хвост старого файла, он теперь mail.log.1
+        if ($rotated && is_readable($file.'.1') && (int) fileinode($file.'.1') === $state['inode']) {
+            [, $read, $found] = $this->read($file.'.1', (int) $state['offset'], $log, true);
+            $lines += $read;
+            $matched += $found;
+        }
+
+        // новый файл после поворота или обрезанный — с начала
+        $offset = ! $this->option('from-start') && ! $rotated && ($state['offset'] ?? 0) <= $size
+            ? (int) ($state['offset'] ?? 0)
             : 0;
 
+        [$offset, $read, $found] = $this->read($file, $offset, $log);
+        $lines += $read;
+        $matched += $found;
+
+        Cache::forever($key, ['inode' => $inode, 'offset' => $offset]);
+
+        $this->info("Прочитано строк: {$lines}, о наших письмах: {$matched}");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * @param  bool  $toEnd  старый файл больше не пишется: последняя строка без перевода строки тоже полная
+     * @return array{0: int, 1: int, 2: int} смещение после чтения, прочитано строк, строк о наших письмах
+     */
+    private function read(string $file, int $offset, MailLogService $log, bool $toEnd = false): array
+    {
         $handle = fopen($file, 'r');
         fseek($handle, $offset);
         $lines = 0;
@@ -44,7 +72,7 @@ class MailLogCommand extends Command
 
         while (($line = fgets($handle)) !== false) {
             // неполная последняя строка: дочитаем в следующий раз
-            if (! str_ends_with($line, "\n")) {
+            if (! $toEnd && ! str_ends_with($line, "\n")) {
                 break;
             }
 
@@ -54,10 +82,7 @@ class MailLogCommand extends Command
         }
 
         fclose($handle);
-        Cache::forever($key, ['inode' => $inode, 'offset' => $offset]);
 
-        $this->info("Прочитано строк: {$lines}, о наших письмах: {$matched}");
-
-        return self::SUCCESS;
+        return [$offset, $lines, $matched];
     }
 }

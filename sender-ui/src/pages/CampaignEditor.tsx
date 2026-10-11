@@ -2,11 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Clock, Pause, Play, Send, Trash2, X } from 'lucide-react'
-import { api, ApiError, type Campaign, type Contact, type ContactList, type Paged, type SenderAddress, type Template } from '../api'
+import { api, ApiError, type Campaign, type Contact, type ContactList, type ListField, type Paged, type Segment, type SenderAddress, type Template } from '../api'
 import { BackLink, CampaignStatus, Modal, fmtDate, useToast } from '../components/ui'
 import { WEEKDAYS, estimateFinish, fmtWhen, nextOpening, perHour, type Schedule } from '../schedule'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
+// поля базы «Пользователи сайта»; поля из файла показываются как есть
+const FIELD_LABELS: Record<string, string> = { specialization: 'специальность', city: 'город', company: 'организация', position: 'должность' }
 type Rendered = { subject: string; html: string; text: string | null }
 
 export default function CampaignEditor() {
@@ -58,6 +60,10 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
   const [days, setDays] = useState<number[]>(campaign?.window_days ?? [1, 2, 3, 4, 5])
   const [later, setLater] = useState(Boolean(campaign?.scheduled_at))
   const [scheduledAt, setScheduledAt] = useState(campaign?.scheduled_at ? toLocalInput(campaign.scheduled_at) : '')
+  const [activeOn, setActiveOn] = useState(Boolean(campaign?.segment?.active_days))
+  const [activeDays, setActiveDays] = useState(String(campaign?.segment?.active_days ?? 90))
+  const [field, setField] = useState(campaign?.segment?.field ?? '')
+  const [values, setValues] = useState<string[]>(campaign?.segment?.values ?? [])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [openedAt] = useState(() => Date.now())
 
@@ -88,6 +94,21 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
     enabled: templateId !== '',
   })
 
+  const segment: Segment | null = activeOn || (field && values.length)
+    ? { active_days: activeOn ? Number(activeDays) || null : null, field: field && values.length ? field : null, values: field && values.length ? values : null }
+    : null
+  const fq = useQuery({
+    queryKey: ['list-fields', listId],
+    queryFn: () => api<{ data: ListField[] }>(`/lists/${listId}/fields`),
+    enabled: listId !== '',
+  })
+  const fields = fq.data?.data ?? []
+  const countQ = useQuery({
+    queryKey: ['segment-count', listId, JSON.stringify(segment)],
+    queryFn: () => api<{ data: { count: number } }>(`/lists/${listId}/count`, { method: 'POST', body: { segment } }),
+    enabled: listId !== '' && segment !== null,
+  })
+
   const drip = mode === 'drip'
   const schedule: Schedule = {
     batch: Number(batchSize) || 0,
@@ -107,12 +128,14 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
     window_end: drip ? schedule.end : null,
     window_days: drip ? schedule.days : null,
     scheduled_at: later && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+    segment,
   }
   const saved = campaign ? {
     name: campaign.name, template_id: campaign.template?.id ?? null, list_id: campaign.list?.id ?? null, track: campaign.track,
     send_mode: campaign.send_mode, batch_size: campaign.batch_size, batch_interval: campaign.batch_interval, daily_limit: campaign.daily_limit,
     window_start: campaign.window_start, window_end: campaign.window_end, window_days: campaign.window_days,
     scheduled_at: campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString() : null,
+    segment: campaign.segment ?? null,
   } : null
   const dirty = !saved || JSON.stringify(saved) !== JSON.stringify(body)
   const fail = (e: unknown) => {
@@ -153,12 +176,13 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
   const [removing, setRemoving] = useState(false)
   const remove = useMutation({ mutationFn: () => api(`/campaigns/${campaign?.id}`, { method: 'DELETE' }), onSuccess: onDeleted })
 
-  const recipients = list?.deliverable_count ?? 0
+  const recipients = segment ? (countQ.data?.data.count ?? 0) : (list?.deliverable_count ?? 0)
   const rejected = list ? list.checks.typo + list.checks.disposable + list.checks.no_mx + list.checks.invalid : 0
   const problems = [
     !template && 'Выберите письмо',
     !list && 'Выберите базу',
-    list && recipients === 0 && 'В базе нет адресов, которым можно отправить письмо',
+    list && recipients === 0 && !countQ.isFetching && (segment ? 'Под условия отбора не подходит ни один подписчик' : 'В базе нет адресов, которым можно отправить письмо'),
+    field && values.length === 0 && 'Выберите значения поля для отбора',
     template && !template.sender_address_id && 'У письма не выбран отправитель',
     sender && !sender.confirmed && `Адрес ${sender.email} не подтверждён`,
     drip && schedule.batch < 1 && 'Укажите, сколько писем отправлять за раз',
@@ -234,6 +258,42 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
                     {rejected > 0 && <div className="muted">{n(rejected)} адресов не прошли проверку и не получат письмо</div>}
                     {list.checks.unchecked > 0 && <div className="muted">{n(list.checks.unchecked)} ещё проверяются</div>}
                     <Link to={`/subscribers/${list.id}`}>Открыть базу <ArrowRight size={13} /></Link>
+                  </div>
+                )}
+                {list && (
+                  <div className="step-info schedule">
+                    <b style={{ fontWeight: 500 }}>Кому из базы</b>
+                    <label className="check-row">
+                      <input type="checkbox" checked={activeOn} onChange={(e) => setActiveOn(e.target.checked)} />
+                      <span><b>Только активным</b><span className="sub">Открывали письма или переходили по ссылкам. Новые подписчики сюда не попадут: о них ещё нечего знать. Хороший выбор на время прогрева.</span></span>
+                    </label>
+                    {activeOn && (
+                      <div className="schedule-row">
+                        <label htmlFor="c-active">за последние</label>
+                        <input id="c-active" type="number" min={1} inputMode="numeric" className="input num" value={activeDays} onChange={(e) => setActiveDays(e.target.value)} />
+                        <span>дней</span>
+                      </div>
+                    )}
+                    {fields.length > 0 && (
+                      <>
+                        <div className="schedule-row">
+                          <label htmlFor="c-field">Только где</label>
+                          <select id="c-field" className="select sm" value={field} onChange={(e) => { setField(e.target.value); setValues([]) }}>
+                            <option value="">выберите поле</option>
+                            {fields.map((f) => <option key={f.key} value={f.key}>{FIELD_LABELS[f.key] ?? f.key}</option>)}
+                          </select>
+                        </div>
+                        {field && (
+                          <div className="segment-values" role="group" aria-label={`Значения поля ${field}`}>
+                            {(fields.find((f) => f.key === field)?.values ?? []).map((v) => (
+                              <button key={v.value} type="button" className={`day${values.includes(v.value) ? ' on' : ''}`} aria-pressed={values.includes(v.value)}
+                                onClick={() => setValues(values.includes(v.value) ? values.filter((x) => x !== v.value) : [...values, v.value])}>{v.value} · {n(v.count)}</button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {segment && <div className="muted">{countQ.isFetching ? 'Считаем…' : `Подходят ${n(recipients)} из ${n(list.deliverable_count)}`}</div>}
                   </div>
                 )}
               </div>
@@ -335,7 +395,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
 
       {confirm && template && list && (
         <Modal title="Отправить рассылку?" onClose={() => setConfirm(false)}>
-          <p style={{ color: 'var(--ink-2)', margin: 0 }}>Письмо «{template.name}» уйдёт подписчикам базы «{list.name}»: <b>{n(recipients)}</b> адресов.</p>
+          <p style={{ color: 'var(--ink-2)', margin: 0 }}>Письмо «{template.name}» уйдёт подписчикам базы «{list.name}»{segment ? ', которые подходят под условия отбора' : ''}: <b>{n(recipients)}</b> адресов.</p>
           <ul className="confirm-list">
             <li><Clock size={14} />{drip && nextOpening(schedule, startAt) > startAt ? `Первая пачка ${fmtWhen(nextOpening(schedule, startAt))}: сейчас вне окна отправки` : later ? `Начало ${fmtWhen(startAt)}` : 'Начало сразу'}</li>
             <li><Send size={14} />{drip ? `По ${n(schedule.batch)} писем раз в ${schedule.interval} мин${schedule.daily ? `, до ${n(schedule.daily)} в сутки` : ''}${windowOn ? `, ${windowStart}–${windowEnd} МСК` : ''}` : 'Все письма сразу'}</li>
@@ -463,6 +523,7 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
         <div><span className="label">Отправлено</span><span className="num">{n(s.sent)}</span><span className="pct">{left > 0 ? `ещё ${n(left)} ждут отправки` : share(s.sent, c.recipients_count)}</span></div>
         <div><span className="label">Доставлено</span><span className="num" style={{ color: 'var(--ok)' }}>{n(s.delivered)}</span><span className="pct">{share(s.delivered, s.sent)} от отправленных</span></div>
         {c.track && <div><span className="label">Открыли</span><span className="num">{n(s.opened)}</span><span className="pct">{share(s.opened, s.delivered || s.sent)} от доставленных</span></div>}
+        {(s.complained ?? 0) > 0 && <div><span className="label">Жалобы на спам</span><span className="num" style={{ color: 'var(--err)' }}>{n(s.complained ?? 0)}</span><span className="pct">{share(s.complained ?? 0, s.delivered || s.sent)}, адреса отписаны</span></div>}
         {c.track && <div><span className="label">Перешли по ссылке</span><span className="num">{n(s.clicked)}</span><span className="pct">{share(s.clicked, s.delivered || s.sent)} от доставленных</span></div>}
         <div><span className="label">Не отправлено</span><span className="num" style={{ color: notSent ? 'var(--err)' : undefined }}>{n(notSent + s.cancelled)}</span>
           <span className="pct">{[s.bounced && `${n(s.bounced)} отказ сервера`, s.failed && `${n(s.failed)} ошибка`, s.blocked && `${n(s.blocked)} в блокировках`, s.cancelled && `${n(s.cancelled)} отменено`].filter(Boolean).join(', ') || 'без потерь'}</span></div>

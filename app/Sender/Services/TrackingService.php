@@ -5,6 +5,7 @@ namespace App\Sender\Services;
 use App\Sender\Models\Contact;
 use App\Sender\Models\Message;
 use App\Sender\Models\MessageEvent;
+use App\Sender\Models\Webhook;
 use App\Sender\Support\SenderUi;
 use Illuminate\Support\Str;
 
@@ -13,6 +14,8 @@ use Illuminate\Support\Str;
  */
 class TrackingService
 {
+    public function __construct(private readonly WebhookService $webhooks) {}
+
     /**
      * Почтовые сканеры и антивирусы открывают ссылки сами, сразу после доставки.
      */
@@ -70,7 +73,12 @@ class TrackingService
         $this->event($message, MessageEvent::TYPE_OPEN, null, $ip, $userAgent, $auto);
 
         if (! $auto) {
+            $first = $message->opened_at === null;
             $this->markOpened($message);
+
+            if ($first) {
+                $this->webhooks->messageEvent($message, Webhook::EVENT_OPENED);
+            }
         }
     }
 
@@ -85,12 +93,18 @@ class TrackingService
             return;
         }
 
+        $firstClick = $message->clicked_at === null;
+
         // клик означает, что письмо открыто, даже если картинки были выключены
         $this->markOpened($message, countOpen: $message->opened_at === null);
         $message->forceFill([
             'clicked_at' => $message->clicked_at ?? now(),
             'clicks_count' => $message->clicks_count + 1,
         ])->save();
+
+        if ($firstClick) {
+            $this->webhooks->messageEvent($message, Webhook::EVENT_CLICKED, ['url' => $url]);
+        }
     }
 
     private function markOpened(Message $message, bool $countOpen = true): void
