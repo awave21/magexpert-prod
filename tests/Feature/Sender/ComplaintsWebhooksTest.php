@@ -24,6 +24,14 @@ use Illuminate\Support\Str;
 
 beforeEach(function (): void {
     $this->migrateSenderDatabase();
+    // тестовые адреса вебхуков не резолвятся: считаем их публичными
+    $this->app->instance(App\Sender\Support\PublicAddress::class, new class extends App\Sender\Support\PublicAddress
+    {
+        protected function addresses(string $host): array
+        {
+            return ['hooks.example.com' => ['93.184.216.34'], 'internal.example.com' => ['10.0.0.5']][$host] ?? [];
+        }
+    });
 
     $this->organization = Organization::create(['name' => 'MagExpert', 'slug' => 'magexpert']);
     $domain = $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => Domain::STATUS_VERIFIED, 'dkim_selector' => 'mail']);
@@ -187,4 +195,23 @@ it('limits campaign letters of all organizations by the ip warm-up schedule', fu
     $this->travelTo(CarbonImmutable::parse('2026-10-14 10:00', 'Europe/Moscow'));
     expect(app(Warmup::class)->limitToday())->toBeNull();
     $this->artisan('sender:warmup')->expectsOutputToContain('лимита нет')->assertSuccessful();
+});
+
+it('refuses webhooks that point into the internal network', function (): void {
+    App\Sender\Models\User::create(['organization_id' => $this->organization->id, 'name' => 'Админ', 'email' => 'admin@example.com', 'password' => 'secret-pass']);
+    $token = (new App\Sender\Services\AuthService)->login('admin@example.com', 'secret-pass')['token'];
+
+    foreach (['https://127.0.0.1/hook', 'https://[::1]/hook', 'https://10.0.0.5/hook', 'https://169.254.169.254/latest', 'https://internal.example.com/hook', 'https://nowhere.example.com/hook'] as $url) {
+        $this->withToken($token)->postJson('/api/sender/v1/admin/webhooks', ['url' => $url])->assertUnprocessable()->assertJsonValidationErrors('url');
+    }
+
+    $this->withToken($token)->postJson('/api/sender/v1/admin/webhooks', ['url' => 'https://hooks.example.com/sender'])->assertCreated();
+
+    // имя позже переключили на внутренний адрес: отправка не идёт
+    Http::fake();
+    $webhook = $this->organization->webhooks()->create(['url' => 'https://internal.example.com/hook', 'secret' => 's']);
+    (new SendWebhookJob($webhook->id, ['event' => 'test']))->handle(app(WebhookService::class));
+
+    Http::assertNothingSent();
+    expect($webhook->fresh()->last_error)->toContain('внутреннюю сеть');
 });

@@ -166,7 +166,14 @@ class SocialAuthController extends Controller
         }
 
         $account = SocialAccount::query()->where('provider', $provider)->where('provider_user_id', $profile['id'])->first();
-        $user = $account?->user ?? ($profile['email'] !== '' ? User::query()->where('email', $profile['email'])->first() : null);
+        $user = $account?->user;
+
+        // по email вход привязывается сразу, только если провайдер подтверждает почту
+        // и к аккаунту ещё не привязан другой профиль этого провайдера; иначе — вход по паролю и привязка
+        if ($user === null && in_array($provider, SocialAccounts::TRUSTED_EMAIL, true)) {
+            $owner = $this->accounts->userByEmail($profile['email']);
+            $user = $owner !== null && ! $owner->socialAccounts()->where('provider', $provider)->exists() ? $owner : null;
+        }
 
         if ($user !== null) {
             $this->accounts->link($user, $profile);
@@ -207,8 +214,8 @@ class SocialAuthController extends Controller
         // email от провайдера подтверждён им, поменять его на этом экране нельзя
         $email = $pending['email'] !== '' ? $pending['email'] : Str::lower(trim($request->validated('email')));
 
-        if (User::query()->where('email', $email)->exists()) {
-            return back()->withErrors(['email' => 'Аккаунт с этим email уже есть. Войдите по паролю.']);
+        if ($this->accounts->userByEmail($email) !== null) {
+            return back()->withErrors(['email' => 'Аккаунт с этим email уже есть. Войдите по паролю, и вход через '.self::NAMES[$pending['provider']].' привяжется к нему.']);
         }
 
         $user = User::create([

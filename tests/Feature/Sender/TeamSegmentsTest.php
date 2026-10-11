@@ -99,13 +99,15 @@ it('sends a campaign only to the chosen segment of the base', function (): void 
         ['ivan@example.com', 'Кардиолог', null],
     ];
     $this->list->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'nodata@example.com', 'data' => []]);
+    $this->list->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'stage@example.com', 'data' => ['stage' => '2']]);
     foreach ($rows as [$email, $specialization, $opened]) {
         $this->list->contacts()->create(['organization_id' => $this->organization->id, 'email' => $email, 'data' => ['specialization' => $specialization], 'last_opened_at' => $opened]);
     }
 
     $this->withToken($this->token)->getJson(teamApi("/lists/{$this->list->id}/fields"))
         ->assertOk()->assertJsonPath('data.0.key', 'specialization')
-        ->assertJsonPath('data.0.values.0', ['value' => 'Кардиолог', 'count' => 3]);
+        ->assertJsonPath('data.0.values.0', ['value' => 'Кардиолог', 'count' => 3])
+        ->assertJsonPath('data.1', ['key' => 'stage', 'values' => [['value' => '2', 'count' => 1]]]);
 
     $segment = ['active_days' => 90, 'field' => 'specialization', 'values' => ['Кардиолог']];
     $this->withToken($this->token)->postJson(teamApi("/lists/{$this->list->id}/count"), ['segment' => $segment])

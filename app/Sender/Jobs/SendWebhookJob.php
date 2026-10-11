@@ -4,6 +4,7 @@ namespace App\Sender\Jobs;
 
 use App\Sender\Models\Webhook;
 use App\Sender\Services\WebhookService;
+use App\Sender\Support\PublicAddress;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -45,10 +46,18 @@ class SendWebhookJob implements ShouldQueue
             return;
         }
 
+        // адрес проверяется и перед отправкой: DNS имени могли поменять на внутренний адрес после сохранения
+        if (! app(PublicAddress::class)->allows($webhook->url)) {
+            $this->record($webhook, null, 'Адрес ведёт во внутреннюю сеть: отправка запрещена');
+
+            return;
+        }
+
         $body = (string) json_encode($this->payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         try {
             $response = Http::timeout(10)
+                ->withoutRedirecting()
                 ->withHeaders([
                     'X-Sender-Event' => (string) $this->payload['event'],
                     'X-Sender-Signature' => $webhooks->signature($body, $webhook->secret),

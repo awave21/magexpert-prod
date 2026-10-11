@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\DB;
 
 class ContactListController extends Controller
 {
@@ -59,21 +58,24 @@ class ContactListController extends Controller
     {
         $model = $this->organization($request)->lists()->findOrFail($list);
 
-        $rows = Contact::query()
-            ->where('list_id', $model->id)
-            // после загрузки файла без лишних колонок data бывает пустым массивом []
-            ->whereRaw("json_typeof(sender_contacts.data) = 'object'")
-            ->crossJoin(DB::raw('json_each_text(sender_contacts.data) as field'))
-            ->where('field.value', '!=', '')
-            ->selectRaw('field.key as key, field.value as value, count(*) as total')
-            ->groupBy('field.key', 'field.value')
-            ->orderByDesc('total')
-            ->get();
+        // поля считаются порциями в PHP: data бывает объектом или пустым массивом [], а значения — любыми строками
+        $counts = [];
+        $model->contacts()->whereNotNull('data')->select(['id', 'data'])->lazyById(1000)->each(function (Contact $contact) use (&$counts): void {
+            foreach ((array) $contact->data as $key => $value) {
+                if (is_string($key) && is_scalar($value) && (string) $value !== '') {
+                    $counts[$key][(string) $value] = ($counts[$key][(string) $value] ?? 0) + 1;
+                }
+            }
+        });
 
-        $fields = $rows->groupBy('key')->map(fn ($values, string $key): array => [
-            'key' => $key,
-            'values' => $values->take(30)->map(fn ($row): array => ['value' => (string) $row->value, 'count' => (int) $row->total])->values()->all(),
-        ])->values();
+        $fields = collect($counts)->map(function (array $values, int|string $key): array {
+            arsort($values);
+
+            return [
+                'key' => (string) $key,
+                'values' => collect($values)->take(30)->map(fn (int $total, int|string $value): array => ['value' => (string) $value, 'count' => $total])->values()->all(),
+            ];
+        })->sortByDesc(fn (array $field): int => $field['values'][0]['count'] ?? 0)->values();
 
         return response()->json(['data' => $fields]);
     }

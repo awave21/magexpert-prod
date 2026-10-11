@@ -89,8 +89,12 @@ it('refreshes a site base right before the campaign starts', function (): void {
 
     $campaign = $this->organization->campaigns()->create(['name' => 'Ноябрь', 'template_id' => $this->template->id, 'list_id' => $list->id, 'status' => Campaign::STATUS_DRAFT]);
 
-    $this->withToken($this->token)->postJson(toolsApi("/campaigns/{$campaign->id}/send"))
-        ->assertOk()->assertJsonPath('data.recipients_count', 2);
+    // запуск не ждёт синхронизации: база обновляется в начале фоновой подготовки
+    $this->withToken($this->token)->postJson(toolsApi("/campaigns/{$campaign->id}/send"))->assertOk();
+    app(CampaignService::class)->prepare($campaign->fresh());
+
+    expect($campaign->fresh()->recipients_count)->toBe(2)
+        ->and($campaign->messages()->pluck('to_email')->sort()->values()->all())->toBe(['early@example.com', 'late@example.com']);
 });
 
 it('sends a test of the campaign as a chosen subscriber will see it', function (): void {

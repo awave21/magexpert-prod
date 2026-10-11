@@ -22,28 +22,34 @@ class StatsController extends Controller
         $organization = $this->organization($request);
         $from = Carbon::today()->subDays(6);
 
-        $messages = $organization->messages()
+        // считаем в базе: за неделю писем могут быть десятки тысяч
+        $rows = $organization->messages()
             ->where('created_at', '>=', $from)
-            ->get(['status', 'created_at']);
+            ->selectRaw('date(created_at) as day, status, count(*) as total')
+            ->groupBy('day', 'status')
+            ->get();
 
-        $days = collect(range(0, 6))->map(function (int $offset) use ($from, $messages): array {
+        $count = fn (array $statuses, ?string $day = null): int => (int) $rows
+            ->filter(fn ($row): bool => in_array($row->status, $statuses, true) && ($day === null || (string) $row->day === $day))
+            ->sum('total');
+
+        $days = collect(range(0, 6))->map(function (int $offset) use ($from, $count): array {
             $day = $from->copy()->addDays($offset);
-            $ofDay = $messages->filter(fn (Message $message): bool => $message->created_at->isSameDay($day));
 
             return [
                 'date' => $day->toDateString(),
                 'label' => $day->locale('ru')->isoFormat('dd'),
-                'sent' => $ofDay->whereIn('status', Message::SENT_STATUSES)->count(),
-                'failed' => $ofDay->whereIn('status', Message::FAILED_STATUSES)->count(),
+                'sent' => $count(Message::SENT_STATUSES, $day->toDateString()),
+                'failed' => $count(Message::FAILED_STATUSES, $day->toDateString()),
             ];
         });
 
         return response()->json([
             'totals' => [
-                'sent' => $messages->whereIn('status', Message::SENT_STATUSES)->count(),
+                'sent' => $count(Message::SENT_STATUSES),
                 'queued' => $organization->messages()->whereIn('status', [Message::STATUS_QUEUED, Message::STATUS_SENDING])->count(),
-                'failed' => $messages->whereIn('status', Message::FAILED_STATUSES)->count(),
-                'blocked' => $messages->where('status', Message::STATUS_BLOCKED)->count(),
+                'failed' => $count(Message::FAILED_STATUSES),
+                'blocked' => $count([Message::STATUS_BLOCKED]),
             ],
             'days' => $days->values(),
             'unverified_domains' => $organization->domains()->where('status', '!=', Domain::STATUS_VERIFIED)->count(),

@@ -173,7 +173,7 @@ it('sends a campaign to subscribed contacts only, once per address', function ()
     $campaign = $this->organization->campaigns()->create(['name' => 'Ноябрь', 'template_id' => $this->template->id, 'list_id' => $this->list->id]);
 
     $this->withToken($this->token)->postJson(senderAdmin("/campaigns/{$campaign->id}/send"))
-        ->assertOk()->assertJsonPath('data.status', 'sending')->assertJsonPath('data.recipients_count', 3);
+        ->assertOk()->assertJsonPath('data.status', 'sending')->assertJsonPath('data.recipients_count', 2);
 
     Queue::assertPushedOn('sender', SendCampaignJob::class);
 
@@ -184,9 +184,9 @@ it('sends a campaign to subscribed contacts only, once per address', function ()
 
     $messages = Message::query()->where('campaign_id', $campaign->id)->get();
 
-    expect($messages)->toHaveCount(3)
-        ->and($messages->pluck('to_email')->sort()->values()->all())->toBe(['anna@example.com', 'blocked@example.com', 'petr@example.com'])
-        ->and($messages->firstWhere('to_email', 'blocked@example.com')->status)->toBe(Message::STATUS_BLOCKED)
+    // адрес из блок-листа в рассылку не попадает вовсе
+    expect($messages)->toHaveCount(2)
+        ->and($messages->pluck('to_email')->sort()->values()->all())->toBe(['anna@example.com', 'petr@example.com'])
         ->and($messages->firstWhere('to_email', 'anna@example.com')->from_email)->toBe('news@mag-expert.ru')
         ->and($messages->firstWhere('to_email', 'anna@example.com')->data['unsubscribe_url'])->toContain('/unsubscribe/')
         ->and($messages->firstWhere('to_email', 'anna@example.com')->data['first_name'])->toBe('Анна')
@@ -195,7 +195,7 @@ it('sends a campaign to subscribed contacts only, once per address', function ()
     Queue::assertPushedOn('sender', SendMessageJob::class);
 
     $this->withToken($this->token)->getJson(senderAdmin("/campaigns/{$campaign->id}"))
-        ->assertOk()->assertJsonPath('data.stats.queued', 2)->assertJsonPath('data.stats.blocked', 1)->assertJsonPath('data.stats.pending', 0);
+        ->assertOk()->assertJsonPath('data.stats.queued', 2)->assertJsonPath('data.stats.blocked', 0)->assertJsonPath('data.stats.pending', 0);
 
     $this->withToken($this->token)->putJson(senderAdmin("/campaigns/{$campaign->id}"), ['name' => 'Другое'])->assertUnprocessable();
 });
@@ -281,4 +281,23 @@ it('numbers addresses pasted on one line separated by spaces', function (): void
         ->assertJsonPath('data.added', 2)
         ->assertJsonPath('data.skipped_rows.0.line', 2)
         ->assertJsonPath('data.duplicate_rows.0', ['line' => 2, 'email' => 'a@example.com', 'first_line' => 1]);
+});
+
+it('keeps unsubscribe links working after the campaign is deleted', function (): void {
+    Queue::fake();
+    $this->list->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'anna@example.com', 'name' => 'Анна']);
+    $campaign = $this->organization->campaigns()->create(['name' => 'Ноябрь', 'template_id' => $this->template->id, 'list_id' => $this->list->id, 'status' => Campaign::STATUS_SENDING]);
+    app(CampaignService::class)->prepare($campaign);
+    $message = Message::query()->where('campaign_id', $campaign->id)->firstOrFail();
+    $campaign->update(['status' => Campaign::STATUS_SENT]);
+
+    $this->withToken($this->token)->deleteJson(senderAdmin("/campaigns/{$campaign->id}"))->assertOk();
+    expect($message->fresh()->campaign_id)->toBeNull();
+
+    $this->post('/sender/unsubscribe/'.$message->uuid)->assertOk()->assertSee('Вы отписались');
+    expect(Suppression::query()->where('email', 'anna@example.com')->value('reason'))->toBe(Suppression::REASON_UNSUBSCRIBE);
+
+    // у служебного письма ссылки отписки нет
+    $service = app(App\Sender\Services\MessageService::class)->send($this->organization, $this->template, 'petr@example.com');
+    $this->post('/sender/unsubscribe/'.$service->uuid)->assertStatus(410);
 });

@@ -288,12 +288,13 @@ it('remembers an unsubscribe for bases imported later and clears the consent on 
     // свежая выгрузка в новую базу: отписавшемуся письмо рассылки не уходит
     $fresh = $this->organization->lists()->create(['name' => 'Выгрузка с сайта']);
     $fresh->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'doctor1@example.com']);
+    $fresh->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'colleague@example.com']);
     $next = $this->organization->campaigns()->create(['name' => 'Декабрь', 'template_id' => $this->template->id, 'list_id' => $fresh->id, 'status' => Campaign::STATUS_DRAFT]);
     app(CampaignService::class)->start($next->load(['template', 'list']));
     app(CampaignService::class)->prepare($next->fresh());
 
-    expect($next->messages()->value('status'))->toBe(Message::STATUS_BLOCKED)
-        ->and($next->messages()->value('error'))->toContain('отписался');
+    expect($next->fresh()->recipients_count)->toBe(1)
+        ->and($next->messages()->pluck('to_email')->all())->toBe(['colleague@example.com']);
 
     // снова включил галочку на сайте — рассылки снова можно отправлять
     $siteUser->fresh()->update(['newsletter_consent' => true]);
@@ -316,4 +317,22 @@ it('accepts consent changes through the api', function (): void {
     expect(Suppression::query()->where('email', 'dead@example.com')->exists())->toBeTrue();
 
     $this->withToken($key)->putJson('/api/sender/v1/subscriptions', ['email' => 'nope'])->assertUnprocessable()->assertJsonValidationErrors(['email', 'subscribed']);
+});
+
+it('keeps at most a window of letters of one campaign in the queue and tops it up as they go', function (): void {
+    Queue::fake();
+    $this->travelTo(CarbonImmutable::parse('2026-10-12 10:00', 'Europe/Moscow'));
+    $campaign = dripCampaign(CampaignService::QUEUE_WINDOW + 200, ['send_mode' => Campaign::MODE_NOW, 'batch_size' => null, 'batch_interval' => null]);
+    $service = app(CampaignService::class);
+    $service->start($campaign->load(['template', 'list']));
+    $service->prepare($campaign->fresh());
+
+    expect(statuses($campaign)['queued'])->toBe(CampaignService::QUEUE_WINDOW);
+
+    $this->travel(1)->minutes();
+    expect($service->tick($campaign->fresh()))->toBe(0);
+
+    $campaign->messages()->where('status', Message::STATUS_QUEUED)->orderBy('id')->limit(150)->update(['status' => Message::STATUS_SENT]);
+    $this->travel(1)->minutes();
+    expect($service->tick($campaign->fresh()))->toBe(150);
 });

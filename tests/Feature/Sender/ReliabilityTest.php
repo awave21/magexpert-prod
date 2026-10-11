@@ -119,3 +119,18 @@ it('puts back letters whose queue job was lost, without sending them twice', fun
     expect(Mail::mailer('array')->getSymfonyTransport()->messages())->toHaveCount(1)
         ->and($recent->fresh()->status)->toBe(Message::STATUS_QUEUED);
 });
+
+it('returns a letter to the queue when its template fails to render', function (): void {
+    $message = reliabilityMessage(Message::STATUS_QUEUED);
+    $this->mock(TemplateRenderer::class)->shouldReceive('render')->andThrow(new RuntimeException('Сломанный шаблон'));
+
+    expect(fn () => (new SendMessageJob($message->id))->handle(app(TemplateRenderer::class), app(Transport::class)))
+        ->toThrow(RuntimeException::class);
+
+    expect($message->fresh()->status)->toBe(Message::STATUS_QUEUED)
+        ->and($message->fresh()->error)->toBe('Сломанный шаблон');
+
+    // после последней попытки письмо становится ошибкой, а не висит «отправляется»
+    (new SendMessageJob($message->id))->failed(new RuntimeException('Сломанный шаблон'));
+    expect($message->fresh()->status)->toBe(Message::STATUS_FAILED);
+});

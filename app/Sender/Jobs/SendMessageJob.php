@@ -54,20 +54,21 @@ class SendMessageJob implements ShouldQueue
             return;
         }
 
-        $content = $this->withUnsubscribeLink($message, $renderer->render($message->template, $message->data ?? []));
-
-        if ($message->data['campaign_test'] ?? false) {
-            $content['subject'] = 'Тест: '.$content['subject'];
-        }
-
-        if ($message->tracked) {
-            $content['html'] = ($tracking ?? app(TrackingService::class))->apply($message, $content['html'], $message->data['unsubscribe_url'] ?? null);
-        }
-
+        // любая ошибка после захвата (шаблон, трекинг, Postfix) возвращает письмо в очередь: иначе оно навсегда
+        // осталось бы «отправляется», повтор задачи не смог бы его забрать, а failed() не сработал бы
         try {
+            $content = $this->withUnsubscribeLink($message, $renderer->render($message->template, $message->data ?? []));
+
+            if ($message->data['campaign_test'] ?? false) {
+                $content['subject'] = 'Тест: '.$content['subject'];
+            }
+
+            if ($message->tracked) {
+                $content['html'] = ($tracking ?? app(TrackingService::class))->apply($message, $content['html'], $message->data['unsubscribe_url'] ?? null);
+            }
+
             $transport->send($message, $content);
         } catch (Throwable $exception) {
-            // Postfix не принял письмо: оно снова ждёт, следующую попытку сделает очередь
             Message::query()->whereKey($message->id)->update([
                 'status' => Message::STATUS_QUEUED,
                 'error' => mb_substr($exception->getMessage(), 0, 1000),

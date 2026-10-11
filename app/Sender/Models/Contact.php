@@ -58,11 +58,15 @@ class Contact extends SenderModel
     }
 
     /**
-     * Кому уйдёт рассылка: подписан и адрес не забракован проверкой (непроверенные тоже получают).
+     * Кому уйдёт рассылка: подписан, адрес не забракован проверкой (непроверенные тоже получают)
+     * и не в блок-листе организации (отказ, жалоба, отписка из другой базы).
      */
     public function scopeDeliverable(Builder $query): void
     {
         $query->whereNull('unsubscribed_at')
-            ->where(fn (Builder $q) => $q->whereNull('check_status')->orWhereNotIn('check_status', EmailChecker::UNDELIVERABLE));
+            ->where(fn (Builder $q) => $q->whereNull('check_status')->orWhereNotIn('check_status', EmailChecker::UNDELIVERABLE))
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('sender_suppressions')
+                ->whereColumn('sender_suppressions.organization_id', 'sender_contacts.organization_id')
+                ->whereColumn('sender_suppressions.email', 'sender_contacts.email'));
     }
 }

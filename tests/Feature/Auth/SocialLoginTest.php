@@ -60,6 +60,42 @@ it('links yandex to an existing account with the same email', function (): void 
     expect($user->socialAccounts()->where('provider', 'yandex')->value('provider_user_id'))->toBe('222');
 });
 
+it('finds an old account with a mixed-case email when signing in with yandex', function (): void {
+    $user = User::factory()->create(['email' => 'Ivanov@Mail.ru']);
+    fakeSocialUser('yandex', ['id' => '333', 'first_name' => 'Иван'], 'ivanov@mail.ru');
+
+    $this->get('/auth/yandex/callback?code=x')->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticatedAs($user);
+    expect(User::query()->count())->toBe(1);
+});
+
+it('does not open an account by an email from vk: the person signs in with a password first', function (): void {
+    $victim = User::factory()->create(['email' => 'anna@clinic.ru']);
+    fakeSocialUser('vkid', ['id' => 'v-attacker', 'first_name' => 'Чужой', 'phone' => '+79990001122'], 'anna@clinic.ru');
+
+    $this->get('/auth/vkid/callback?code=x&device_id=d')->assertRedirect(route('social.complete'));
+    $this->assertGuest();
+
+    $this->post(route('social.store'), ['first_name' => 'Чужой', 'last_name' => 'Человек', 'privacy_consent' => true, 'oferta_consent' => true])
+        ->assertSessionHasErrors('email');
+
+    expect($victim->fresh()->socialAccounts()->count())->toBe(0)
+        ->and($victim->fresh()->phone_verified_at)->toBeNull()
+        ->and(User::query()->count())->toBe(1);
+});
+
+it('does not replace a yandex profile already linked to the account found by email', function (): void {
+    $user = User::factory()->create(['email' => 'anna@yandex.ru']);
+    $user->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => 'own']);
+    fakeSocialUser('yandex', ['id' => 'other', 'first_name' => 'Анна'], 'anna@yandex.ru');
+
+    $this->get('/auth/yandex/callback?code=x')->assertRedirect(route('social.complete'));
+
+    $this->assertGuest();
+    expect($user->socialAccounts()->value('provider_user_id'))->toBe('own');
+});
+
 it('creates a new account after the consents screen', function (): void {
     fakeSocialUser('yandex', ['id' => '333', 'first_name' => 'Пётр', 'last_name' => 'Сидоров'], 'petr@yandex.ru');
 

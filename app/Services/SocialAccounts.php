@@ -13,6 +13,12 @@ class SocialAccounts
 {
     public const NAMES = ['yandex' => 'Яндекс', 'vkid' => 'ВКонтакте'];
 
+    /**
+     * Провайдеры, которые отдают только подтверждённую почту: по ней вход привязывается к существующему аккаунту сразу.
+     * Почту из ВКонтакте подтверждённой не считаем — иначе чужой профиль с вашим email открывал бы ваш аккаунт.
+     */
+    public const TRUSTED_EMAIL = ['yandex'];
+
     public const PHONE_FILLED = 'filled';
 
     public const PHONE_VERIFIED = 'verified';
@@ -77,6 +83,14 @@ class SocialAccounts
         $phone = $provider === 'yandex' ? ($raw['default_phone']['number'] ?? null) : ($raw['phone'] ?? null);
 
         return is_scalar($phone) ? $this->normalize((string) $phone) : null;
+    }
+
+    /**
+     * Пользователь с таким email без учёта регистра: старые аккаунты сохранены как ввели, например Ivanov@Mail.ru.
+     */
+    public function userByEmail(string $email): ?User
+    {
+        return $email === '' ? null : User::query()->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
     }
 
     public function message(string $provider, string $phoneStatus): string

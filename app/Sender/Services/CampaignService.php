@@ -26,6 +26,12 @@ class CampaignService
      */
     public const PREPARE_PER_JOB = 5000;
 
+    /**
+     * Сколько писем одной рассылки может одновременно стоять в Redis: очередь пополняется по мере отправки,
+     * поэтому письмо ждёт воркер минуты, а не часы, и не попадает под восстановление «потерянных» задач.
+     */
+    public const QUEUE_WINDOW = 1000;
+
     public function __construct(
         private readonly MessageService $messages,
         private readonly CampaignSchedule $schedule,
@@ -50,11 +56,6 @@ class CampaignService
 
         if ($campaign->list === null) {
             $errors['list_id'] = 'Выберите базу подписчиков';
-        }
-
-        // база из приложения обновляется перед запуском: письмо получат те, кто согласен на рассылку сейчас
-        if ($campaign->isDraft() && $campaign->list?->isSynced()) {
-            $this->sources->sync($campaign->list);
         }
 
         $recipients = $campaign->list?->contacts()->deliverable()->inSegment($campaign->segment)->count() ?? 0;
@@ -101,6 +102,11 @@ class CampaignService
             $campaign->forceFill(['status' => Campaign::STATUS_SENT, 'finished_at' => now()])->save();
 
             return null;
+        }
+
+        // база из приложения обновляется в начале подготовки, в фоне: письмо получат те, кто согласен на рассылку сейчас
+        if ($afterContactId === 0 && $campaign->list->isSynced()) {
+            $this->sources->sync($campaign->list);
         }
 
         $contacts = $campaign->list->contacts()->deliverable()->inSegment($campaign->segment)
@@ -188,11 +194,11 @@ class CampaignService
 
         $limit = $this->batchLimit($campaign, $now);
 
-        if ($limit !== null && $limit <= 0) {
+        if ($limit <= 0) {
             return 0;
         }
 
-        $ids = (clone $pending)->orderBy('id')->when($limit !== null, fn ($query) => $query->limit($limit))->pluck('id')->all();
+        $ids = (clone $pending)->orderBy('id')->limit($limit)->pluck('id')->all();
 
         // письмо, которое успели отменить между выборкой и отправкой, задача отправки пропустит сама
         foreach (array_chunk($ids, 1000) as $chunk) {
@@ -433,11 +439,11 @@ class CampaignService
     }
 
     /**
-     * Размер следующей пачки с учётом дневного лимита рассылки и часового лимита сервера. null — без ограничения.
+     * Размер следующей пачки с учётом окна очереди, дневного лимита рассылки, прогрева и часового лимита сервера.
      */
-    private function batchLimit(Campaign $campaign, CarbonImmutable $now): ?int
+    private function batchLimit(Campaign $campaign, CarbonImmutable $now): int
     {
-        $limits = [];
+        $limits = [self::QUEUE_WINDOW - $campaign->messages()->whereIn('status', [Message::STATUS_QUEUED, Message::STATUS_SENDING])->count()];
 
         if ($campaign->isDrip()) {
             $limits[] = (int) $campaign->batch_size;
@@ -466,7 +472,7 @@ class CampaignService
                 ->count();
         }
 
-        return $limits === [] ? null : min($limits);
+        return min($limits);
     }
 
     private function dispatchedToday(Campaign $campaign, CarbonInterface $now): int

@@ -53,9 +53,15 @@ class UnsubscribeController extends Controller
         return $this->page('Вы отписались', 'Рассылки на адрес '.e($message->to_email).' больше не будут приходить.', true);
     }
 
+    /**
+     * Письмо рассылки узнаётся по своей ссылке отписки в данных, а не по campaign_id:
+     * после удаления рассылки campaign_id обнуляется, а ссылки в уже отправленных письмах должны работать.
+     */
     private function message(string $uuid): ?Message
     {
-        return Message::query()->with('organization')->where('uuid', $uuid)->whereNotNull('campaign_id')->first();
+        $message = Message::query()->with('organization')->where('uuid', $uuid)->first();
+
+        return $message !== null && str_ends_with((string) ($message->data['unsubscribe_url'] ?? ''), '/unsubscribe/'.$uuid) ? $message : null;
     }
 
     private function isUnsubscribed(Message $message): bool
