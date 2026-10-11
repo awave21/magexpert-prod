@@ -88,11 +88,14 @@ export type ImportResult = {
   rows: number; added: number; updated: number; duplicates: number; skipped: number; columns: string[]
   skipped_rows: { line: number; value: string }[]; duplicate_rows: { line: number; email: string; first_line: number }[]
 }
-export type CampaignStats = { queued: number; sent: number; delivered: number; bounced: number; failed: number; blocked: number; opened: number; clicked: number; links: { url: string; clicks: number }[] }
+export type CampaignStats = { pending: number; cancelled: number; queued: number; sent: number; delivered: number; bounced: number; failed: number; blocked: number; opened: number; clicked: number; links: { url: string; clicks: number }[] }
 export type Campaign = {
-  id: number; name: string; status: 'draft' | 'sending' | 'sent'
+  id: number; name: string; status: 'draft' | 'scheduled' | 'sending' | 'paused' | 'cancelled' | 'sent'
   template: { id: number; name: string } | null; list: { id: number; name: string } | null
   recipients_count: number; track: boolean; stats: CampaignStats | null; subscribed_count: number | null
+  send_mode: 'now' | 'drip'; batch_size: number | null; batch_interval: number | null; daily_limit: number | null
+  window_start: string | null; window_end: string | null; window_days: number[] | null
+  scheduled_at: string | null; next_batch_at: string | null; estimated_finish_at: string | null; prepared: boolean
   started_at: string | null; finished_at: string | null; created_at: string
 }
 

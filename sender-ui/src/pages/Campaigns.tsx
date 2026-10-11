@@ -11,7 +11,7 @@ export default function Campaigns() {
   const q = useQuery({
     queryKey: ['campaigns'],
     queryFn: () => api<{ data: Campaign[] }>('/campaigns'),
-    refetchInterval: (query) => (query.state.data?.data.some((c) => c.status === 'sending' || (c.stats?.queued ?? 0) > 0) ? 4000 : false),
+    refetchInterval: (query) => (query.state.data?.data.some((c) => c.status === 'sending' || c.status === 'scheduled' || (c.stats?.queued ?? 0) > 0) ? 4000 : false),
   })
   const list = q.data?.data ?? []
   const create = () => nav('/campaigns/new')

@@ -8,7 +8,7 @@ use Laravel\Socialite\Two\User as SocialiteUser;
 
 beforeEach(function (): void {
     $this->migrateSenderDatabase();
-    config(['services.yandex.client_id' => 'id', 'services.vkid.client_id' => 'id', 'sender.ui_url' => null]);
+    config(['services.yandex.client_id' => 'id', 'services.vkid.client_id' => 'id', 'sender.ui_url' => null, 'sender.registration' => true]);
 });
 
 function senderSocial(string $provider, string $id, ?string $email, string $first = 'Анна', string $last = 'Иванова'): void
@@ -71,6 +71,20 @@ it('registers a new organization after vk login without a password', function ()
 
     $this->postJson('/api/sender/v1/admin/oauth/register', ['code' => $code, 'organization' => 'Ещё', 'email' => 'x@y.ru', 'accept_policy' => true])
         ->assertUnprocessable()->assertJsonValidationErrors('code');
+});
+
+it('sends an unknown social account back to login while registration is closed', function (): void {
+    config(['sender.registration' => false]);
+    senderSocial('yandex', 'y5', 'stranger@yandex.ru');
+
+    $location = urldecode((string) $this->get('/sender/oauth/yandex/callback?code=x&state=s')->headers->get('Location'));
+
+    expect($location)->toContain('/sender/login?error=')->toContain('Регистрация закрыта');
+
+    $this->postJson('/api/sender/v1/admin/oauth/register', ['code' => 'any', 'organization' => 'Чужие', 'email' => 'x@y.ru', 'accept_policy' => true])
+        ->assertForbidden();
+    expect(Organization::query()->count())->toBe(0);
+    $this->getJson('/api/sender/v1/admin/oauth/providers')->assertOk()->assertJsonPath('registration', false);
 });
 
 it('returns to the login page with a message when cancelled or not configured', function (): void {

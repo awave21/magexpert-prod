@@ -144,6 +144,9 @@ export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>
 export function CampaignStatus({ campaign }: { campaign: { status: string; stats: { queued: number; sent: number; failed: number; blocked: number; bounced?: number } | null } }) {
   const s = campaign.stats
   if (campaign.status === 'draft') return <span className="status neutral"><i />Черновик</span>
+  if (campaign.status === 'scheduled') return <span className="status neutral"><i />Запланирована</span>
+  if (campaign.status === 'paused') return <span className="status warn"><i />На паузе</span>
+  if (campaign.status === 'cancelled') return <span className="status err"><i />Отменена</span>
   if (campaign.status === 'sending' || (s?.queued ?? 0) > 0) return <span className="status warn"><i />Отправляется</span>
   const missed = (s?.failed ?? 0) + (s?.blocked ?? 0) + (s?.bounced ?? 0)
   if (missed > 0 && (s?.sent ?? 0) === 0) return <span className="status err"><i />Не отправлена</span>

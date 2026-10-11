@@ -5,6 +5,17 @@ import { api } from '../api'
 // Провайдер без ключей на сервере не показывается.
 const base = () => (window.location.pathname.startsWith('/sender') ? '/sender/' : '/')
 
+/** Открыта ли самостоятельная регистрация организаций: null — ещё не знаем. */
+export function useRegistrationOpen(): boolean | null {
+  const [open, setOpen] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    api<{ registration?: boolean }>('/oauth/providers').then((r) => setOpen(Boolean(r.registration))).catch(() => setOpen(false))
+  }, [])
+
+  return open
+}
+
 export function SocialButtons({ divider }: { divider: string }) {
   const [providers, setProviders] = useState<string[]>([])
 

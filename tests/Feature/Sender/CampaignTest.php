@@ -2,6 +2,7 @@
 
 use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Jobs\SendCampaignJob;
+use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Models\Campaign;
 use App\Sender\Models\Contact;
 use App\Sender\Models\Domain;
@@ -176,9 +177,10 @@ it('sends a campaign to subscribed contacts only, once per address', function ()
 
     Queue::assertPushedOn('sender', SendCampaignJob::class);
 
+    // подготовка, запущенная дважды (повтор задачи), не дублирует письма
     $service = app(CampaignService::class);
-    $service->dispatchMessages($campaign->fresh());
-    $service->dispatchMessages($campaign->fresh()->forceFill(['status' => Campaign::STATUS_SENDING]));
+    $service->prepare($campaign->fresh());
+    $service->prepare($campaign->fresh());
 
     $messages = Message::query()->where('campaign_id', $campaign->id)->get();
 
@@ -188,10 +190,12 @@ it('sends a campaign to subscribed contacts only, once per address', function ()
         ->and($messages->firstWhere('to_email', 'anna@example.com')->from_email)->toBe('news@mag-expert.ru')
         ->and($messages->firstWhere('to_email', 'anna@example.com')->data['unsubscribe_url'])->toContain('/unsubscribe/')
         ->and($messages->firstWhere('to_email', 'anna@example.com')->data['first_name'])->toBe('Анна')
-        ->and($campaign->fresh()->status)->toBe(Campaign::STATUS_SENT);
+        ->and($campaign->fresh()->status)->toBe(Campaign::STATUS_SENDING);
+
+    Queue::assertPushedOn('sender', SendMessageJob::class);
 
     $this->withToken($this->token)->getJson(senderAdmin("/campaigns/{$campaign->id}"))
-        ->assertOk()->assertJsonPath('data.stats.queued', 2)->assertJsonPath('data.stats.blocked', 1);
+        ->assertOk()->assertJsonPath('data.stats.queued', 2)->assertJsonPath('data.stats.blocked', 1)->assertJsonPath('data.stats.pending', 0);
 
     $this->withToken($this->token)->putJson(senderAdmin("/campaigns/{$campaign->id}"), ['name' => 'Другое'])->assertUnprocessable();
 });
@@ -200,7 +204,7 @@ it('adds the unsubscribe link and headers to campaign mail', function (): void {
     $contact = $this->list->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'anna@example.com', 'name' => 'Анна', 'data' => ['city' => 'Казань']]);
     $campaign = $this->organization->campaigns()->create(['name' => 'Ноябрь', 'template_id' => $this->template->id, 'list_id' => $this->list->id, 'status' => Campaign::STATUS_SENDING]);
 
-    app(CampaignService::class)->dispatchMessages($campaign);
+    app(CampaignService::class)->prepare($campaign);
     $message = Message::query()->where('campaign_id', $campaign->id)->firstOrFail();
 
     $sent = Mail::mailer('array')->getSymfonyTransport()->messages()->first()->getOriginalMessage();

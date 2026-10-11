@@ -3,26 +3,26 @@
 namespace App\Sender\Client;
 
 use App\Sender\Contracts\SenderClient;
+use App\Sender\Contracts\SubscriptionClient;
 use App\Sender\Models\Message;
 use App\Sender\Models\Organization;
 use App\Sender\Services\MessageService;
+use App\Sender\Services\SubscriptionService;
 use RuntimeException;
 
 /**
  * Клиент для случая, когда Sender работает в том же приложении (без HTTP).
  */
-class LocalSenderClient implements SenderClient
+class LocalSenderClient implements SenderClient, SubscriptionClient
 {
-    public function __construct(private readonly MessageService $messages) {}
+    public function __construct(
+        private readonly MessageService $messages,
+        private readonly SubscriptionService $subscriptions,
+    ) {}
 
     public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
     {
-        $slug = (string) config('sender.client.organization');
-        $organization = Organization::query()->where('slug', $slug)->first();
-
-        if ($organization === null) {
-            throw new RuntimeException("Организация Sender '{$slug}' не найдена");
-        }
+        $organization = $this->organization();
 
         $templateModel = $organization->templates()->where('slug', $template)->first();
 
@@ -33,6 +33,21 @@ class LocalSenderClient implements SenderClient
         $message = $this->messages->send($organization, $templateModel, $to, $from, $fromName, $data);
 
         return $this->payload($message);
+    }
+
+    public function setSubscription(string $email, bool $subscribed): void
+    {
+        $subscribed
+            ? $this->subscriptions->resubscribe($this->organization(), $email)
+            : $this->subscriptions->unsubscribe($this->organization(), $email);
+    }
+
+    private function organization(): Organization
+    {
+        $slug = (string) config('sender.client.organization');
+
+        return Organization::query()->where('slug', $slug)->first()
+            ?? throw new RuntimeException("Организация Sender '{$slug}' не найдена");
     }
 
     /**

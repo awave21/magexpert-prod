@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 import { api, ApiError, type User } from '../api'
-import { SocialButtons } from '../components/SocialButtons'
+import { SocialButtons, useRegistrationOpen } from '../components/SocialButtons'
 import { useAuth } from '../auth'
 import { AuthAside } from './AuthAside'
 import { PasswordInput } from '../components/ui'
@@ -14,6 +14,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const registration = useRegistrationOpen()
 
   // возврат после Яндекса или ВКонтакте: одноразовый код меняем на токен, ошибку показываем
   useEffect(() => {
@@ -59,7 +60,7 @@ export default function Login() {
             <button className="btn primary lg" disabled={busy || !email || !password}>{busy ? 'Входим…' : 'Войти'}</button>
           </form>
           <SocialButtons divider="или" />
-          <p style={{ color: 'var(--ink-2)' }}>Нет аккаунта? <Link to="/register" style={{ fontWeight: 500 }}>Зарегистрироваться</Link></p>
+          {registration && <p style={{ color: 'var(--ink-2)' }}>Нет аккаунта? <Link to="/register" style={{ fontWeight: 500 }}>Зарегистрироваться</Link></p>}
           <p className="sub"><Link to="/privacy">Политика обработки персональных данных</Link></p>
         </div>
       </section>

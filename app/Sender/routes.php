@@ -17,6 +17,7 @@ use App\Sender\Http\Controllers\Admin\VariableController;
 use App\Sender\Http\Controllers\ConfirmSenderAddressController;
 use App\Sender\Http\Controllers\MessageController;
 use App\Sender\Http\Controllers\OAuthController;
+use App\Sender\Http\Controllers\SubscriptionController;
 use App\Sender\Http\Controllers\TrackController;
 use App\Sender\Http\Controllers\UnsubscribeController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
@@ -25,9 +26,10 @@ use App\Sender\Support\SenderUi;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
-    Route::middleware(AuthenticateApiKey::class)->group(function (): void {
+    Route::middleware([AuthenticateApiKey::class, 'throttle:sender-api'])->group(function (): void {
         Route::post('messages', [MessageController::class, 'store']);
         Route::get('messages/{uuid}', [MessageController::class, 'show']);
+        Route::put('subscriptions', [SubscriptionController::class, 'update']);
     });
 
     Route::prefix('admin')->name('sender.admin.')->group(function (): void {
@@ -99,6 +101,9 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::get('campaigns/{campaign}', [CampaignController::class, 'show'])->name('campaigns.show');
             Route::put('campaigns/{campaign}', [CampaignController::class, 'update'])->name('campaigns.update');
             Route::post('campaigns/{campaign}/send', [CampaignController::class, 'send'])->name('campaigns.send');
+            Route::post('campaigns/{campaign}/pause', [CampaignController::class, 'pause'])->name('campaigns.pause');
+            Route::post('campaigns/{campaign}/resume', [CampaignController::class, 'resume'])->name('campaigns.resume');
+            Route::post('campaigns/{campaign}/cancel', [CampaignController::class, 'cancel'])->name('campaigns.cancel');
             Route::delete('campaigns/{campaign}', [CampaignController::class, 'destroy'])->name('campaigns.destroy');
 
             Route::get('messages', [AdminMessageController::class, 'index'])->name('messages.index');

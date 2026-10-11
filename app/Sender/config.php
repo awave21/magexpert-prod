@@ -2,7 +2,20 @@
 
 return [
     'connection' => env('SENDER_DB_CONNECTION', 'sender'),
+    // очередь писем рассылок
     'queue' => env('SENDER_QUEUE', 'sender'),
+    // очередь служебных писем (сброс пароля, подтверждение почты): воркер берёт её первой,
+    // поэтому такие письма не ждут, пока уйдёт рассылка
+    'transactional_queue' => env('SENDER_TRANSACTIONAL_QUEUE', 'sender-transactional'),
+    // самостоятельная регистрация организаций: пока выключена, новых пользователей создаёт sender:user-create
+    'registration' => (bool) env('SENDER_REGISTRATION', false),
+    // сколько писем всех рассылок можно поставить в очередь за час: IP один на все рассылки, при прогреве его ограничивают.
+    // Пусто или 0 — без ограничения. Служебные письма не считаются.
+    'hourly_limit' => (int) env('SENDER_HOURLY_LIMIT', 0),
+    // сколько запросов в минуту принимает API отправки от одной организации
+    'api_per_minute' => (int) env('SENDER_API_PER_MINUTE', 300),
+    // часовой пояс окна отправки рассылок
+    'timezone' => env('SENDER_TIMEZONE', 'Europe/Moscow'),
     'max_attempts' => (int) env('SENDER_MAX_ATTEMPTS', 3),
     'dkim_selector' => env('SENDER_DKIM_SELECTOR', 'mail'),
     'server_ip' => env('SENDER_SERVER_IP'),

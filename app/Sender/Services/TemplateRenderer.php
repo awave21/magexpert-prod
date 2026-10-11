@@ -23,10 +23,20 @@ class TemplateRenderer
         }
 
         return [
-            'subject' => $this->replace($template->subject, $data, false),
+            'subject' => $this->renderSubject($template, $data),
             'html' => $html,
             'text' => $template->body_text === null ? null : $this->replace($template->body_text, $data, false),
         ];
+    }
+
+    /**
+     * Только тема письма: для подготовки тысяч писем рассылки без сборки HTML.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function renderSubject(Template $template, array $data): string
+    {
+        return $this->replace($template->subject, $data, false);
     }
 
     /**

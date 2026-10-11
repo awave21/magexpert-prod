@@ -19,6 +19,7 @@ class MessageService
 
     /**
      * Ставит письмо в очередь. Если отправка запрещена, письмо сохраняется со статусом blocked.
+     * Служебные письма идут в свою очередь, чтобы не ждать рассылок.
      *
      * @param  array<string, mixed>  $data
      */
@@ -40,14 +41,7 @@ class MessageService
             $data['unsubscribe_url'] = SenderUi::url('unsubscribe/'.$uuid);
         }
 
-        // настройки отправителя в шаблоне главнее значений из запроса: приложению достаточно передать шаблон
-        $sender = $template->senderAddress;
-        $fromEmail = Str::lower(trim((string) ($sender?->email ?: $fromEmail)));
-        $fromName = $sender?->name ?: $fromName;
-
-        $domain = $organization->domains()
-            ->where('domain', Str::after($fromEmail, '@'))
-            ->first();
+        [$fromEmail, $fromName, $domain, $sender] = $this->sender($organization, $template, $fromEmail, $fromName);
 
         $message = $organization->messages()->make([
             'uuid' => $uuid,
@@ -59,12 +53,16 @@ class MessageService
             'from_email' => $fromEmail,
             'from_name' => $fromName,
             'reply_to' => $template->reply_to,
-            'subject' => $this->renderer->render($template, $data)['subject'],
+            'subject' => $this->renderer->renderSubject($template, $data),
             'status' => Message::STATUS_QUEUED,
             'data' => $data,
         ]);
 
-        $blockReason = $this->blockReason($organization, $domain, $to, $fromEmail, $sender);
+        $blockReason = $this->senderBlockReason($domain, $fromEmail, $sender)
+            ?? $this->suppressionReason(Suppression::query()
+                ->where('organization_id', $organization->id)
+                ->where('email', $to)
+                ->value('reason'), $campaign !== null);
 
         if ($blockReason !== null) {
             $message->fill(['status' => Message::STATUS_BLOCKED, 'error' => $blockReason])->save();
@@ -72,11 +70,79 @@ class MessageService
             return $message;
         }
 
+        if ($campaign !== null) {
+            $message->dispatched_at = now();
+        }
+
         $message->save();
 
-        SendMessageJob::dispatch($message->id)->onQueue(config('sender.queue'));
+        $this->dispatch($message);
 
         return $message;
+    }
+
+    /**
+     * Готовит письма рассылки пачкой, не отправляя их: статус pending, в очередь их ставит sender:campaigns-tick.
+     * Проверки отправителя делаются один раз, блок-лист — одним запросом на пачку.
+     * Адреса, которым письмо этой рассылки уже подготовлено, пропускаются (уникальный индекс).
+     *
+     * @param  array<string, array<string, mixed>>  $recipients  email => переменные подписчика
+     * @return int сколько писем добавлено
+     */
+    public function prepareCampaignMessages(Campaign $campaign, array $recipients): int
+    {
+        if ($recipients === []) {
+            return 0;
+        }
+
+        $organization = $campaign->organization;
+        $template = $campaign->template;
+        $defaults = $this->defaults($organization);
+
+        [$fromEmail, $fromName, $domain, $sender] = $this->sender($organization, $template, null, null);
+        $senderReason = $this->senderBlockReason($domain, $fromEmail, $sender);
+
+        $suppressed = Suppression::query()
+            ->where('organization_id', $organization->id)
+            ->whereIn('email', array_keys($recipients))
+            ->pluck('reason', 'email');
+
+        $now = now();
+        $rows = [];
+
+        foreach ($recipients as $email => $variables) {
+            $uuid = (string) Str::uuid();
+            $data = array_merge($defaults, $variables, ['unsubscribe_url' => SenderUi::url('unsubscribe/'.$uuid)]);
+            $reason = $senderReason ?? $this->suppressionReason($suppressed[$email] ?? null, true);
+
+            $rows[] = [
+                'uuid' => $uuid,
+                'organization_id' => $organization->id,
+                'domain_id' => $domain?->id,
+                'template_id' => $template->id,
+                'campaign_id' => $campaign->id,
+                'tracked' => (bool) $campaign->track,
+                'to_email' => $email,
+                'from_email' => $fromEmail,
+                'from_name' => $fromName,
+                'reply_to' => $template->reply_to,
+                'subject' => $this->renderer->renderSubject($template, $data),
+                'status' => $reason === null ? Message::STATUS_PENDING : Message::STATUS_BLOCKED,
+                'error' => $reason,
+                'data' => json_encode($data, JSON_UNESCAPED_UNICODE),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        return Message::query()->insertOrIgnore($rows);
+    }
+
+    public function dispatch(Message $message): void
+    {
+        $queue = $message->campaign_id !== null ? config('sender.queue') : config('sender.transactional_queue');
+
+        SendMessageJob::dispatch($message->id)->onQueue($queue);
     }
 
     /**
@@ -89,7 +155,25 @@ class MessageService
         return $organization->variables()->whereNotNull('default_value')->where('default_value', '!=', '')->pluck('default_value', 'key')->all();
     }
 
-    private function blockReason(Organization $organization, ?Domain $domain, string $to, string $fromEmail, ?SenderAddress $sender = null): ?string
+    /**
+     * Настройки отправителя в шаблоне главнее значений из запроса: приложению достаточно передать шаблон.
+     *
+     * @return array{0: string, 1: string|null, 2: Domain|null, 3: SenderAddress|null}
+     */
+    private function sender(Organization $organization, Template $template, ?string $fromEmail, ?string $fromName): array
+    {
+        $sender = $template->senderAddress;
+        $fromEmail = Str::lower(trim((string) ($sender?->email ?: $fromEmail)));
+        $fromName = $sender?->name ?: $fromName;
+
+        $domain = $organization->domains()
+            ->where('domain', Str::after($fromEmail, '@'))
+            ->first();
+
+        return [$fromEmail, $fromName, $domain, $sender];
+    }
+
+    private function senderBlockReason(?Domain $domain, string $fromEmail, ?SenderAddress $sender): ?string
     {
         if ($fromEmail === '') {
             return 'Не указан адрес отправителя: задайте его в настройках шаблона';
@@ -103,11 +187,22 @@ class MessageService
             return 'Домен отправителя не подтверждён';
         }
 
-        $suppressed = Suppression::query()
-            ->where('organization_id', $organization->id)
-            ->where('email', $to)
-            ->exists();
+        return null;
+    }
 
-        return $suppressed ? 'Адрес получателя в списке блокировок' : null;
+    /**
+     * Отписка запрещает только рассылки: служебные письма (сброс пароля) отписавшемуся по-прежнему нужны.
+     */
+    private function suppressionReason(?string $reason, bool $isCampaign): ?string
+    {
+        if ($reason === null) {
+            return null;
+        }
+
+        if ($reason === Suppression::REASON_UNSUBSCRIBE) {
+            return $isCampaign ? 'Получатель отписался от рассылок' : null;
+        }
+
+        return 'Адрес получателя в списке блокировок';
     }
 }

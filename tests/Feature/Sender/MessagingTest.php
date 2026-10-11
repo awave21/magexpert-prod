@@ -74,7 +74,7 @@ it('queues a message from a verified domain', function (): void {
         ->and($message->to_email)->toBe('user@example.com')
         ->and($message->subject)->toBe('Вы записаны: Вебинар');
 
-    Queue::assertPushedOn('sender', SendMessageJob::class);
+    Queue::assertPushedOn('sender-transactional', SendMessageJob::class);
 });
 
 it('blocks a message from an unverified domain', function (): void {
@@ -107,7 +107,7 @@ it('blocks a message to a suppressed address', function (): void {
     Suppression::create([
         'organization_id' => $this->organization->id,
         'email' => 'user@example.com',
-        'reason' => Suppression::REASON_UNSUBSCRIBE,
+        'reason' => Suppression::REASON_BOUNCE,
     ]);
 
     $message = app(MessageService::class)->send(
@@ -197,4 +197,20 @@ it('renders nested conditional blocks', function (): void {
     expect($renderer->render($template, ['password' => 'x1', 'name' => 'Анна'])['html'])->toBe('<p>Пароль: x1, Анна</p><p>Конец</p>')
         ->and($renderer->render($template, ['password' => 'x1'])['html'])->toBe('<p>Пароль: x1</p><p>Конец</p>')
         ->and($renderer->render($template, ['name' => 'Анна'])['html'])->toBe('<p>Конец</p>');
+});
+
+it('still sends service mail to an address that unsubscribed from campaigns', function (): void {
+    Queue::fake();
+    Suppression::create([
+        'organization_id' => $this->organization->id,
+        'email' => 'user@example.com',
+        'reason' => Suppression::REASON_UNSUBSCRIBE,
+    ]);
+
+    $message = app(MessageService::class)->send(
+        $this->organization, $this->template, 'user@example.com', 'noreply@mag-expert.ru',
+    );
+
+    expect($message->status)->toBe(Message::STATUS_QUEUED);
+    Queue::assertPushedOn('sender-transactional', SendMessageJob::class);
 });

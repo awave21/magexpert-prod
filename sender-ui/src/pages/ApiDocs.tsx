@@ -71,6 +71,12 @@ export default function ApiDocs() {
         </table>
         <h3>Статус письма</h3>
         <p><span className="mono">GET {origin}/api/sender/v1/messages/{'{id}'}</span> с тем же ключом. Статусы: <span className="mono">queued</span> в очереди, <span className="mono">sending</span> отправляется, <span className="mono">sent</span> отправлено, <span className="mono">failed</span> ошибка, <span className="mono">blocked</span> заблокировано.</p>
+        <p>Не больше 300 запросов в минуту на организацию, сверх лимита ответ <span className="mono">429</span>.</p>
+      </section>
+
+      <section className="api-sec">
+        <h2>Согласие на рассылки</h2>
+        <p>Когда пользователь в вашем приложении включает или выключает подписку, сообщите об этом Sender: <span className="mono">PUT {origin}/api/sender/v1/subscriptions</span> с телом <span className="mono">{'{"email": "anna@example.com", "subscribed": false}'}</span>. Отписанный адрес не получает рассылки ни из одной базы, в том числе загруженной позже. Служебные письма, например сброс пароля, отписка не затрагивает. Блокировки из-за отказов почтового сервера <span className="mono">subscribed: true</span> не снимает.</p>
       </section>
 
       <section className="api-sec">

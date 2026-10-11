@@ -2,15 +2,25 @@
 
 namespace App\Sender\Http\Requests\Admin;
 
+use App\Sender\Http\Controllers\Admin\AuthController;
 use App\Sender\Services\SocialLoginService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class OAuthRegisterRequest extends FormRequest
 {
+    /**
+     * Самостоятельная регистрация включается в настройках (SENDER_REGISTRATION), до проверки полей.
+     */
     public function authorize(): bool
     {
-        return true;
+        return (bool) config('sender.registration');
+    }
+
+    protected function failedAuthorization(): void
+    {
+        throw new AuthorizationException(AuthController::REGISTRATION_CLOSED);
     }
 
     /**

@@ -7,6 +7,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Message extends SenderModel
 {
+    /**
+     * Письмо рассылки ждёт своей пачки: в очередь его поставит sender:campaigns-tick.
+     */
+    public const STATUS_PENDING = 'pending';
+
     public const STATUS_QUEUED = 'queued';
 
     public const STATUS_SENDING = 'sending';
@@ -20,6 +25,16 @@ class Message extends SenderModel
     public const STATUS_FAILED = 'failed';
 
     public const STATUS_BLOCKED = 'blocked';
+
+    /**
+     * Рассылку отменили до того, как письмо ушло.
+     */
+    public const STATUS_CANCELLED = 'cancelled';
+
+    /**
+     * Письмо ещё может уйти: ждёт пачки, стоит в очереди или отправляется.
+     */
+    public const WAITING_STATUSES = [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_SENDING];
 
     /**
      * Письмо ушло с нашего сервера: принято Postfix или уже сервером получателя.
@@ -46,6 +61,7 @@ class Message extends SenderModel
         'error',
         'data',
         'sent_at',
+        'dispatched_at',
         'smtp_queue_id',
         'tracked',
         'delivered_at',
@@ -64,6 +80,7 @@ class Message extends SenderModel
             'data' => 'array',
             'attempts' => 'integer',
             'sent_at' => 'datetime',
+            'dispatched_at' => 'datetime',
             'tracked' => 'boolean',
             'delivered_at' => 'datetime',
             'opened_at' => 'datetime',

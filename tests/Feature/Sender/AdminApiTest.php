@@ -224,7 +224,17 @@ it('does not move a template into a folder of another organization', function ()
         ->assertJsonValidationErrors('folder_id');
 });
 
+it('refuses self-registration while it is closed', function (): void {
+    $this->postJson(adminApi().'/register', [
+        'organization' => 'Спамеры', 'name' => 'Анна', 'email' => 'spam@example.com', 'password' => 'long-password', 'accept_policy' => true,
+    ])->assertForbidden()->assertJsonPath('message', App\Sender\Http\Controllers\Admin\AuthController::REGISTRATION_CLOSED);
+
+    expect(App\Sender\Models\Organization::query()->where('name', 'Спамеры')->exists())->toBeFalse();
+});
+
 it('registers an organization with its first user', function (): void {
+    config(['sender.registration' => true]);
+
     $this->postJson(adminApi().'/register', [
         'organization' => 'Клиника Здоровье', 'name' => 'Анна', 'email' => 'Anna@Clinic.ru', 'password' => 'long-password', 'accept_policy' => true,
     ])->assertCreated()->assertJsonStructure(['token', 'user' => ['id', 'email', 'organization']])

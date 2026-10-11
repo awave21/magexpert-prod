@@ -4,7 +4,9 @@ namespace App\Sender\Http\Controllers\Admin;
 
 use App\Sender\Http\Requests\Admin\CampaignRequest;
 use App\Sender\Models\Campaign;
+use App\Sender\Services\CampaignSchedule;
 use App\Sender\Services\CampaignService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -13,7 +15,10 @@ class CampaignController extends Controller
 {
     use ResolvesOrganization;
 
-    public function __construct(private readonly CampaignService $campaigns) {}
+    public function __construct(
+        private readonly CampaignService $campaigns,
+        private readonly CampaignSchedule $schedule,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -50,13 +55,42 @@ class CampaignController extends Controller
         return response()->json(['data' => $this->present($model, true)]);
     }
 
+    public function pause(Request $request, int $campaign): JsonResponse
+    {
+        return response()->json(['data' => $this->present($this->campaigns->pause($this->find($request, $campaign)), true)]);
+    }
+
+    public function resume(Request $request, int $campaign): JsonResponse
+    {
+        return response()->json(['data' => $this->present($this->campaigns->resume($this->find($request, $campaign)), true)]);
+    }
+
+    public function cancel(Request $request, int $campaign): JsonResponse
+    {
+        return response()->json(['data' => $this->present($this->campaigns->cancel($this->find($request, $campaign)), true)]);
+    }
+
     public function destroy(Request $request, int $campaign): JsonResponse
     {
         $model = $this->find($request, $campaign);
-        abort_if($model->status === Campaign::STATUS_SENDING, 422, 'Рассылка отправляется, удалить её сейчас нельзя');
+        abort_if(in_array($model->status, [...Campaign::ACTIVE_STATUSES, Campaign::STATUS_PAUSED], true), 422, 'Рассылка запущена: сначала отмените её');
         $model->delete();
 
         return response()->json(['message' => 'Рассылка удалена']);
+    }
+
+    /**
+     * Когда уйдёт следующая пачка с учётом окна отправки: вне окна это его ближайшее открытие.
+     */
+    private function nextBatchAt(Campaign $campaign): ?CarbonImmutable
+    {
+        if ($campaign->next_batch_at === null || ! in_array($campaign->status, Campaign::ACTIVE_STATUSES, true)) {
+            return null;
+        }
+
+        $next = $campaign->next_batch_at->max(now());
+
+        return $campaign->isDrip() ? $this->schedule->nextOpening($campaign, $next) : $next;
     }
 
     private function find(Request $request, int $campaign): Campaign
@@ -79,6 +113,17 @@ class CampaignController extends Controller
             'list' => $campaign->list ? ['id' => $campaign->list->id, 'name' => $campaign->list->name] : null,
             'recipients_count' => $campaign->recipients_count,
             'track' => (bool) ($campaign->track ?? true),
+            'send_mode' => $campaign->send_mode ?? Campaign::MODE_NOW,
+            'batch_size' => $campaign->batch_size,
+            'batch_interval' => $campaign->batch_interval,
+            'daily_limit' => $campaign->daily_limit,
+            'window_start' => $campaign->window_start,
+            'window_end' => $campaign->window_end,
+            'window_days' => $campaign->window_days,
+            'scheduled_at' => $campaign->scheduled_at?->toIso8601String(),
+            'next_batch_at' => $this->nextBatchAt($campaign)?->toIso8601String(),
+            'prepared' => $campaign->prepared_at !== null,
+            'estimated_finish_at' => $detailed ? $this->campaigns->estimatedFinish($campaign)?->toIso8601String() : null,
             'stats' => $stats,
             'subscribed_count' => $detailed && $campaign->isDraft() ? ($campaign->list?->contacts()->deliverable()->count() ?? 0) : null,
             'started_at' => $campaign->started_at?->toIso8601String(),

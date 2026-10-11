@@ -67,9 +67,9 @@ sudo php artisan sender:dkim-import mag-expert.ru /etc/opendkim/keys/mag-expert.
 `php artisan sender:user-create <мой email> --name="<имя>"`: спроси у меня email и имя. Пароль сгенерируется. **Не пиши его в чат**, скажи мне посмотреть его в терминале.
 
 ## 7. Воркер очереди
-Письма Sender идут в очередь `sender`. Воркер должен её слушать, иначе письма будут висеть в статусе «В очереди».
-- Если воркер уже есть, добавь `sender` в его `--queue`, например `--queue=sender,default`. Покажи изменение конфига перед применением.
-- Если воркера нет, предложи конфиг supervisor: `php artisan queue:work redis --queue=sender,default --sleep=3 --tries=1 --max-time=3600` (повторы делает сама задача, поэтому `--tries=1`).
+Служебные письма сайта (сброс пароля, подтверждение почты) идут в очередь `sender-transactional`, письма рассылок — в `sender`. Воркер должен слушать обе, причём служебную первой: тогда сброс пароля не ждёт, пока уйдёт рассылка. Если воркер не слушает `sender-transactional`, письма сайта будут висеть в статусе «В очереди».
+- Если воркер уже есть, поменяй его `--queue` на `--queue=sender-transactional,sender,default`. Покажи изменение конфига перед применением.
+- Если воркера нет, предложи конфиг supervisor: `php artisan queue:work redis --queue=sender-transactional,sender,default --sleep=3 --tries=1 --max-time=3600` (повторы делает сама задача, поэтому `--tries=1`).
 - Затем `supervisorctl reread && supervisorctl update`.
 
 ## 8. Кэши и перезапуск
@@ -99,6 +99,13 @@ composer install --no-dev --optimize-autoloader && npm ci && npm run build
 - Не делай `git push`, не меняй ветки в репозитории.
 
 ## Обновление после новых коммитов
+Если обновление приносит плавную отправку рассылок (миграция `2026_10_10_000018_add_schedule_to_sender_campaigns_table`), до `queue:restart`:
+- поменяй `--queue` воркера на `--queue=sender-transactional,sender,default` (шаг 7), иначе письма сайта перестанут уходить;
+- перед миграцией проверь, что в рассылках нет повторных адресов, иначе уникальный индекс не создастся:
+  `php artisan tinker --execute="echo App\Sender\Models\Message::query()->whereNotNull('campaign_id')->selectRaw('campaign_id, to_email')->groupBy('campaign_id','to_email')->havingRaw('count(*) > 1')->count();"` должно быть `0`;
+- в `.env`: `SENDER_HOURLY_LIMIT` — сколько писем всех рассылок в час можно отдать Postfix (на время прогрева IP, например 300; пусто — без лимита). Регистрация новых организаций в админке выключена, включает её `SENDER_REGISTRATION=true`.
+- после выкладки `php artisan schedule:list` должен показывать `sender:campaigns-tick`: без планировщика плавные и отложенные рассылки не начнутся.
+
 ```
 git pull --ff-only origin feature/sender
 composer install --no-dev --optimize-autoloader
@@ -110,6 +117,6 @@ php artisan optimize && php artisan queue:restart
 ```
 
 ## Статусы доставки, открытия и очистка
-Статусы «Доставлено / Не доставлено» Sender берёт из журнала Postfix, а старые письма удаляет сам (срок — `SENDER_RETENTION_DAYS`, по умолчанию 365 дней, он указан в политике). Обе задачи запускает планировщик Laravel.
+Статусы «Доставлено / Не доставлено» Sender берёт из журнала Postfix, а старые письма удаляет сам (срок — `SENDER_RETENTION_DAYS`, по умолчанию 365 дней, он указан в политике). Очередные пачки плавных рассылок раз в минуту ставит `sender:campaigns-tick`. Все задачи запускает планировщик Laravel.
 - Пользователь, от которого работает проект, должен читать журнал: `sudo usermod -aG adm <пользователь>` и перелогиниться. Проверка: `php artisan sender:mail-log` должна вывести «Прочитано строк: …».
-- В cron этого пользователя должна быть строка планировщика: `* * * * * cd /var/www/magexpert && php artisan schedule:run >> /dev/null 2>&1`. Проверка: `php artisan schedule:list` показывает `sender:mail-log` и `sender:prune`.
+- В cron этого пользователя должна быть строка планировщика: `* * * * * cd /var/www/magexpert && php artisan schedule:run >> /dev/null 2>&1`. Проверка: `php artisan schedule:list` показывает `sender:campaigns-tick`, `sender:mail-log` и `sender:prune`.

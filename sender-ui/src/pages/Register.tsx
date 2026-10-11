@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 import { api, ApiError, type User } from '../api'
-import { SocialButtons } from '../components/SocialButtons'
+import { SocialButtons, useRegistrationOpen } from '../components/SocialButtons'
 import { useAuth } from '../auth'
 import { AuthAside } from './AuthAside'
 import { PasswordInput } from '../components/ui'
@@ -19,7 +19,28 @@ const FIELDS: [Exclude<Field, 'accept_policy'>, string, string, string, string][
 export default function Register() {
   const [params] = useSearchParams()
   const code = params.get('oauth')
+  const registration = useRegistrationOpen()
+  if (registration === null) return null
+  if (!registration) return <RegistrationClosed />
   return code ? <SocialRegister code={code} /> : <PasswordRegister />
+}
+
+function RegistrationClosed() {
+  return (
+    <div className="auth">
+      <section className="auth-form">
+        <div className="auth-card">
+          <span className="logo" style={{ width: 40, height: 40, borderRadius: 12 }}><Mail size={20} /></span>
+          <div>
+            <h1>Регистрация закрыта</h1>
+            <p style={{ marginTop: 10, fontSize: 15, color: 'var(--ink-2)' }}>Доступ к Sender выдаёт администратор. Если он у вас уже есть, войдите.</p>
+          </div>
+          <Link to="/" className="btn primary lg">Войти</Link>
+        </div>
+      </section>
+      <AuthAside />
+    </div>
+  )
 }
 
 function PasswordRegister() {

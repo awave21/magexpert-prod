@@ -2,6 +2,7 @@
 
 namespace App\Sender\Jobs;
 
+use App\Sender\Models\Campaign;
 use App\Sender\Models\Message;
 use App\Sender\Services\TemplateRenderer;
 use App\Sender\Services\TrackingService;
@@ -34,9 +35,13 @@ class SendMessageJob implements ShouldQueue
 
     public function handle(TemplateRenderer $renderer, Transport $transport, ?TrackingService $tracking = null): void
     {
-        $message = Message::query()->with('template')->findOrFail($this->messageId);
+        $message = Message::query()->with(['template', 'campaign'])->findOrFail($this->messageId);
 
-        if (in_array($message->status, [...Message::SENT_STATUSES, Message::STATUS_BOUNCED], true) || $message->template === null) {
+        if (in_array($message->status, [...Message::SENT_STATUSES, Message::STATUS_BOUNCED, Message::STATUS_CANCELLED, Message::STATUS_BLOCKED, Message::STATUS_PENDING], true) || $message->template === null) {
+            return;
+        }
+
+        if ($this->stoppedByCampaign($message)) {
             return;
         }
 
@@ -58,6 +63,29 @@ class SendMessageJob implements ShouldQueue
             'error' => null,
             'sent_at' => now(),
         ])->save();
+    }
+
+    /**
+     * Рассылку поставили на паузу или отменили, пока письмо стояло в очереди.
+     * На паузе письмо возвращается ждать своей пачки, при отмене не уходит совсем.
+     */
+    private function stoppedByCampaign(Message $message): bool
+    {
+        $status = $message->campaign?->status;
+
+        if ($status === Campaign::STATUS_PAUSED) {
+            $message->forceFill(['status' => Message::STATUS_PENDING, 'dispatched_at' => null])->save();
+
+            return true;
+        }
+
+        if ($status === Campaign::STATUS_CANCELLED) {
+            $message->forceFill(['status' => Message::STATUS_CANCELLED, 'error' => 'Рассылка отменена'])->save();
+
+            return true;
+        }
+
+        return false;
     }
 
     /**

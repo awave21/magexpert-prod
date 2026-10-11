@@ -7,18 +7,58 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Рассылка: контент (шаблон) по базе подписчиков.
+ *
+ * Отправка сразу (send_mode = now) или плавно (drip): пачками по batch_size писем раз в batch_interval минут,
+ * не больше daily_limit в сутки и только в окно отправки (window_start–window_end по МСК, дни window_days).
  */
 class Campaign extends SenderModel
 {
     public const STATUS_DRAFT = 'draft';
 
+    public const STATUS_SCHEDULED = 'scheduled';
+
     public const STATUS_SENDING = 'sending';
+
+    public const STATUS_PAUSED = 'paused';
+
+    public const STATUS_CANCELLED = 'cancelled';
 
     public const STATUS_SENT = 'sent';
 
+    /**
+     * Рассылка запущена и ещё не закончилась: её обрабатывает sender:campaigns-tick.
+     */
+    public const ACTIVE_STATUSES = [self::STATUS_SCHEDULED, self::STATUS_SENDING];
+
+    public const MODE_NOW = 'now';
+
+    public const MODE_DRIP = 'drip';
+
     protected $table = 'sender_campaigns';
 
-    protected $fillable = ['organization_id', 'name', 'template_id', 'list_id', 'track', 'status', 'recipients_count', 'started_at', 'finished_at'];
+    protected $fillable = [
+        'organization_id',
+        'name',
+        'template_id',
+        'list_id',
+        'track',
+        'send_mode',
+        'batch_size',
+        'batch_interval',
+        'daily_limit',
+        'window_start',
+        'window_end',
+        'window_days',
+        'scheduled_at',
+        'status',
+        'recipients_count',
+        'started_at',
+        'prepared_at',
+        'next_batch_at',
+        'paused_at',
+        'cancelled_at',
+        'finished_at',
+    ];
 
     /**
      * @return array<string, string>
@@ -28,7 +68,16 @@ class Campaign extends SenderModel
         return [
             'recipients_count' => 'integer',
             'track' => 'boolean',
+            'batch_size' => 'integer',
+            'batch_interval' => 'integer',
+            'daily_limit' => 'integer',
+            'window_days' => 'array',
+            'scheduled_at' => 'immutable_datetime',
             'started_at' => 'datetime',
+            'prepared_at' => 'datetime',
+            'next_batch_at' => 'immutable_datetime',
+            'paused_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'finished_at' => 'datetime',
         ];
     }
@@ -36,6 +85,11 @@ class Campaign extends SenderModel
     public function isDraft(): bool
     {
         return $this->status === self::STATUS_DRAFT;
+    }
+
+    public function isDrip(): bool
+    {
+        return $this->send_mode === self::MODE_DRIP;
     }
 
     public function organization(): BelongsTo

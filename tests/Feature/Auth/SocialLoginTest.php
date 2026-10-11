@@ -204,7 +204,7 @@ test('кнопки входа показываются только для пр�
     config(['services.yandex.client_id' => 'yandex-id', 'services.vkid.client_id' => null]);
 
     $this->get('/login')->assertInertia(fn ($page) => $page->where('socialProviders', ['yandex']));
-    $this->getJson('/api/sender/v1/admin/oauth/providers')->assertOk()->assertExactJson(['data' => ['yandex']]);
+    $this->getJson('/api/sender/v1/admin/oauth/providers')->assertOk()->assertExactJson(['data' => ['yandex'], 'registration' => false]);
 });
 
 it('returns to the security page when the link was opened without a known origin', function (): void {

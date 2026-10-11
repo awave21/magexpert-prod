@@ -16,6 +16,8 @@ class AuthController extends Controller
 {
     use ResolvesOrganization;
 
+    public const REGISTRATION_CLOSED = 'Регистрация закрыта. Попросите администратора Sender создать вам доступ';
+
     public function login(LoginRequest $request, AuthService $auth): JsonResponse
     {
         $result = $auth->login($request->string('email')->toString(), $request->string('password')->toString());
@@ -64,19 +66,23 @@ class AuthController extends Controller
     }
 
     /**
-     * Данные от Яндекса или ВКонтакте для формы регистрации организации.
-     */
-    /**
      * Провайдеры, для которых в .env есть ключи: только их кнопки показываем на входе.
+     * registration — открыта ли самостоятельная регистрация (иначе ссылку «Зарегистрироваться» не показываем).
      */
     public function oauthProviders(): JsonResponse
     {
-        return response()->json(['data' => array_values(array_filter(
-            ['yandex', 'vkid'],
-            fn (string $provider): bool => (bool) config("services.{$provider}.client_id"),
-        ))]);
+        return response()->json([
+            'data' => array_values(array_filter(
+                ['yandex', 'vkid'],
+                fn (string $provider): bool => (bool) config("services.{$provider}.client_id"),
+            )),
+            'registration' => (bool) config('sender.registration'),
+        ]);
     }
 
+    /**
+     * Данные от Яндекса или ВКонтакте для формы регистрации организации.
+     */
     public function oauthPending(Request $request, SocialLoginService $social): JsonResponse
     {
         $pending = $social->pending((string) $request->query('code'));

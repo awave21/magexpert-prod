@@ -42,7 +42,7 @@ function sendCampaign(bool $track = true): Message
         'name' => 'Ноябрь', 'template_id' => test()->template->id, 'list_id' => test()->list->id,
         'track' => $track, 'status' => Campaign::STATUS_SENDING,
     ]);
-    app(CampaignService::class)->dispatchMessages($campaign);
+    app(CampaignService::class)->prepare($campaign);
 
     return Message::query()->where('campaign_id', $campaign->id)->firstOrFail();
 }

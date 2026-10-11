@@ -3,18 +3,33 @@
 namespace App\Sender\Services;
 
 use App\Sender\Jobs\SendCampaignJob;
+use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Models\Campaign;
 use App\Sender\Models\Contact;
 use App\Sender\Models\Message;
 use App\Sender\Models\MessageEvent;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Жизнь рассылки: запуск → подготовка писем (pending) → пачки в очередь по расписанию → завершение.
+ * Пачки ставит в очередь sender:campaigns-tick раз в минуту; пауза и отмена останавливают ещё не ушедшие письма.
+ */
 class CampaignService
 {
-    public function __construct(private readonly MessageService $messages) {}
+    /**
+     * Сколько подписчиков готовит одна задача подготовки: потом она ставит в очередь своё продолжение.
+     */
+    public const PREPARE_PER_JOB = 5000;
+
+    public function __construct(
+        private readonly MessageService $messages,
+        private readonly CampaignSchedule $schedule,
+    ) {}
 
     /**
-     * Запускает рассылку: письма ставятся в очередь фоновой задачей, по одному на каждого подписчика базы.
+     * Запускает рассылку: письма готовятся фоновой задачей, а уходят сразу или по расписанию.
      */
     public function start(Campaign $campaign): Campaign
     {
@@ -38,14 +53,21 @@ class CampaignService
             $errors['list_id'] = 'В базе нет подписчиков, которым можно отправить письмо: все отписались или адреса не прошли проверку';
         }
 
+        if ($campaign->isDrip() && ($campaign->batch_size ?? 0) < 1) {
+            $errors['batch_size'] = 'Укажите, сколько писем отправлять за раз';
+        }
+
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
 
+        $scheduled = $campaign->scheduled_at !== null && $campaign->scheduled_at->isFuture();
+
         $campaign->forceFill([
-            'status' => Campaign::STATUS_SENDING,
+            'status' => $scheduled ? Campaign::STATUS_SCHEDULED : Campaign::STATUS_SENDING,
             'recipients_count' => $recipients,
             'started_at' => now(),
+            'next_batch_at' => $scheduled ? $campaign->scheduled_at : now(),
         ])->save();
 
         SendCampaignJob::dispatch($campaign->id)->onQueue(config('sender.queue'));
@@ -54,42 +76,198 @@ class CampaignService
     }
 
     /**
-     * Ставит письма в очередь. Повторный запуск задачи не дублирует письма: уже поставленные адреса пропускаются.
+     * Готовит письма подписчикам с id больше $afterContactId, не больше PREPARE_PER_JOB.
+     * Повторный запуск не дублирует письма.
+     *
+     * @return int|null id последнего подготовленного подписчика, если остались ещё; null — подготовка закончена
      */
-    public function dispatchMessages(Campaign $campaign): void
+    public function prepare(Campaign $campaign, int $afterContactId = 0): ?int
     {
         $campaign->loadMissing(['organization', 'template.senderAddress', 'list']);
 
         if ($campaign->template === null || $campaign->list === null) {
             $campaign->forceFill(['status' => Campaign::STATUS_SENT, 'finished_at' => now()])->save();
 
-            return;
+            return null;
         }
 
-        $campaign->list->contacts()->deliverable()->chunkById(500, function ($contacts) use ($campaign): void {
-            $already = Message::query()
-                ->where('campaign_id', $campaign->id)
-                ->whereIn('to_email', $contacts->pluck('email'))
-                ->pluck('to_email')
-                ->flip();
+        $contacts = $campaign->list->contacts()->deliverable()
+            ->where('id', '>', $afterContactId)
+            ->orderBy('id')
+            ->limit(self::PREPARE_PER_JOB + 1)
+            ->get();
+
+        $more = $contacts->count() > self::PREPARE_PER_JOB;
+        $contacts = $contacts->take(self::PREPARE_PER_JOB);
+
+        foreach ($contacts->chunk(500) as $chunk) {
+            $recipients = [];
 
             /** @var Contact $contact */
-            foreach ($contacts as $contact) {
-                if ($already->has($contact->email)) {
-                    continue;
-                }
-
-                $this->messages->send(
-                    $campaign->organization,
-                    $campaign->template,
-                    $contact->email,
-                    data: array_merge($contact->data ?? [], $this->contactVariables($contact)),
-                    campaign: $campaign,
-                );
+            foreach ($chunk as $contact) {
+                $recipients[$contact->email] = array_merge($contact->data ?? [], $this->contactVariables($contact));
             }
-        });
 
-        $campaign->forceFill(['status' => Campaign::STATUS_SENT, 'finished_at' => now()])->save();
+            $this->messages->prepareCampaignMessages($campaign, $recipients);
+        }
+
+        if ($more) {
+            return (int) $contacts->last()->id;
+        }
+
+        $campaign->forceFill([
+            'prepared_at' => now(),
+            'recipients_count' => $campaign->messages()->count(),
+        ])->save();
+
+        $this->tick($campaign);
+
+        return null;
+    }
+
+    /**
+     * Обрабатывает все запущенные рассылки: вызывается раз в минуту командой sender:campaigns-tick.
+     */
+    public function tickAll(?CarbonInterface $now = null): void
+    {
+        Campaign::query()
+            ->whereIn('status', Campaign::ACTIVE_STATUSES)
+            ->whereNotNull('prepared_at')
+            ->orderBy('id')
+            ->each(fn (Campaign $campaign) => $this->tick($campaign, $now));
+    }
+
+    /**
+     * Ставит в очередь следующую пачку, если подошло её время, и завершает рассылку, когда все письма ушли.
+     *
+     * @return int сколько писем поставлено в очередь
+     */
+    public function tick(Campaign $campaign, ?CarbonInterface $now = null): int
+    {
+        $now = CarbonImmutable::instance($now ?? now());
+
+        if (! in_array($campaign->status, Campaign::ACTIVE_STATUSES, true) || $campaign->prepared_at === null) {
+            return 0;
+        }
+
+        if ($campaign->status === Campaign::STATUS_SCHEDULED) {
+            if ($campaign->scheduled_at !== null && $campaign->scheduled_at->greaterThan($now)) {
+                return 0;
+            }
+
+            $campaign->forceFill(['status' => Campaign::STATUS_SENDING])->save();
+        }
+
+        $pending = $campaign->messages()->where('status', Message::STATUS_PENDING);
+
+        if (! (clone $pending)->exists()) {
+            $this->finishIfDone($campaign);
+
+            return 0;
+        }
+
+        if ($campaign->next_batch_at !== null && $campaign->next_batch_at->greaterThan($now)) {
+            return 0;
+        }
+
+        if ($campaign->isDrip() && ! $this->schedule->inWindow($campaign, $now)) {
+            return 0;
+        }
+
+        $limit = $this->batchLimit($campaign, $now);
+
+        if ($limit !== null && $limit <= 0) {
+            return 0;
+        }
+
+        $ids = (clone $pending)->orderBy('id')->when($limit !== null, fn ($query) => $query->limit($limit))->pluck('id')->all();
+
+        // письмо, которое успели отменить между выборкой и отправкой, задача отправки пропустит сама
+        foreach (array_chunk($ids, 1000) as $chunk) {
+            Message::query()->whereIn('id', $chunk)->where('status', Message::STATUS_PENDING)
+                ->update(['status' => Message::STATUS_QUEUED, 'dispatched_at' => $now]);
+
+            foreach ($chunk as $id) {
+                SendMessageJob::dispatch($id)->onQueue(config('sender.queue'));
+            }
+        }
+
+        $campaign->forceFill([
+            'next_batch_at' => $campaign->isDrip() ? $now->addMinutes(max(1, (int) $campaign->batch_interval)) : $now,
+        ])->save();
+
+        return count($ids);
+    }
+
+    /**
+     * Пауза: новые пачки не ставятся, письма, уже стоящие в очереди, возвращаются ждать.
+     */
+    public function pause(Campaign $campaign): Campaign
+    {
+        if (! in_array($campaign->status, Campaign::ACTIVE_STATUSES, true)) {
+            throw ValidationException::withMessages(['campaign' => 'Поставить на паузу можно только запущенную рассылку']);
+        }
+
+        $campaign->forceFill(['status' => Campaign::STATUS_PAUSED, 'paused_at' => now()])->save();
+
+        return $campaign;
+    }
+
+    public function resume(Campaign $campaign): Campaign
+    {
+        if ($campaign->status !== Campaign::STATUS_PAUSED) {
+            throw ValidationException::withMessages(['campaign' => 'Рассылка не на паузе']);
+        }
+
+        $scheduled = $campaign->scheduled_at !== null && $campaign->scheduled_at->isFuture();
+
+        $campaign->forceFill([
+            'status' => $scheduled ? Campaign::STATUS_SCHEDULED : Campaign::STATUS_SENDING,
+            'paused_at' => null,
+            'next_batch_at' => $scheduled ? $campaign->scheduled_at : now(),
+        ])->save();
+
+        $this->tick($campaign);
+
+        return $campaign;
+    }
+
+    /**
+     * Отмена: ни одно ещё не ушедшее письмо не отправится. Ушедшие письма и статистика остаются.
+     */
+    public function cancel(Campaign $campaign): Campaign
+    {
+        if (! in_array($campaign->status, [...Campaign::ACTIVE_STATUSES, Campaign::STATUS_PAUSED], true)) {
+            throw ValidationException::withMessages(['campaign' => 'Отменить можно только запущенную рассылку']);
+        }
+
+        $campaign->forceFill([
+            'status' => Campaign::STATUS_CANCELLED,
+            'cancelled_at' => now(),
+            'finished_at' => now(),
+        ])->save();
+
+        $campaign->messages()->whereIn('status', [Message::STATUS_PENDING, Message::STATUS_QUEUED])
+            ->update(['status' => Message::STATUS_CANCELLED, 'error' => 'Рассылка отменена']);
+
+        return $campaign;
+    }
+
+    /**
+     * Ожидаемое время отправки последней пачки плавной рассылки.
+     */
+    public function estimatedFinish(Campaign $campaign, ?CarbonInterface $now = null): ?CarbonImmutable
+    {
+        if (! in_array($campaign->status, [...Campaign::ACTIVE_STATUSES, Campaign::STATUS_PAUSED], true)) {
+            return null;
+        }
+
+        $now ??= now();
+        $remaining = $campaign->prepared_at === null
+            ? $campaign->recipients_count
+            : $campaign->messages()->where('status', Message::STATUS_PENDING)->count();
+
+        return $this->schedule->estimateFinish($campaign, $remaining, $this->dispatchedToday($campaign, $now), $now);
     }
 
     /**
@@ -111,10 +289,11 @@ class CampaignService
     }
 
     /**
+     * pending — ждут своей пачки, queued — в очереди или отправляются,
      * sent — ушло с нашего сервера (в том числе доставлено), delivered — сервер получателя принял,
-     * bounced — отказ сервера получателя, opened и clicked — уникальные получатели.
+     * bounced — отказ сервера получателя, cancelled — не ушли из-за отмены, opened и clicked — уникальные получатели.
      *
-     * @return array{queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, opened: int, clicked: int, links: list<array{url: string, clicks: int}>}
+     * @return array{pending: int, queued: int, sent: int, delivered: int, bounced: int, failed: int, blocked: int, cancelled: int, opened: int, clicked: int, links: list<array{url: string, clicks: int}>}
      */
     public function stats(Campaign $campaign): array
     {
@@ -134,15 +313,57 @@ class CampaignService
             ->all();
 
         return [
+            'pending' => $count(Message::STATUS_PENDING),
             'queued' => $count(Message::STATUS_QUEUED) + $count(Message::STATUS_SENDING),
             'sent' => $count(Message::STATUS_SENT) + $count(Message::STATUS_DELIVERED),
             'delivered' => $count(Message::STATUS_DELIVERED),
             'bounced' => $count(Message::STATUS_BOUNCED),
             'failed' => $count(Message::STATUS_FAILED),
             'blocked' => $count(Message::STATUS_BLOCKED),
+            'cancelled' => $count(Message::STATUS_CANCELLED),
             'opened' => $campaign->messages()->whereNotNull('opened_at')->count(),
             'clicked' => $campaign->messages()->whereNotNull('clicked_at')->count(),
             'links' => $links,
         ];
+    }
+
+    /**
+     * Размер следующей пачки с учётом дневного лимита рассылки и часового лимита сервера. null — без ограничения.
+     */
+    private function batchLimit(Campaign $campaign, CarbonImmutable $now): ?int
+    {
+        $limits = [];
+
+        if ($campaign->isDrip()) {
+            $limits[] = (int) $campaign->batch_size;
+
+            if ($campaign->daily_limit) {
+                $limits[] = $campaign->daily_limit - $this->dispatchedToday($campaign, $now);
+            }
+        }
+
+        $hourly = (int) config('sender.hourly_limit');
+        if ($hourly > 0) {
+            $limits[] = $hourly - Message::query()
+                ->whereNotNull('campaign_id')
+                ->where('dispatched_at', '>', $now->subHour())
+                ->count();
+        }
+
+        return $limits === [] ? null : min($limits);
+    }
+
+    private function dispatchedToday(Campaign $campaign, CarbonInterface $now): int
+    {
+        return $campaign->messages()->where('dispatched_at', '>=', $this->schedule->startOfLocalDay($now))->count();
+    }
+
+    private function finishIfDone(Campaign $campaign): void
+    {
+        $waiting = $campaign->messages()->whereIn('status', Message::WAITING_STATUSES)->exists();
+
+        if (! $waiting) {
+            $campaign->forceFill(['status' => Campaign::STATUS_SENT, 'finished_at' => now()])->save();
+        }
     }
 }

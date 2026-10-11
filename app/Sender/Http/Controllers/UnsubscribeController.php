@@ -2,8 +2,10 @@
 
 namespace App\Sender\Http\Controllers;
 
-use App\Sender\Models\Contact;
+use App\Sender\Events\RecipientUnsubscribed;
 use App\Sender\Models\Message;
+use App\Sender\Models\Suppression;
+use App\Sender\Services\SubscriptionService;
 use App\Sender\Support\SenderUi;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -33,7 +35,7 @@ class UnsubscribeController extends Controller
         return $this->page('Отписаться от рассылки?', 'Письма рассылок перестанут приходить на адрес '.e($message->to_email).'. Служебные письма, например о смене пароля, продолжат приходить.', null, 200, $form);
     }
 
-    public function store(Request $request, string $uuid): Response
+    public function store(Request $request, string $uuid, SubscriptionService $subscriptions): Response
     {
         $message = $this->message($uuid);
 
@@ -41,25 +43,24 @@ class UnsubscribeController extends Controller
             return $this->page('Ссылка не действует', 'Возможно, письмо было удалено из системы.', false, 410);
         }
 
-        Contact::query()
-            ->where('organization_id', $message->organization_id)
-            ->where('email', $message->to_email)
-            ->whereNull('unsubscribed_at')
-            ->update(['unsubscribed_at' => now()]);
+        $subscriptions->unsubscribe($message->organization, $message->to_email);
+
+        RecipientUnsubscribed::dispatch($message->organization->slug, $message->to_email);
 
         return $this->page('Вы отписались', 'Рассылки на адрес '.e($message->to_email).' больше не будут приходить.', true);
     }
 
     private function message(string $uuid): ?Message
     {
-        return Message::query()->where('uuid', $uuid)->whereNotNull('campaign_id')->first();
+        return Message::query()->with('organization')->where('uuid', $uuid)->whereNotNull('campaign_id')->first();
     }
 
     private function isUnsubscribed(Message $message): bool
     {
-        $contacts = Contact::query()->where('organization_id', $message->organization_id)->where('email', $message->to_email);
-
-        return $contacts->exists() && ! (clone $contacts)->whereNull('unsubscribed_at')->exists();
+        return Suppression::query()
+            ->where('organization_id', $message->organization_id)
+            ->where('email', $message->to_email)
+            ->exists();
     }
 
     private function page(string $title, string $text, ?bool $ok, int $status = 200, string $extra = ''): Response

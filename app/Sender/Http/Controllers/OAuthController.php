@@ -2,6 +2,7 @@
 
 namespace App\Sender\Http\Controllers;
 
+use App\Sender\Http\Controllers\Admin\AuthController;
 use App\Sender\Services\SocialLoginService;
 use App\Sender\Support\SenderUi;
 use Illuminate\Http\RedirectResponse;
@@ -58,6 +59,10 @@ class OAuthController extends Controller
             'email' => Str::lower(trim((string) $user->getEmail())),
             'name' => $name,
         ]);
+
+        if ($result['type'] !== 'login' && ! config('sender.registration')) {
+            return $this->back('login', ['error' => 'Аккаунта с этим входом через '.self::NAMES[$provider].' нет. '.AuthController::REGISTRATION_CLOSED]);
+        }
 
         return $this->back($result['type'] === 'login' ? 'login' : 'register', ['oauth' => $result['code']]);
     }

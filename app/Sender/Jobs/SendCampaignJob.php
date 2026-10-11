@@ -8,10 +8,12 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Ставит в очередь письма рассылки всем подписчикам базы.
+ * Готовит письма рассылки подписчикам базы: по CampaignService::PREPARE_PER_JOB за раз, затем ставит своё продолжение.
+ * Короткие задачи укладываются в retry_after очереди, поэтому не запускаются повторно параллельно.
  */
 class SendCampaignJob implements ShouldQueue
 {
@@ -19,18 +21,30 @@ class SendCampaignJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $timeout = 1800;
+    public int $timeout = 80;
 
-    public function __construct(public int $campaignId) {}
+    public function __construct(public int $campaignId, public int $afterContactId = 0) {}
+
+    /**
+     * @return list<object>
+     */
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping('sender-campaign-'.$this->campaignId))->releaseAfter(30)->expireAfter(120)];
+    }
 
     public function handle(CampaignService $campaigns): void
     {
         $campaign = Campaign::query()->find($this->campaignId);
 
-        if ($campaign === null || $campaign->status !== Campaign::STATUS_SENDING) {
+        if ($campaign === null || ! in_array($campaign->status, [...Campaign::ACTIVE_STATUSES, Campaign::STATUS_PAUSED], true)) {
             return;
         }
 
-        $campaigns->dispatchMessages($campaign);
+        $next = $campaigns->prepare($campaign, $this->afterContactId);
+
+        if ($next !== null) {
+            self::dispatch($this->campaignId, $next)->onQueue(config('sender.queue'));
+        }
     }
 }
