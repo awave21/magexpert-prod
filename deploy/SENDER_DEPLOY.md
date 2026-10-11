@@ -96,6 +96,17 @@ stdout_logfile=/var/www/magexpert/storage/logs/sender-campaigns.log
 - Задачи короткие (до 80 секунд) и укладываются в `retry_after` Redis (90 секунд), поэтому один и тот же процесс можно масштабировать `numprocs` без двойной обработки.
 - Применить: `supervisorctl reread && supervisorctl update`, проверить: `supervisorctl status` — оба процесса `RUNNING`.
 
+### Redis: очередь должна переживать перезапуск
+Если Redis хранит данные только в памяти, при его перезапуске или перезагрузке сервера пропадут задачи, стоявшие в очереди. Письма не потеряются (они в PostgreSQL), но `sender:recover` поставит их заново только через 15 минут. С включённым журналом AOF Redis пишет каждое изменение на диск и после перезапуска восстанавливает очередь сам.
+
+Пароль Redis в чат не выводи: если он задан (`REDIS_PASSWORD` в `.env`), передай его через переменную окружения `REDISCLI_AUTH`.
+- Проверка: `redis-cli CONFIG GET appendonly` и `redis-cli CONFIG GET appendfsync`. Нужно `appendonly yes` и `appendfsync everysec` (на диск раз в секунду: при падении теряется не больше секунды задач, их подберёт `sender:recover`).
+- Если `appendonly no`, покажи мне, что собираешься менять, и после подтверждения:
+  1. Включи без перезапуска: `redis-cli CONFIG SET appendonly yes`. Redis в фоне запишет текущие данные в AOF; дождись `aof_rewrite_in_progress:0` в `redis-cli INFO persistence`.
+  2. Закрепи в конфиге, чтобы настройка пережила перезапуск: в `/etc/redis/redis.conf` строки `appendonly yes` и `appendfsync everysec` (сначала сделай копию файла). Либо `redis-cli CONFIG REWRITE`, если Redis может сам записать свой конфиг.
+  3. Перезапускать Redis не нужно. Проверь ещё раз `CONFIG GET appendonly` и что в каталоге из `redis-cli CONFIG GET dir` появились файлы AOF (`appendonly.aof` или папка `appendonlydir`).
+- Тот же Redis используют кэш и сессии сайта: AOF им не мешает, файл журнала занимает мегабайты.
+
 ## 8. Кэши и перезапуск
 ```
 php artisan optimize
@@ -118,7 +129,7 @@ composer install --no-dev --optimize-autoloader && npm ci && npm run build
 Затем верни старые `MAIL_*` в `.env`, выполни `php artisan optimize` и `php artisan queue:restart`. База `magexpert_sender` откату не мешает, её можно оставить.
 
 ## Ограничения
-- Не трогай nginx, файрвол, Postfix и OpenDKIM без моего подтверждения.
+- Не трогай nginx, файрвол, Postfix, OpenDKIM и конфиг Redis без моего подтверждения.
 - Не меняй MX и DNS: записи я вношу сам в Beget.
 - Не делай `git push`, не меняй ветки в репозитории.
 
@@ -128,7 +139,8 @@ composer install --no-dev --optimize-autoloader && npm ci && npm run build
 - перед миграцией проверь, что в рассылках нет повторных адресов, иначе уникальный индекс не создастся:
   `php artisan tinker --execute="echo App\Sender\Models\Message::query()->whereNotNull('campaign_id')->selectRaw('campaign_id, to_email')->groupBy('campaign_id','to_email')->havingRaw('count(*) > 1')->count();"` должно быть `0`;
 - в `.env`: `SENDER_HOURLY_LIMIT` — сколько писем всех рассылок в час можно отдать Postfix (на время прогрева IP, например 300; пусто — без лимита). Регистрация новых организаций в админке выключена, включает её `SENDER_REGISTRATION=true`.
-- после выкладки `php artisan schedule:list` должен показывать `sender:campaigns-tick`: без планировщика плавные и отложенные рассылки не начнутся.
+- после выкладки `php artisan schedule:list` должен показывать `sender:campaigns-tick`: без планировщика плавные и отложенные рассылки не начнутся;
+- проверь, что в Redis включён журнал на диск (`appendonly yes`, конец шага 7).
 
 ```
 git pull --ff-only origin feature/sender
@@ -170,6 +182,8 @@ Mail.ru и Яндекс присылают отчёт, когда получат
 ## Надёжность
 - `sender:recover` каждые 5 минут разбирает письма, зависшие в статусе «отправляется» после падения воркера: принятые Postfix отмечает отправленными, остальные ставит в очередь заново. Без доступа к журналу Postfix такие письма помечаются ошибкой, чтобы не отправить дважды.
 - `sender:mail-log` после ротации журнала сначала дочитывает хвост `mail.log.1`.
+- Письма, которые дольше 15 минут «в очереди» (задача пропала, например при перезапуске Redis без AOF), `sender:recover` ставит заново. С `appendonly yes` в Redis такого почти не бывает.
+- После перезагрузки сервера всё продолжается само, если воркеры в supervisor с `autostart=true`, есть строка cron с `schedule:run` и в Redis включён AOF: отправленные письма повторно не уходят, рассылки продолжаются с места остановки.
 
 ## Команда и роли
 Раздел «Команда» в админке: администратор (всё, включая домены, адреса отправителей, API-ключи, вебхуки, блокировки и команду), редактор (письма, базы, рассылки), просмотр. Там же журнал действий: запуск, пауза и отмена рассылок, удаление баз и писем, ключи, домены, блокировки, изменения команды. Из консоли: `php artisan sender:user-create <email> --role=editor`. Существующие пользователи после миграции — администраторы.
