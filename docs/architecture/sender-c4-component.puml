@@ -1,0 +1,43 @@
+@startuml sender-c4-component
+!include <C4/C4_Component>
+LAYOUT_WITH_LEGEND()
+title Sender: компоненты Laravel-приложения (C4, уровень 3)
+
+Container(spa, "Админка", "React")
+Container_Ext(site, "Код сайта MagExpert", "Laravel", "SenderMailService, NewsletterSubscribers")
+ContainerQueue(redis, "Redis", "очереди")
+ContainerDb(db, "PostgreSQL", "magexpert_sender")
+Container(postfix, "Postfix + OpenDKIM", "SMTP")
+
+Container_Boundary(sender, "Модуль app/Sender") {
+  Component(adminApi, "Админ-API", "Controllers/Admin", "Рассылки, базы, письма, домены, команда; роли и журнал действий в middleware")
+  Component(publicApi, "API отправки", "MessageController, SubscriptionController", "Ключ mxs_, 300 запросов в минуту")
+  Component(tracking, "Трекинг и отписка", "TrackController, UnsubscribeController", "Пиксель, подписанные ссылки, List-Unsubscribe")
+  Component(campaigns, "CampaignService", "сервис", "Запуск, подготовка, пачки по расписанию, пауза, отмена, статистика")
+  Component(schedule, "CampaignSchedule и Warmup", "сервисы", "Окно отправки по МСК, оценка окончания, прогрев IP")
+  Component(messages, "MessageService", "сервис", "Проверки отправителя, блок-лист, дневной лимит, постановка в очередь")
+  Component(subscriptions, "SubscriptionService и SubscriberSources", "сервисы", "Отписка на все базы, база «Пользователи сайта»")
+  Component(jobs, "SendMessageJob, SendCampaignJob", "задачи очереди", "Отправка письма с захватом, подготовка базы пачками")
+  Component(transport, "LaravelMailTransport", "транспорт", "Message-ID, X-Sender-Id, Feedback-ID, List-Unsubscribe")
+  Component(delivery, "MailLogService и ComplaintService", "сервисы", "Статусы из mail.log, жалобы ARF")
+  Component(monitoring, "HealthMonitor и WebhookService", "сервисы", "Алерты в Telegram, события на вебхуки")
+}
+
+Rel(spa, adminApi, "JSON")
+Rel(site, messages, "Служебные письма", "LocalSenderClient")
+Rel(site, subscriptions, "Согласие на рассылку", "SubscriptionClient")
+Rel(adminApi, campaigns, "Запуск, пауза, отмена")
+Rel(publicApi, messages, "Письмо по шаблону")
+Rel(campaigns, schedule, "Можно ли слать сейчас и сколько")
+Rel(campaigns, messages, "Готовит письма рассылки")
+Rel(campaigns, subscriptions, "Обновляет базу с сайта")
+Rel(messages, redis, "Ставит в очередь")
+Rel(redis, jobs, "Задачи")
+Rel(jobs, transport, "Отправка")
+Rel(transport, postfix, "SMTP")
+Rel(tracking, subscriptions, "Отписка")
+Rel(delivery, subscriptions, "Блок после жалобы")
+Rel(delivery, monitoring, "События для вебхуков")
+Rel_D(campaigns, db, "")
+Rel_D(delivery, db, "Статусы")
+@enduml

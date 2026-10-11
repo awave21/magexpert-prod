@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
+import { useToast } from "vue-toastification";
 import {
     ChevronDownIcon,
     EnvelopeIcon,
@@ -99,6 +100,23 @@ const isScrolled = ref(false);
 // Утилиты для определения активного пути
 const page = usePage();
 const currentUrl = computed(() => page.url);
+
+// уведомления после действий на сервере: «Регистрация прошла успешно», «Аккаунт удалён» и т.п.
+const toast = useToast();
+watch(
+    () => page.props.flash?.message,
+    (message) => {
+        if (message) toast.success(message, { position: "top-center", timeout: 6000 });
+    },
+    { immediate: true },
+);
+watch(
+    () => page.props.flash?.error,
+    (error) => {
+        if (error) toast.error(error, { position: "top-center", timeout: 8000 });
+    },
+    { immediate: true },
+);
 
 const toPath = (href) => {
     if (!href) return "/";

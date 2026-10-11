@@ -2,16 +2,24 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\EmailConfirmController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
+    // вход через Яндекс ID и VK ID
+    Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])
+        ->whereIn('provider', ['yandex', 'vkid'])->name('social.redirect');
+    Route::get('auth/complete', [SocialAuthController::class, 'complete'])->name('social.complete');
+    Route::post('auth/complete', [SocialAuthController::class, 'store'])->middleware('throttle:10,1')->name('social.store');
+
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
@@ -26,6 +34,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:6,1')
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
@@ -56,4 +65,19 @@ Route::middleware('auth')->group(function () {
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
+});
+
+// подтверждение email по ссылке из письма: работает и без входа на сайт (подпись проверяет контроллер)
+Route::get('email/confirm/{id}/{hash}', [EmailConfirmController::class, 'confirm'])
+    ->whereNumber('id')->middleware('throttle:20,1')->name('email.confirm');
+Route::post('email/confirm/resend', [EmailConfirmController::class, 'resend'])
+    ->middleware(['auth', 'throttle:3,10'])->name('email.confirm.resend');
+
+// возврат от Яндекса или ВКонтакте: и для входа, и для привязки из профиля (поэтому вне группы guest)
+Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback'])
+    ->whereIn('provider', ['yandex', 'vkid'])->middleware('throttle:30,1')->name('social.callback');
+Route::middleware('auth')->group(function () {
+    Route::get('auth/{provider}/link', [SocialAuthController::class, 'link'])->whereIn('provider', ['yandex', 'vkid'])->name('social.link');
+    Route::delete('auth/{provider}/link', [SocialAuthController::class, 'unlink'])->whereIn('provider', ['yandex', 'vkid'])->name('social.unlink');
+    Route::post('auth/link/move', [SocialAuthController::class, 'move'])->middleware('throttle:10,1')->name('social.move');
 });

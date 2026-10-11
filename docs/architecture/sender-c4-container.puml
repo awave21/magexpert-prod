@@ -1,0 +1,44 @@
+@startuml sender-c4-container
+!include <C4/C4_Container>
+LAYOUT_WITH_LEGEND()
+title MagExpert и Sender: контейнеры (C4, уровень 2)
+
+Person(staff, "Сотрудник MagExpert")
+Person(doctor, "Врач")
+System_Ext(mailboxes, "Почтовые сервисы", "Mail.ru, Яндекс, Gmail")
+System_Ext(fbl, "Ящик FBL", "IMAP")
+System_Ext(telegram, "Telegram", "Bot API")
+System_Ext(apps, "Внешние приложения")
+
+System_Boundary(vps, "MagExpert: сайт и Sender (фронтенд в браузере, бэкенд на VPS 62.217.181.42)") {
+  Container(spa, "Админка Sender — фронтенд", "React 19 SPA, в браузере", "Статика с mail.mag-expert.ru; данные берёт только через REST API")
+  Container(site, "Сайт MagExpert — фронтенд", "Vue 3 + Inertia, в браузере", "Страницы сайта, кабинет, галочка рассылки")
+  Container(app, "Бэкенд: Laravel-приложение", "PHP 8.4, Laravel 11", "Сайт MagExpert и модуль Sender: REST API, Inertia, трекинг, отписка")
+  Container(scheduler, "Планировщик", "cron, schedule:run", "Пачки рассылок, журнал Postfix, зависшие письма, жалобы FBL, алерты, очистка")
+  Container(workerTx, "Воркер служебных писем", "queue:work, supervisor", "--queue=sender-transactional: сброс пароля, подтверждение почты")
+  Container(workerC, "Воркер рассылок", "queue:work, supervisor", "--queue=sender,default: рассылки, подготовка баз, проверка адресов, вебхуки")
+  ContainerQueue(redis, "Redis", "две очереди", "sender-transactional — служебные письма, sender — рассылки и подготовка")
+  ContainerDb(db, "PostgreSQL", "magexpert_sender", "Письма, события, базы, рассылки, блок-лист, журнал действий")
+  Container(postfix, "Postfix + OpenDKIM", "127.0.0.1:25", "Подпись DKIM, медленные транспорты для Mail.ru, Яндекса, Gmail; /var/log/mail.log")
+}
+
+Rel(staff, spa, "Открывает в браузере", "HTTPS")
+Rel(doctor, site, "Открывает в браузере", "HTTPS")
+Rel(spa, app, "REST API /api/sender/v1/admin", "JSON, Bearer-токен mxu_")
+Rel(site, app, "Inertia: страницы и формы", "HTTPS, JSON")
+Rel(apps, app, "REST API отправки и подписок", "JSON, ключ mxs_")
+Rel(doctor, app, "Ссылки из писем: пиксель, клики, отписка", "HTTPS, без фронтенда")
+Rel(app, db, "Читает и пишет")
+Rel(app, redis, "Ставит письма в очередь")
+Rel(scheduler, redis, "Ставит очередные пачки")
+Rel(scheduler, db, "Статусы, восстановление, очистка")
+Rel(workerTx, redis, "Забирает из sender-transactional")
+Rel(workerC, redis, "Забирает из sender")
+Rel(workerTx, postfix, "Передаёт письма", "SMTP")
+Rel(workerC, postfix, "Передаёт письма", "SMTP")
+Rel(scheduler, postfix, "Читает журнал доставки", "mail.log")
+Rel(postfix, mailboxes, "Доставляет", "SMTP")
+Rel(scheduler, fbl, "Забирает жалобы", "IMAP")
+Rel(scheduler, telegram, "Алерты", "HTTPS")
+Rel(workerC, apps, "Вебхуки событий", "HTTPS, HMAC")
+@enduml

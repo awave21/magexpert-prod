@@ -35,6 +35,24 @@ return [
         ],
     ],
 
+    // вход через Яндекс ID и VK ID (Socialite)
+    'yandex' => [
+        'client_id' => env('YANDEX_CLIENT_ID'),
+        'client_secret' => env('YANDEX_CLIENT_SECRET'),
+        'redirect' => '/auth/yandex/callback',
+        // включите, когда в приложении Яндекса разрешён «Доступ к номеру телефона»
+        'phone' => (bool) env('YANDEX_PHONE', false),
+    ],
+
+    'vkid' => [
+        // пакет socialiteproviders/vkid требует PHP 8.4: без него вход через ВК выключен даже с ключами
+        'client_id' => class_exists(\SocialiteProviders\VKID\Provider::class) ? env('VKID_CLIENT_ID') : null,
+        'client_secret' => env('VKID_CLIENT_SECRET'),
+        'redirect' => '/auth/vkid/callback',
+        // включите, когда в приложении VK ID разрешён доступ к телефону
+        'phone' => (bool) env('VKID_PHONE', false),
+    ],
+
     'dadata' => [
         'token' => env('DADATA_TOKEN'),
         'secret' => env('DADATA_SECRET'),

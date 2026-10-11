@@ -5,15 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class CategoryController extends Controller
 {
     /**
      * Отображает список категорий
      *
-     * @param Request $request
      * @return \Inertia\Response
      */
     public function index(Request $request)
@@ -25,7 +25,7 @@ class CategoryController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -79,9 +79,36 @@ class CategoryController extends Controller
     }
 
     /**
+     * Страница создания категории.
+     */
+    public function create(): Response
+    {
+        return Inertia::render('Admin/CategoryForm', [
+            'category' => null,
+        ]);
+    }
+
+    /**
+     * Страница редактирования категории.
+     */
+    public function edit(Category $category): Response
+    {
+        return Inertia::render('Admin/CategoryForm', [
+            'category' => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'is_active' => $category->is_active,
+                'sort_order' => $category->sort_order,
+                'events_count' => $category->events()->count(),
+            ],
+        ]);
+    }
+
+    /**
      * Сохраняет новую категорию
      *
-     * @param Request $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
@@ -96,26 +123,24 @@ class CategoryController extends Controller
 
         // Если slug не указан, генерируем его из имени
         if (empty($validated['slug'])) {
-            $validated['slug'] = Str::slug($validated['name']);
+            $validated['slug'] = $this->uniqueSlug($validated['name']);
         }
 
         Category::create($validated);
 
-        return redirect()->back()->with('success', 'Категория успешно создана');
+        return redirect()->route('admin.categories')->with('success', 'Категория создана');
     }
 
     /**
      * Обновляет существующую категорию
      *
-     * @param Request $request
-     * @param Category $category
      * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, Category $category)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'slug' => 'nullable|string|max:255|unique:categories,slug,' . $category->id,
+            'slug' => 'nullable|string|max:255|unique:categories,slug,'.$category->id,
             'description' => 'nullable|string',
             'is_active' => 'boolean',
             'sort_order' => 'integer|min:0',
@@ -123,18 +148,17 @@ class CategoryController extends Controller
 
         // Если slug не указан, генерируем его из имени
         if (empty($validated['slug'])) {
-            $validated['slug'] = Str::slug($validated['name']);
+            $validated['slug'] = $this->uniqueSlug($validated['name'], $category->id);
         }
 
         $category->update($validated);
 
-        return redirect()->back()->with('success', 'Категория успешно обновлена');
+        return redirect()->route('admin.categories.edit', $category)->with('success', 'Категория сохранена');
     }
 
     /**
      * Удаляет категорию
      *
-     * @param Category $category
      * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(Category $category)
@@ -148,4 +172,20 @@ class CategoryController extends Controller
 
         return redirect()->back()->with('success', 'Категория успешно удалена');
     }
-} 
+
+    /**
+     * Адрес из названия; если такой уже занят — добавляем номер.
+     */
+    private function uniqueSlug(string $name, ?int $exceptId = null): string
+    {
+        $base = Str::slug($name) ?: 'category';
+        $slug = $base;
+        $suffix = 2;
+
+        while (Category::query()->where('slug', $slug)->when($exceptId, fn ($query) => $query->whereKeyNot($exceptId))->exists()) {
+            $slug = $base.'-'.$suffix++;
+        }
+
+        return $slug;
+    }
+}

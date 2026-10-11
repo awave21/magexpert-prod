@@ -42,6 +42,11 @@ class HandleInertiaRequests extends Middleware
                     'middle_name' => $request->user()->middle_name,
                     'full_name' => $request->user()->getFullNameAttribute(),
                     'email' => $request->user()->email,
+                    'email_verified' => $request->user()->hasVerifiedEmail(),
+                    'phone_verified' => $request->user()->phone_verified_at !== null,
+                    'specialization' => $request->user()->specialization,
+                    'site_notifications' => (bool) $request->user()->site_notifications,
+                    'unread_messages' => $request->user()->notifications()->where('read', false)->count(),
                     'avatar' => $request->user()->avatar,
                     'phone' => $request->user()->phone,
                     'company' => $request->user()->company,
@@ -52,9 +57,15 @@ class HandleInertiaRequests extends Middleware
                     'stats' => $this->getUserStats($request->user()),
                 ] : null,
             ],
+            // кнопки входа показываем только для провайдеров, у которых в .env есть ключи
+            'socialProviders' => fn () => array_values(array_filter(['yandex', 'vkid'], fn (string $p): bool => (bool) config("services.{$p}.client_id"))),
+            // через кого можно подтвердить телефон: нужны ключи и разрешённый доступ к номеру (YANDEX_PHONE / VKID_PHONE)
+            'phoneProviders' => fn () => array_values(array_filter(['yandex', 'vkid'], fn (string $p): bool => (bool) config("services.{$p}.client_id") && (bool) config("services.{$p}.phone"))),
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
+                'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'phone_result' => fn () => $request->session()->get('phone_result'),
             ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
@@ -66,8 +77,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Получить статистику пользователя
      *
-     * @param \App\Models\User $user
-     * @return array
+     * @param  \App\Models\User  $user
      */
     private function getUserStats($user): array
     {

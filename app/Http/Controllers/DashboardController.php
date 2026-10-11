@@ -2,118 +2,113 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Event;
-use App\Models\Category;
+use App\Models\MedicalLibrary;
+use App\Models\VideoProgress;
+use App\Services\CabinetEvents;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class DashboardController extends Controller
 {
     /**
-     * Отображает дашборд пользователя.
-     *
-     * @param Request $request
-     * @return \Inertia\Response
+     * Сводка личного кабинета.
      */
-    public function index(Request $request)
+    public function index(Request $request, CabinetEvents $cabinetEvents): Response
     {
         $user = $request->user();
+        $events = $cabinetEvents->all($user);
+        $today = now()->toDateString();
 
-        // Получаем live мероприятия, к которым у пользователя есть доступ
-        $liveEvents = $user->liveEvents->take(3);
+        $live = $events->firstWhere('is_live', true);
 
-        // Получаем предстоящие мероприятия, к которым у пользователя есть доступ
-        $upcomingEvents = $user->upcomingEvents
-            ->reject(function($event) use ($liveEvents) {
-                return $liveEvents->contains('id', $event->id);
-            })
-            ->take(5);
+        $upcoming = $events
+            ->filter(fn (array $event): bool => ! $event['is_live'] && ! $event['is_past'])
+            ->sortBy(fn (array $event): string => ($event['start_date'] ?? '9999-12-31').' '.($event['start_time'] ?? ''))
+            ->take(6)
+            ->values();
 
-        // Добавляем информацию о доступе к каждому мероприятию
-        $liveEventsWithAccess = $liveEvents->map(function($event) use ($user) {
-            $event->access_type = $user->getEventAccessType($event);
-            $event->payment_status = $user->getEventPaymentStatus($event);
-            return $event;
-        });
+        $records = $events
+            ->filter(fn (array $event): bool => $event['is_past'] && $event['has_recording'])
+            ->sortByDesc('start_date')
+            ->take(6)
+            ->values();
 
-        $upcomingEventsWithAccess = $upcomingEvents->map(function($event) use ($user) {
-            $event->access_type = $user->getEventAccessType($event);
-            $event->payment_status = $user->getEventPaymentStatus($event);
-            return $event;
-        });
+        $watching = $this->watching($user->id, $events);
+
+        $calendar = $events
+            ->filter(fn (array $event): bool => $event['start_date'] !== null)
+            ->map(fn (array $event): array => [
+                'date' => $event['start_date'],
+                'time' => $event['start_time'],
+                'title' => $event['title'],
+                'slug' => $event['slug'],
+                'is_live' => $event['is_live'],
+                'format' => $event['format'],
+            ])
+            ->values();
 
         return Inertia::render('Dashboard', [
-            'liveEvents' => $liveEventsWithAccess,
-            'upcomingEvents' => $upcomingEventsWithAccess,
+            'live' => $live,
+            'upcoming' => $upcoming,
+            'records' => $records,
+            'watching' => $watching,
+            'calendar' => $calendar,
+            'today' => $today,
+            'library' => [
+                'total' => MedicalLibrary::query()->count(),
+                'latest' => MedicalLibrary::query()
+                    ->latest('publication_date')
+                    ->limit(3)
+                    ->get(['id', 'title', 'publication_date', 'language']),
+            ],
+            'setup' => [
+                'email_verified' => $user->hasVerifiedEmail(),
+                'phone_verified' => $user->phone_verified_at !== null,
+                'profile_filled' => filled($user->specialization) && filled($user->city),
+            ],
         ]);
     }
 
     /**
-     * Отображает все доступные мероприятия пользователя.
+     * Записи, которые врач начал и не досмотрел: последние три, с позицией и долей просмотренного.
      *
-     * @param Request $request
-     * @return \Inertia\Response
+     * @param  Collection<int, array<string, mixed>>  $events
+     * @return Collection<int, array<string, mixed>>
      */
-    public function myEvents(Request $request)
+    private function watching(int $userId, Collection $events): Collection
     {
-        $user = $request->user();
+        $available = $events
+            ->filter(fn (array $event): bool => $event['has_recording'] && ! $event['is_live'] && $event['access'] !== 'pending')
+            ->keyBy('id');
 
-        // Получаем все доступные мероприятия пользователя
-        $query = $user->accessibleEvents()
-            ->with([
-                'category',
-                'categories' => function($query) {
-                    $query->where('is_active', true)
-                          ->orderBy('sort_order');
-                },
-                'speakers' => function($query) {
-                    $query->where('is_active', true)
-                          ->orderBy('pivot_sort_order', 'asc')
-                          ->orderBy('last_name', 'asc');
-                }
+        return VideoProgress::query()
+            ->where('user_id', $userId)
+            ->whereNull('completed_at')
+            ->where('position', '>=', 15)
+            ->latest('updated_at')
+            ->limit(30)
+            ->get()
+            ->unique('event_id')
+            ->filter(fn (VideoProgress $progress): bool => $available->has($progress->event_id))
+            ->take(3)
+            ->map(fn (VideoProgress $progress): array => [
+                ...$available->get($progress->event_id),
+                'position' => $progress->position,
+                'duration' => $progress->duration,
+                'percent' => $progress->duration ? min(100, (int) round($progress->position / $progress->duration * 100)) : null,
             ])
-            ->where('events.is_active', true);
+            ->values();
+    }
 
-        // Простая сортировка по дате получения доступа (новые сверху)
-        $query->orderBy('event_user.access_granted_at', 'desc');
-
-        // Получаем все события (без пагинации сначала)
-        $allEvents = $query->get();
-        
-        // Получаем ID live мероприятий для приоритета
-        $liveEventIds = $user->liveEvents->pluck('id')->toArray();
-        
-        // Сортируем: live мероприятия в начале, остальные по дате доступа
-        $sortedEvents = $allEvents->sortBy(function ($event) use ($liveEventIds) {
-            $isLive = in_array($event->id, $liveEventIds) ? 0 : 1; // 0 для live (в начале)
-            return [$isLive, $event->access_granted_at ? -strtotime($event->access_granted_at) : 0];
-        })->values();
-
-        $perPage = 20;
-        $currentPage = request()->input('page', 1);
-        $total = $sortedEvents->count();
-        $offset = ($currentPage - 1) * $perPage;
-        $items = $sortedEvents->slice($offset, $perPage)->values();
-
-        $events = new \Illuminate\Pagination\LengthAwarePaginator(
-            $items,
-            $total,
-            $perPage,
-            $currentPage,
-            [
-                'path' => request()->url(),
-                'pageName' => 'page',
-            ]
-        );
-
-        $totalCount = $total;
-        $liveCount = $user->liveEvents->count();
-
+    /**
+     * Все мероприятия пользователя: предстоящие, записи и архив.
+     */
+    public function myEvents(Request $request, CabinetEvents $cabinetEvents): Response
+    {
         return Inertia::render('MyEvents', [
-            'events' => $events,
-            'totalCount' => $totalCount,
-            'liveCount' => $liveCount,
+            'events' => $cabinetEvents->all($request->user()),
         ]);
     }
 }

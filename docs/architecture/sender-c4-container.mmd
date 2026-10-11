@@ -1,0 +1,44 @@
+flowchart TB
+  staff["<b>Сотрудник MagExpert</b><br/>[Person]"]:::person
+  doctor["<b>Врач</b><br/>[Person]"]:::person
+
+  subgraph vps["MagExpert: сайт и Sender — фронтенд в браузере, бэкенд на VPS"]
+    spa["<b>Админка Sender — фронтенд</b><br/>[Container: React 19 SPA, в браузере]<br/><br/>Данные только через REST API"]:::container
+    site["<b>Сайт MagExpert — фронтенд</b><br/>[Container: Vue 3 + Inertia, в браузере]"]:::container
+    app["<b>Бэкенд: Laravel-приложение</b><br/>[Container: PHP 8.4, Laravel 11]<br/><br/>REST API, Inertia,<br/>трекинг, отписка"]:::container
+    scheduler["<b>Планировщик</b><br/>[Container: schedule:run]<br/><br/>Пачки, mail.log, зависшие,<br/>жалобы, алерты"]:::container
+    db[("<b>PostgreSQL</b><br/>[magexpert_sender]<br/><br/>Письма, базы, рассылки,<br/>блок-лист, журнал")]:::container
+    redis[["<b>Redis</b><br/>[Queue]<br/><br/>sender-transactional,<br/>sender"]]:::container
+    workerTx["<b>Воркер служебных писем</b><br/>[Container: queue:work]<br/><br/>Очередь sender-transactional"]:::container
+    workerC["<b>Воркер рассылок</b><br/>[Container: queue:work]<br/><br/>Очередь sender: рассылки,<br/>подготовка, проверка адресов"]:::container
+    postfix["<b>Postfix + OpenDKIM</b><br/>[Container: 127.0.0.1:25]<br/><br/>DKIM, медленные транспорты,<br/>mail.log"]:::container
+  end
+
+  mailboxes["<b>Почтовые сервисы</b><br/>[Software System]<br/>Mail.ru, Яндекс, Gmail"]:::ext
+  telegram["<b>Telegram</b><br/>[Software System]"]:::ext
+  fbl["<b>Ящик FBL</b><br/>[Software System]"]:::ext
+
+  staff -- "Открывает в браузере<br/>[HTTPS]" --> spa
+  doctor -- "Открывает в браузере<br/>[HTTPS]" --> site
+  spa -- "REST API /api/sender/v1/admin<br/>[JSON, Bearer]" --> app
+  site -- "Inertia<br/>[HTTPS, JSON]" --> app
+  doctor -. "Ссылки из писем<br/>[HTTPS, без фронтенда]" .-> app
+  app -- "Читает и пишет" --> db
+  app -- "Ставит письма" --> redis
+  scheduler -- "Очередные пачки" --> redis
+  scheduler -- "Статусы" --> db
+  redis -- "sender-transactional" --> workerTx
+  redis -- "sender" --> workerC
+  workerTx -- "Письма<br/>[SMTP]" --> postfix
+  workerC -- "Письма<br/>[SMTP]" --> postfix
+  scheduler -. "Читает mail.log" .-> postfix
+  postfix -- "Доставляет<br/>[SMTP]" --> mailboxes
+  scheduler -- "Алерты" --> telegram
+  scheduler -- "Жалобы<br/>[IMAP]" --> fbl
+  classDef person fill:#08427b,stroke:#052e56,color:#ffffff
+  classDef system fill:#1168bd,stroke:#0b4884,color:#ffffff
+  classDef ext fill:#8a8a8a,stroke:#6b6b6b,color:#ffffff
+  classDef container fill:#438dd5,stroke:#2e6295,color:#ffffff
+  classDef component fill:#85bbf0,stroke:#5d82a8,color:#0b2540
+  classDef boundary fill:none,stroke:#888888,stroke-dasharray:6 4,color:#555555
+  class vps boundary

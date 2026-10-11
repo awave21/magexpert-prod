@@ -47,6 +47,8 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+            // false — не включать STARTTLS: нужно для своего Postfix на 127.0.0.1 с самоподписанным сертификатом
+            'auto_tls' => env('MAIL_AUTO_TLS', true),
         ],
 
         'ses' => [

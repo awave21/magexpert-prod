@@ -115,14 +115,14 @@ const submit = async () => {
                                 </div>
                             </div>
                             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Восстановление пароля</h1>
-                            <p class="mt-2 text-gray-600 dark:text-gray-300">Мы сгенерируем новый пароль и отправим его на ваш email</p>
+                            <p class="mt-2 text-gray-600 dark:text-gray-300">Пришлём на почту ссылку, по которой вы зададите новый пароль</p>
                         </div>
                     </div>
 
                     <!-- Форма восстановления пароля в стиле ProfileLayout -->
                     <div class="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
                         <div class="mb-6 text-sm text-gray-600 dark:text-gray-400">
-                            Укажите ваш email. Если он зарегистрирован, мы сгенерируем новый пароль и отправим его на почту.
+                            Укажите email, с которым вы входите на сайт. Текущий пароль продолжит работать, пока вы не зададите новый по ссылке из письма.
                         </div>
 
                         <form @submit.prevent="submit" class="space-y-6">
@@ -155,7 +155,7 @@ const submit = async () => {
                                     :class="{ 'opacity-25': form.processing }"
                                     :disabled="form.processing"
                                 >
-                                    Получить новый пароль
+                                    Получить ссылку
                                 </PrimaryButton>
                             </div>
                         </form>

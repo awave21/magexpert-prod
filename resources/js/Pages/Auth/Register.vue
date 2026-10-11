@@ -9,6 +9,7 @@ import CityAutocomplete from '@/Components/CityAutocomplete.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import { UserPlusIcon } from '@heroicons/vue/24/outline';
+import SocialLoginButtons from '@/Components/SocialLoginButtons.vue';
 
 const form = useForm({
     first_name: '',
@@ -20,6 +21,9 @@ const form = useForm({
     city: '',
     password: '',
     password_confirmation: '',
+    privacy_consent: false,
+    oferta_consent: false,
+    newsletter_consent: false,
 });
 
 const toast = useToast();
@@ -202,6 +206,23 @@ const submit = () => {
                                 />
                             </div>
 
+                            <div class="space-y-3 border-t border-gray-100 pt-4 dark:border-gray-700">
+                                <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <input v-model="form.privacy_consent" type="checkbox" class="mt-0.5 size-4 rounded border-zinc-300 text-brandblue focus:ring-brandblue/20" />
+                                    <span>Даю <a href="/storage/politics/soglasie-na-obrabotku-personalnyh-dannyh-medalyans-expert.pdf" target="_blank" class="text-brandblue hover:underline">согласие на обработку персональных данных</a></span>
+                                </label>
+                                <InputError :message="form.errors.privacy_consent" />
+                                <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <input v-model="form.oferta_consent" type="checkbox" class="mt-0.5 size-4 rounded border-zinc-300 text-brandblue focus:ring-brandblue/20" />
+                                    <span>Принимаю условия <a href="/storage/politics/publichnaya-oferta-dlya-medalyans-expert.pdf" target="_blank" class="text-brandblue hover:underline">публичной оферты</a></span>
+                                </label>
+                                <InputError :message="form.errors.oferta_consent" />
+                                <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+                                    <input v-model="form.newsletter_consent" type="checkbox" class="mt-0.5 size-4 rounded border-zinc-300 text-brandblue focus:ring-brandblue/20" />
+                                    <span>Хочу получать новости о мероприятиях</span>
+                                </label>
+                            </div>
+
                             <div class="flex items-center justify-between pt-4">
                                 <Link
                                     :href="route('login')"
@@ -211,13 +232,14 @@ const submit = () => {
                                 </Link>
 
                                 <PrimaryButton
-                                    :class="{ 'opacity-50 cursor-not-allowed': form.processing }"
-                                    :disabled="form.processing"
+                                    :class="{ 'opacity-50 cursor-not-allowed': form.processing || !form.privacy_consent || !form.oferta_consent }"
+                                    :disabled="form.processing || !form.privacy_consent || !form.oferta_consent"
                                 >
                                     Зарегистрироваться
                                 </PrimaryButton>
                             </div>
                         </form>
+                        <SocialLoginButtons title="или зарегистрируйтесь через" />
                     </div>
                 </div>
             </div>

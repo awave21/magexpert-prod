@@ -10,6 +10,7 @@ import { useToast } from 'vue-toastification';
 import { ref } from 'vue';
 import axios from 'axios';
 import { UserIcon } from '@heroicons/vue/24/outline';
+import SocialLoginButtons from '@/Components/SocialLoginButtons.vue';
 
 defineProps({
     canResetPassword: {
@@ -17,6 +18,10 @@ defineProps({
     },
     status: {
         type: String,
+    },
+    linkProvider: {
+        type: String,
+        default: null,
     },
 });
 
@@ -117,6 +122,9 @@ const submit = async () => {
                         <div v-if="status" class="mb-4 rounded-lg bg-green-50 p-4 text-sm font-medium text-green-600 dark:bg-green-900/20">
                             {{ status }}
                         </div>
+                        <div v-if="linkProvider" class="mb-4 rounded-lg bg-brandblue/5 p-4 text-sm text-gray-700 dark:bg-brandblue/10 dark:text-gray-200">
+                            Войдите по email и паролю — и мы привяжем {{ linkProvider }} к вашему аккаунту. Дальше можно будет входить через {{ linkProvider }}.
+                        </div>
 
                         <form @submit.prevent="submit" class="space-y-6">
                             <div>
@@ -172,6 +180,8 @@ const submit = async () => {
                                 </PrimaryButton>
                             </div>
                             
+                            <SocialLoginButtons />
+
                             <div class="text-center text-sm text-gray-600 dark:text-gray-400">
                                 Нет аккаунта? 
                                 <Link :href="route('register')" class="text-brandblue hover:underline dark:text-brandblue/90">

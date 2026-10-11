@@ -73,11 +73,12 @@ return [
             'replace_placeholders' => true,
         ],
 
-        'sendsay' => [
+        // вход и привязка через Яндекс/ВК: пишет всегда, независимо от LOG_LEVEL (без номеров и токенов)
+        'social' => [
             'driver' => 'daily',
-            'path' => storage_path('logs/sendsay.log'),
-            'level' => env('SENDSAY_LOGGING_LEVEL', 'info'),
-            'days' => env('SENDSAY_LOG_DAYS', 7),
+            'path' => storage_path('logs/social.log'),
+            'level' => 'info',
+            'days' => 14,
             'replace_placeholders' => true,
         ],
 
