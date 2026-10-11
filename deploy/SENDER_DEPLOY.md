@@ -193,3 +193,10 @@ Mail.ru и Яндекс присылают отчёт, когда получат
 
 ## Вебхуки
 API админки `/api/sender/v1/admin/webhooks` (страницы в интерфейсе пока нет): адрес `https://`, события `message.delivered`, `message.bounced`, `message.complained`, `message.opened`, `message.clicked`, `recipient.unsubscribed` (пусто — все). Тело JSON, подпись в заголовке `X-Sender-Signature: sha256=<HMAC тела секретом>`; секрет показывается один раз при создании. Неудачная доставка повторяется через 1, 5, 15 и 60 минут.
+
+## Ошибки сайта в Telegram
+Канал логов `telegram`: ошибки уровня `error` и выше приходят в чат коротким сообщением (окружение, хост, класс исключения, текст, файл:строка, адрес запроса без query-строки, id пользователя). Без стека, тела запроса, cookies и заголовков; email, телефоны, длинные токены и SQL из текста вырезаются. Одна и та же ошибка приходит не чаще раза в 10 минут. Сбой или таймаут Telegram (3 секунды) запрос не ломает. 404, 419, ошибки валидации, входа и прав не отправляются.
+- В `.env`: `LOG_STACK=single,telegram`. Бот и чат по умолчанию те же, что у алертов Sender (`SENDER_TELEGRAM_BOT_TOKEN`, `SENDER_TELEGRAM_CHAT_ID`). Другой бот или чат: `LOG_TELEGRAM_BOT_TOKEN`, `LOG_TELEGRAM_CHAT_ID`. Порог: `LOG_TELEGRAM_LEVEL` (по умолчанию `error`).
+- Затем `php artisan optimize && php artisan queue:restart`.
+- Проверка: `php artisan tinker --execute="report(new RuntimeException('Проверка уведомлений об ошибках'));"` — в чат приходит одно сообщение; повтор той же команды в течение 10 минут второго не присылает.
+- Файл дедупликации: `storage/logs/telegram-dedup.log` (его можно удалить, чтобы сбросить окно).
