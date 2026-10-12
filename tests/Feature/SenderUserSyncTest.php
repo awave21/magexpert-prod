@@ -8,6 +8,7 @@ use App\Sender\Client\SenderApiException;
 use App\Sender\Contracts\ContactSyncClient;
 use App\Sender\Events\RecipientUnsubscribed;
 use Illuminate\Http\Client\Request;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -367,4 +368,71 @@ it('sender:sync-users без настроек API сообщает об ошиб
         ->assertFailed();
 
     Http::assertNothingSent();
+});
+
+it('падает без повторов, если название занято базой, которую Sender собирает сам', function () {
+    Queue::fake();
+    $user = userWithProfile();
+
+    fakeSenderApi([
+        SENDER_API.'/lists' => Http::response(['message' => 'База с таким названием собирается автоматически, выберите другое название'], 409),
+    ]);
+
+    $job = (new SyncUserToSender($user->id, $user->email))->withFakeQueueInteractions();
+    app()->call([$job, 'handle']);
+
+    $job->assertFailed();
+    Http::assertSentCount(1);
+    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/contacts'));
+    expect(Cache::get(SyncUserToSender::listCacheKey()))->toBeNull();
+});
+
+it('sender:sync-users сообщает, что название базы занято автоматической базой', function () {
+    config(['sender.client.users_sync' => false]);
+    userWithProfile();
+
+    fakeSenderApi([
+        SENDER_API.'/lists' => Http::response(['message' => 'База с таким названием собирается автоматически, выберите другое название'], 409),
+    ]);
+
+    $this->artisan('sender:sync-users')
+        ->expectsOutputToContain('собирается автоматически')
+        ->assertFailed();
+
+    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/contacts'));
+});
+
+it('заглушка не пишет адреса пользователей в лог', function () {
+    $logged = collect();
+    Log::listen(fn (MessageLogged $event) => $logged->push($event));
+    $client = new LogContactSyncClient;
+
+    $client->upsertContact(0, 'anna@example.com', 'Анна', ['city' => 'Москва'], true);
+    $client->upsertContacts(0, [['email' => 'anna@example.com', 'subscribed' => true]]);
+    $client->deleteContact(0, 'anna@example.com');
+
+    expect($logged)->toHaveCount(3)
+        ->and($logged->filter(fn (MessageLogged $event) => str_contains($event->message.json_encode($event->context), 'anna')))->toBeEmpty()
+        ->and($logged[0]->context)->toBe(['list_id' => 0, 'subscribed' => true])
+        ->and($logged[1]->context)->toBe(['list_id' => 0, 'count' => 1]);
+});
+
+it('не ставит задачи без адреса и ключа API и один раз предупреждает в логе', function () {
+    config(['sender.client.driver' => 'local', 'sender.client.url' => null, 'sender.client.api_key' => null]);
+    Queue::fake();
+    $logged = collect();
+    Log::listen(fn (MessageLogged $event) => $logged->push($event));
+
+    $user = userWithProfile();
+    $user->update(['city' => 'Казань', 'email' => 'new@example.com']);
+    User::factory()->create(['email' => 'second@example.com']);
+    $user->delete();
+
+    Queue::assertNotPushed(SyncUserToSender::class);
+
+    $warnings = $logged->filter(fn (MessageLogged $event) => $event->level === 'warning')->values();
+    expect($warnings)->toHaveCount(1)
+        ->and($warnings[0]->message)->toContain('SENDER_USERS_SYNC')
+        ->and($warnings[0]->context)->toBe([])
+        ->and($warnings[0]->message)->not->toContain('@');
 });

@@ -2,6 +2,9 @@
 
 namespace App\Sender\Mail;
 
+use App\Sender\Models\Contact;
+use App\Sender\Services\SubscriptionConfirmationService;
+
 /**
  * Письмо с просьбой подтвердить подписку: его получает адрес, загруженный в базу без согласия.
  * Текст собран в коде, а не в шаблоне организации: без счётчика открытий, учёта переходов и ссылки отписки.
@@ -13,13 +16,38 @@ class SubscriptionConfirmationLetter
      */
     public const KIND = 'subscription_confirmation';
 
+    /**
+     * Ключи данных, которые нельзя показывать в журнале писем: по ним можно подтвердить чужую подписку.
+     */
+    public const SECRET_KEYS = ['confirm_url', 'confirmation_token'];
+
+    /**
+     * Данные для render() со ссылкой подтверждения. Ссылка в данных письма не хранится и собирается при отправке
+     * по contact_id. null — подписчика уже нет в базе или подтверждать ему нечего: письмо не отправляется.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null
+     */
+    public static function withConfirmUrl(array $data): ?array
+    {
+        $token = isset($data['contact_id'])
+            ? Contact::query()->whereKey((int) $data['contact_id'])->value('confirmation_token')
+            : null;
+
+        if (! is_string($token) || $token === '') {
+            return null;
+        }
+
+        return ['confirm_url' => SubscriptionConfirmationService::url($token)] + $data;
+    }
+
     public static function subject(string $organization): string
     {
         return 'Подтвердите подписку на рассылку '.$organization;
     }
 
     /**
-     * @param  array<string, mixed>  $data  confirm_url, organization_name, name
+     * @param  array<string, mixed>  $data  confirm_url (из withConfirmUrl), organization_name, name
      * @return array{subject: string, html: string, text: string}
      */
     public static function render(array $data): array

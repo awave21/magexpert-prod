@@ -37,6 +37,12 @@ class UserCreateCommand extends Command
         $existing = User::query()->where('email', $email)->first();
         $owner = $organization->owner()->first();
 
+        if ($existing?->isOwner() && (int) $existing->organization_id !== (int) $organization->id) {
+            $this->error("Пользователь {$email} — владелец другой организации. Сначала передайте владение в её настройках");
+
+            return self::FAILURE;
+        }
+
         if ($role === User::ROLE_OWNER && $owner !== null && $owner->email !== $email) {
             $this->error("У организации уже есть владелец ({$owner->email}). Владение передаётся в настройках организации");
 
@@ -58,6 +64,7 @@ class UserCreateCommand extends Command
                 'name' => $this->option('name') ?: $email,
                 'role' => $role,
                 'password' => $password,
+                'password_set' => true,
                 'is_active' => true,
             ],
         );

@@ -845,6 +845,8 @@ button { font: inherit; color: inherit; }
 .subnav-toggle { position: absolute; top: 50%; left: 100%; z-index: 2; }
 .subnav.peek .subnav-toggle { left: var(--subnav-w); }
 .subnav:not(.docked):not(.peek) .subnav-toggle { opacity: 0; transform: scale(.6); pointer-events: none; }
+/* скрытая кнопка видна и доступна с клавиатуры */
+.subnav:not(.docked):not(.peek) .subnav-toggle:focus-visible { opacity: 1; transform: none; pointer-events: auto; }
 .subnav:not(.docked) .subnav-toggle svg { transform: rotate(180deg); }
 .app { --sidebar-w: 248px; }
 @media (min-width: 901px) {

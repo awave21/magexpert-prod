@@ -33,7 +33,7 @@ class User extends SenderModel
 
     public const ADMIN_ROLES = [self::ROLE_OWNER, self::ROLE_ADMIN];
 
-    protected $fillable = ['organization_id', 'name', 'email', 'role', 'password', 'is_active'];
+    protected $fillable = ['organization_id', 'name', 'email', 'role', 'password', 'password_set', 'is_active'];
 
     protected $hidden = ['password'];
 
@@ -44,8 +44,18 @@ class User extends SenderModel
     {
         return [
             'password' => 'hashed',
+            'password_set' => 'boolean',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Пароль задан самим пользователем (false — после регистрации через Яндекс или ВКонтакте со случайным паролем).
+     * Новая запись без значения берёт значение колонки по умолчанию — true.
+     */
+    public function hasPassword(): bool
+    {
+        return $this->password_set ?? true;
     }
 
     public function isOwner(): bool

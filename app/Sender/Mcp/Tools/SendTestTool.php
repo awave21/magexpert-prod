@@ -89,11 +89,12 @@ class SendTestTool implements Tool
             $this->variables->sampleData($ctx->organization, is_array($args['data'] ?? null) ? $args['data'] : []),
         );
 
-        $ctx->audit(self::AUDIT_ACTION, $template->name);
-
         if ($message->status === Message::STATUS_BLOCKED) {
             throw new ToolException('Тестовое письмо не отправлено: '.$message->error);
         }
+
+        // в журнал попадает только действительно отправленный тест
+        $ctx->audit(self::AUDIT_ACTION, $template->name);
 
         return [
             'message' => "Тестовое письмо «{$template->name}» поставлено в очередь на {$ctx->user->email}",

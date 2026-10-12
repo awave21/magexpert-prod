@@ -120,7 +120,7 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
             </div>
             <div className="field">
               <label htmlFor="addr-name">Имя отправителя</label>
-              <input id="addr-name" className={`input${errors.name ? ' err' : ''}`} placeholder="МедАльянсГрупп Expert" value={name} onChange={(e) => setName(e.target.value)} />
+              <input id="addr-name" className={`input${errors.name ? ' err' : ''}`} placeholder="Название компании" value={name} onChange={(e) => setName(e.target.value)} />
               {errors.name ? <div className="hint err">{errors.name[0]}</div> : <div className="hint">Так письмо подписано во входящих у получателя</div>}
             </div>
             {formError && <div className="callout err" role="alert"><div><b>Не получилось</b><span>{formError}</span></div></div>}

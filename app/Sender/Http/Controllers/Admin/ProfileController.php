@@ -5,6 +5,7 @@ namespace App\Sender\Http\Controllers\Admin;
 use App\Sender\Http\Requests\Admin\ProfilePasswordRequest;
 use App\Sender\Http\Requests\Admin\ProfileRequest;
 use App\Sender\Http\Resources\UserResource;
+use App\Sender\Models\McpToken;
 use App\Sender\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,19 +41,26 @@ class ProfileController extends Controller
     }
 
     /**
-     * После смены пароля остальные входы закрываются, текущий остаётся.
+     * После смены пароля остальные входы и все ключи MCP закрываются, текущий вход остаётся.
+     * Если пароль ещё не задан (вход через Яндекс или ВКонтакте), текущий не спрашивается.
      */
     public function password(ProfilePasswordRequest $request, AuthService $auth): JsonResponse
     {
         $user = $this->user($request);
+        $hadPassword = $request->hasPassword();
 
-        if (! Hash::check($request->string('current_password')->toString(), $user->password)) {
+        if ($hadPassword && ! Hash::check($request->string('current_password')->toString(), $user->password)) {
             throw ValidationException::withMessages(['current_password' => 'Текущий пароль указан неверно']);
         }
 
-        $user->forceFill(['password' => $request->string('password')->toString()])->save();
-        $auth->revokeOtherTokens($user, (string) $request->bearerToken());
+        $user->getConnection()->transaction(function () use ($user, $request, $auth): void {
+            $user->forceFill(['password' => $request->string('password')->toString(), 'password_set' => true])->save();
+            $auth->revokeOtherTokens($user, (string) $request->bearerToken());
+            McpToken::query()->where('user_id', $user->id)->active()->update(['revoked_at' => now()]);
+        });
 
-        return response()->json(['message' => 'Пароль изменён. На других устройствах нужно войти заново']);
+        return response()->json(['message' => $hadPassword
+            ? 'Пароль изменён. На других устройствах нужно войти заново, ключи MCP отозваны'
+            : 'Пароль задан. Теперь можно входить по email и паролю']);
     }
 }

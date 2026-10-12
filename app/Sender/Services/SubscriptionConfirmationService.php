@@ -4,7 +4,6 @@ namespace App\Sender\Services;
 
 use App\Sender\Models\Contact;
 use App\Sender\Models\ContactList;
-use App\Sender\Models\Message;
 use App\Sender\Models\Webhook;
 use App\Sender\Support\SenderUi;
 use Illuminate\Database\Eloquent\Builder;
@@ -76,7 +75,7 @@ class SubscriptionConfirmationService
                 continue;
             }
 
-            $this->messages->sendSubscriptionConfirmation($list->organization, $contact->email, self::url((string) $contact->confirmation_token), $contact->name);
+            $this->messages->sendSubscriptionConfirmation($list->organization, $contact);
             $sent++;
         }
 
@@ -143,10 +142,7 @@ class SubscriptionConfirmationService
 
         $hourly = (int) config('sender.hourly_limit');
         if ($hourly > 0) {
-            $since = now()->subHour();
-            $limits[] = $hourly
-                - Message::query()->whereNotNull('campaign_id')->where('dispatched_at', '>', $since)->count()
-                - Message::query()->whereNull('campaign_id')->whereNull('template_id')->where('dispatched_at', '>', $since)->count();
+            $limits[] = $hourly - MessageService::bulkDispatchedSince(now()->subHour());
         }
 
         return min($limits);

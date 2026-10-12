@@ -1,9 +1,11 @@
 <?php
 
 use App\Sender\Jobs\CheckContactsJob;
+use App\Sender\Mcp\McpTokens;
 use App\Sender\Models\AuditLog;
 use App\Sender\Models\Campaign;
 use App\Sender\Models\Domain;
+use App\Sender\Models\McpToken;
 use App\Sender\Models\Organization;
 use App\Sender\Models\User;
 use App\Sender\Services\AuthService;
@@ -196,4 +198,161 @@ it('makes the first admin created from the console the owner', function (): void
     expect(User::query()->where('email', 'boss@empty.ru')->value('role'))->toBe('owner')
         ->and(User::query()->where('email', 'second@empty.ru')->value('role'))->toBe('admin')
         ->and($empty->users()->count())->toBe(2);
+});
+
+it('asks an owner without a password to set one before transferring ownership', function (): void {
+    [$admin] = member('admin');
+    $this->owner->forceFill(['password_set' => false])->save();
+
+    $this->withToken($this->ownerToken)->getJson(rolesApi('/me'))->assertJsonPath('data.password_set', false);
+    $this->withToken($this->ownerToken)->postJson(rolesApi('/organization/transfer'), ['user_id' => $admin->id])
+        ->assertUnprocessable()->assertJsonValidationErrors(['current_password' => 'Сначала задайте пароль в профиле']);
+    // даже если прислать пароль (он случайный, но вдруг угадан) — сначала нужно задать свой
+    $this->withToken($this->ownerToken)->postJson(rolesApi('/organization/transfer'), ['user_id' => $admin->id, 'current_password' => 'secret-pass'])
+        ->assertUnprocessable()->assertJsonValidationErrors(['current_password' => 'Сначала задайте пароль в профиле']);
+
+    expect($this->owner->fresh()->role)->toBe('owner')
+        ->and($admin->fresh()->role)->toBe('admin');
+});
+
+it('does not transfer ownership to a member of another organization', function (): void {
+    $other = Organization::create(['name' => 'Другая', 'slug' => 'other']);
+    $stranger = User::create(['organization_id' => $other->id, 'name' => 'Чужой', 'email' => 'stranger@other.ru', 'password' => 'secret-pass', 'role' => 'admin']);
+
+    $this->withToken($this->ownerToken)->postJson(rolesApi('/organization/transfer'), ['user_id' => $stranger->id, 'current_password' => 'secret-pass'])
+        ->assertUnprocessable()->assertJsonValidationErrors(['user_id' => 'Выберите активного участника команды, кроме себя']);
+    $this->withToken($this->ownerToken)->postJson(rolesApi('/organization/transfer'), ['user_id' => $this->owner->id, 'current_password' => 'secret-pass'])
+        ->assertUnprocessable()->assertJsonValidationErrors('user_id');
+
+    expect($stranger->fresh()->role)->toBe('admin')
+        ->and($this->owner->fresh()->role)->toBe('owner');
+});
+
+it('re-checks the owner under lock when the role changed after sign-in', function (): void {
+    [$admin] = member('admin');
+    $changed = false;
+
+    // параллельная передача: пока запрос шёл, владельцем стал другой участник
+    User::retrieved(function (User $user) use (&$changed, $admin): void {
+        if (! $changed && $user->id === $this->owner->id) {
+            $changed = true;
+            User::query()->whereKey($this->owner->id)->update(['role' => 'admin']);
+            User::query()->whereKey($admin->id)->update(['role' => 'owner']);
+        }
+    });
+
+    [$editor] = member('editor');
+    $this->withToken($this->ownerToken)->postJson(rolesApi('/organization/transfer'), ['user_id' => $editor->id, 'current_password' => 'secret-pass'])
+        ->assertForbidden()->assertJsonPath('message', 'Это может делать только владелец организации');
+
+    expect($changed)->toBeTrue()
+        ->and($editor->fresh()->role)->toBe('editor')
+        ->and(User::query()->where('organization_id', $this->organization->id)->where('role', 'owner')->pluck('id')->all())->toBe([$admin->id]);
+});
+
+it('re-checks under lock that the member being edited is not the owner', function (): void {
+    [$admin, $adminToken] = member('admin');
+    [$editor] = member('editor');
+    $changed = false;
+
+    // пока администратор правил участника, владелец передал ему владение
+    User::retrieved(function (User $user) use (&$changed, $admin, $editor): void {
+        if (! $changed && $user->id === $admin->id) {
+            $changed = true;
+            User::query()->whereKey($this->owner->id)->update(['role' => 'admin']);
+            User::query()->whereKey($editor->id)->update(['role' => 'owner']);
+        }
+    });
+
+    $this->withToken($adminToken)->putJson(rolesApi("/users/{$editor->id}"), ['is_active' => false])
+        ->assertForbidden()->assertJsonPath('message', 'Владельца организации изменить или отключить нельзя');
+
+    expect($changed)->toBeTrue()
+        ->and($editor->fresh()->role)->toBe('owner')
+        ->and($editor->fresh()->is_active)->toBeTrue();
+});
+
+it('revokes MCP keys and sessions of a deactivated member', function (): void {
+    [$editor, $editorToken] = member('editor');
+    $plain = app(McpTokens::class)->issue($editor, 'Ассистент')['plain'];
+    app(McpTokens::class)->issue($this->owner, 'Свой');
+
+    $this->withToken($this->ownerToken)->putJson(rolesApi("/users/{$editor->id}"), ['is_active' => false])->assertOk()->assertJsonPath('data.is_active', false);
+
+    expect(McpToken::query()->where('user_id', $editor->id)->whereNull('revoked_at')->exists())->toBeFalse()
+        ->and(McpToken::query()->where('user_id', $editor->id)->whereNotNull('revoked_at')->count())->toBe(1)
+        ->and(McpToken::query()->where('user_id', $this->owner->id)->whereNull('revoked_at')->count())->toBe(1)
+        ->and($editor->tokens()->count())->toBe(0);
+
+    $this->withToken($editorToken)->getJson(rolesApi('/me'))->assertUnauthorized();
+
+    // повторное включение старые ключи не возвращает
+    $this->withToken($this->ownerToken)->putJson(rolesApi("/users/{$editor->id}"), ['is_active' => true])->assertOk();
+    $this->withToken($plain)->postJson('/api/sender/v1/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])->assertUnauthorized();
+});
+
+it('falls back to the earliest active member of any role when an organization has no active admin', function (): void {
+    $noAdmin = Organization::create(['name' => 'Без админа', 'slug' => 'no-admin']);
+    $nobody = Organization::create(['name' => 'Пустая', 'slug' => 'nobody']);
+    $make = fn (int $organizationId, string $email, string $role, bool $active, string $at) => DB::connection(config('sender.connection'))->table('sender_users')->insertGetId([
+        'organization_id' => $organizationId, 'name' => $email, 'email' => $email, 'password' => 'x', 'role' => $role, 'is_active' => $active, 'created_at' => $at, 'updated_at' => $at,
+    ]);
+    $make($noAdmin->id, 'off-admin@no-admin.ru', 'admin', false, '2026-01-01 00:00:00');
+    $editor = $make($noAdmin->id, 'editor@no-admin.ru', 'editor', true, '2026-01-02 00:00:00');
+    $make($noAdmin->id, 'viewer@no-admin.ru', 'viewer', true, '2026-01-03 00:00:00');
+    $make($nobody->id, 'off@nobody.ru', 'admin', false, '2026-01-01 00:00:00');
+
+    $migration = require base_path('app/Sender/Database/Migrations/2026_10_12_000022_add_owner_and_designer_roles_to_sender_users.php');
+    $migration->up();
+
+    expect(User::query()->where('organization_id', $noAdmin->id)->where('role', 'owner')->pluck('id')->all())->toBe([$editor])
+        ->and(User::query()->where('organization_id', $nobody->id)->where('role', 'owner')->exists())->toBeFalse()
+        ->and($this->owner->fresh()->role)->toBe('owner');
+});
+
+it('assigns an owner from the console', function (): void {
+    [$admin] = member('admin');
+    [$viewer] = member('viewer');
+    $viewer->forceFill(['is_active' => false])->save();
+
+    $this->artisan('sender:assign-owner', ['organization_slug' => 'nope', 'email' => 'admin@example.com'])
+        ->expectsOutputToContain("Организация 'nope' не найдена")->assertFailed();
+    $this->artisan('sender:assign-owner', ['organization_slug' => 'magexpert', 'email' => 'ghost@example.com'])
+        ->expectsOutputToContain('нет активного пользователя ghost@example.com')->assertFailed();
+    $this->artisan('sender:assign-owner', ['organization_slug' => 'magexpert', 'email' => 'viewer@example.com'])->assertFailed();
+    $this->artisan('sender:assign-owner', ['organization_slug' => 'magexpert', 'email' => 'owner@example.com'])
+        ->expectsOutputToContain('уже владелец')->assertSuccessful();
+
+    $this->artisan('sender:assign-owner', ['organization_slug' => 'magexpert', 'email' => 'Admin@Example.com'])
+        ->expectsOutputToContain("Владелец организации 'magexpert' теперь admin@example.com")->assertSuccessful();
+
+    expect($admin->fresh()->role)->toBe('owner')
+        ->and($this->owner->fresh()->role)->toBe('admin')
+        ->and(User::query()->where('organization_id', $this->organization->id)->where('role', 'owner')->count())->toBe(1);
+
+    // организация без владельца
+    $empty = Organization::create(['name' => 'Без владельца', 'slug' => 'ownerless']);
+    $lonely = User::create(['organization_id' => $empty->id, 'name' => 'Один', 'email' => 'one@ownerless.ru', 'password' => 'secret-pass', 'role' => 'editor']);
+    $this->artisan('sender:assign-owner', ['organization_slug' => 'ownerless', 'email' => 'one@ownerless.ru'])->assertSuccessful();
+    expect($lonely->fresh()->role)->toBe('owner');
+});
+
+it('refuses to move the owner of another organization from the console', function (): void {
+    Organization::create(['name' => 'Другая', 'slug' => 'other']);
+
+    $this->artisan('sender:user-create', ['email' => 'owner@example.com', '--organization' => 'other', '--password' => 'new-pass-123'])
+        ->expectsOutputToContain('владелец другой организации')
+        ->assertFailed();
+
+    $owner = $this->owner->fresh();
+    expect($owner->organization_id)->toBe($this->organization->id)
+        ->and($owner->role)->toBe('owner')
+        ->and((new AuthService)->login('owner@example.com', 'secret-pass'))->not->toBeNull();
+
+    // обычного участника перенести можно, пароль считается заданным
+    [$editor] = member('editor');
+    $editor->forceFill(['password_set' => false])->save();
+    $this->artisan('sender:user-create', ['email' => 'editor@example.com', '--organization' => 'other', '--role' => 'editor', '--password' => 'new-pass-123'])->assertSuccessful();
+    expect($editor->fresh()->organization->slug)->toBe('other')
+        ->and($editor->fresh()->password_set)->toBeTrue();
 });

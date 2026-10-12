@@ -13,6 +13,7 @@ use App\Sender\Services\EmailChecker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 
 class ContactController extends Controller
 {
@@ -109,7 +110,9 @@ class ContactController extends Controller
         $model = $this->list($request, $list)->contacts()->findOrFail($contact);
         abort_unless($model->check_status === EmailChecker::STATUS_TYPO && $model->check_hint, 422, 'Для этого адреса нет исправления');
 
-        $this->applyHint($model, $checker);
+        if ($this->applyHint($model, $checker)) {
+            $this->sendConfirmations($model->list_id);
+        }
 
         return response()->json(['message' => 'Адрес исправлен']);
     }
@@ -117,32 +120,61 @@ class ContactController extends Controller
     public function fixAll(Request $request, int $list, EmailChecker $checker): JsonResponse
     {
         $fixed = 0;
-        $this->list($request, $list)->contacts()->where('check_status', EmailChecker::STATUS_TYPO)->whereNotNull('check_hint')
-            ->chunkById(500, function ($contacts) use ($checker, &$fixed): void {
+        $awaitingLetter = false;
+        $model = $this->list($request, $list);
+        $model->contacts()->where('check_status', EmailChecker::STATUS_TYPO)->whereNotNull('check_hint')
+            ->chunkById(500, function ($contacts) use ($checker, &$fixed, &$awaitingLetter): void {
                 foreach ($contacts as $contact) {
-                    $this->applyHint($contact, $checker);
+                    $awaitingLetter = $this->applyHint($contact, $checker) || $awaitingLetter;
                     $fixed++;
                 }
             });
+
+        // одна задача на весь запрос: она сама разошлёт письма порциями
+        if ($awaitingLetter) {
+            $this->sendConfirmations($model->id);
+        }
 
         return response()->json(['data' => ['fixed' => $fixed]]);
     }
 
     /**
      * Если исправленный адрес уже есть в базе, опечатка просто удаляется.
+     *
+     * Подписчик, ждущий подтверждения, получает письмо на исправленный адрес: письмо на адрес с опечаткой
+     * (если успело уйти) до него не дошло. Ключ ссылки меняется, чтобы ссылка из того письма не подтвердила новый адрес.
+     *
+     * @return bool исправленному адресу нужно письмо подтверждения
      */
-    private function applyHint(Contact $contact, EmailChecker $checker): void
+    private function applyHint(Contact $contact, EmailChecker $checker): bool
     {
         $email = (string) $contact->check_hint;
 
         if (Contact::query()->where('list_id', $contact->list_id)->where('email', $email)->exists()) {
             $contact->delete();
 
-            return;
+            return false;
         }
 
-        $contact->forceFill(['email' => $email, 'check_status' => null, 'check_hint' => null, 'checked_at' => null])->save();
+        $changes = ['email' => $email, 'check_status' => null, 'check_hint' => null, 'checked_at' => null];
+        $pending = $contact->isPending() && $contact->unsubscribed_at === null;
+
+        if ($pending && $email !== $contact->email) {
+            $changes += ['confirmation_sent_at' => null, 'confirmation_token' => Str::random(48)];
+        }
+
+        $contact->forceFill($changes)->save();
         $checker->checkContacts([$contact]);
+
+        return $pending;
+    }
+
+    /**
+     * Письма подтверждения уходят задачей с её порциями и лимитами, после сохранения исправлений.
+     */
+    private function sendConfirmations(int $listId): void
+    {
+        SendSubscriptionConfirmationsJob::dispatch($listId)->onQueue(config('sender.queue'))->afterCommit();
     }
 
     public function destroy(Request $request, int $list, int $contact): JsonResponse

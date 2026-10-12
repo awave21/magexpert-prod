@@ -7,6 +7,7 @@ use App\Sender\Mcp\McpContext;
 use App\Sender\Mcp\ToolException;
 use App\Sender\Models\Template;
 use App\Sender\Models\TemplateFolder;
+use App\Sender\Support\HtmlSanitizer;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -17,7 +18,10 @@ use Illuminate\Support\Str;
  */
 class TemplateWriter
 {
-    public function __construct(private readonly BlockCompiler $compiler) {}
+    public function __construct(
+        private readonly BlockCompiler $compiler,
+        private readonly HtmlSanitizer $sanitizer,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $args
@@ -32,8 +36,9 @@ class TemplateWriter
             'preheader' => $this->nullable($args['preheader'] ?? null),
             'reply_to' => $this->nullable($args['reply_to'] ?? null),
             'sender_address_id' => $args['sender_address_id'] ?? null,
-            'folder_id' => $this->folderId($ctx, $args),
         ];
+        $folder = $this->folder($ctx, $args);
+        $data['folder_id'] = $folder['id'];
 
         if (! isset($args['blocks']) && ! isset($args['html'])) {
             throw new ToolException('Передайте содержимое письма: blocks (блоки визуального редактора) или html');
@@ -42,7 +47,12 @@ class TemplateWriter
         $data = array_merge($data, $this->content($args, $data['subject']));
         $validated = $this->validate($ctx, $data, null);
 
-        return $ctx->organization->templates()->create($validated)->load('folder');
+        // новая папка появляется только вместе с письмом: при ошибке не остаётся пустых папок
+        return $ctx->organization->getConnection()->transaction(function () use ($ctx, $folder, $validated): Template {
+            $validated['folder_id'] = $this->createFolderIfNeeded($ctx, $folder);
+
+            return $ctx->organization->templates()->create($validated)->load('folder');
+        });
     }
 
     /**
@@ -63,18 +73,24 @@ class TemplateWriter
             'preheader' => array_key_exists('preheader', $args) ? $this->nullable($args['preheader']) : $template->preheader,
             'reply_to' => array_key_exists('reply_to', $args) ? $this->nullable($args['reply_to']) : $template->reply_to,
             'sender_address_id' => array_key_exists('sender_address_id', $args) ? $args['sender_address_id'] : $template->sender_address_id,
-            'folder_id' => array_key_exists('folder', $args) || array_key_exists('folder_id', $args) ? $this->folderId($ctx, $args) : $template->folder_id,
+            'folder_id' => $template->folder_id,
             'body_html' => $template->body_html,
             'body_text' => $template->body_text,
             'editor' => $template->editor ?? Template::EDITOR_HTML,
             'design' => $template->design,
         ];
 
+        $folder = array_key_exists('folder', $args) || array_key_exists('folder_id', $args) ? $this->folder($ctx, $args) : ['id' => $template->folder_id, 'create' => null];
+        $data['folder_id'] = $folder['id'];
+
+        // заготовки картинок без адреса, сохранённые редактором, не мешают правке
+        $storedEmptyImages = is_array($template->design) ? BlockCompiler::emptyImageIds((array) ($template->design['blocks'] ?? [])) : [];
+
         if (isset($args['blocks']) || isset($args['html'])) {
-            $data = array_merge($data, $this->content($args, $data['subject']));
+            $data = array_merge($data, $this->content($args, $data['subject'], $storedEmptyImages));
         } elseif (isset($args['settings']) && $data['editor'] === Template::EDITOR_BLOCKS && is_array($data['design'])) {
             // только настройки оформления: пересобираем HTML из сохранённых блоков
-            $data = array_merge($data, $this->content(['blocks' => $data['design']['blocks'] ?? [], 'settings' => array_merge((array) ($data['design']['settings'] ?? []), (array) $args['settings'])], $data['subject']));
+            $data = array_merge($data, $this->content(['blocks' => $data['design']['blocks'] ?? [], 'settings' => array_merge((array) ($data['design']['settings'] ?? []), (array) $args['settings'])], $data['subject'], $storedEmptyImages));
         } elseif (array_key_exists('text', $args)) {
             $data['body_text'] = $this->nullable($args['text']);
         }
@@ -83,7 +99,12 @@ class TemplateWriter
             $data['design'] = null;
         }
 
-        $template->update($this->validate($ctx, $data, $template->id));
+        $validated = $this->validate($ctx, $data, $template->id);
+
+        $ctx->organization->getConnection()->transaction(function () use ($ctx, $template, $folder, $validated): void {
+            $validated['folder_id'] = $this->createFolderIfNeeded($ctx, $folder);
+            $template->update($validated);
+        });
 
         return $template->refresh()->load('folder');
     }
@@ -115,10 +136,13 @@ class TemplateWriter
     /**
      * HTML и текст письма из блоков или из готового HTML.
      *
+     * HTML ассистента (и в блоках, и готовый) очищается от скриптов, обработчиков и ссылок javascript:.
+     *
      * @param  array<string, mixed>  $args
+     * @param  list<string>  $storedEmptyImages  id сохранённых картинок-заготовок без адреса
      * @return array{body_html: string, body_text: string|null, editor: string, design: array<string, mixed>|null}
      */
-    private function content(array $args, string $subject): array
+    private function content(array $args, string $subject, array $storedEmptyImages = []): array
     {
         if (isset($args['blocks']) && isset($args['html'])) {
             throw new ToolException('Передайте что-то одно: blocks или html');
@@ -140,7 +164,7 @@ class TemplateWriter
                 throw new ToolException('В письме нет ни одного блока');
             }
 
-            $design = $this->compiler->normalize($blocks, $settings);
+            $design = $this->compiler->normalize($blocks, $settings, $storedEmptyImages);
             $html = $this->compiler->toHtml($design, $subject);
 
             return [
@@ -151,7 +175,7 @@ class TemplateWriter
             ];
         }
 
-        $html = (string) $args['html'];
+        $html = $this->sanitizer->clean((string) $args['html']);
 
         if (trim($html) === '') {
             throw new ToolException('HTML письма пустой');
@@ -199,11 +223,13 @@ class TemplateWriter
     }
 
     /**
-     * Папка по ID или по названию; если папки с таким названием нет, она создаётся.
+     * Папка по ID или по названию. Если папки с таким названием нет, возвращается её название (create):
+     * она создаётся только после проверки письма, в одной транзакции с ним.
      *
      * @param  array<string, mixed>  $args
+     * @return array{id: int|null, create: string|null}
      */
-    private function folderId(McpContext $ctx, array $args): ?int
+    private function folder(McpContext $ctx, array $args): array
     {
         if (isset($args['folder_id'])) {
             $folder = $ctx->organization->templateFolders()->find((int) $args['folder_id']);
@@ -212,27 +238,44 @@ class TemplateWriter
                 throw new ToolException("Папка с ID {$args['folder_id']} не найдена");
             }
 
-            return $folder->id;
+            return ['id' => $folder->id, 'create' => null];
         }
 
         $name = trim((string) ($args['folder'] ?? ''));
 
         if ($name === '') {
-            return null;
+            return ['id' => null, 'create' => null];
         }
 
-        $existing = $ctx->organization->templateFolders()->get()
-            ->first(fn (TemplateFolder $folder): bool => Str::lower($folder->name) === Str::lower($name));
+        $existing = $this->findFolder($ctx, $name);
 
         if ($existing !== null) {
-            return $existing->id;
+            return ['id' => $existing->id, 'create' => null];
         }
 
         if (mb_strlen($name) > 120) {
             throw new ToolException('Название папки: не длиннее 120 символов');
         }
 
-        return $ctx->organization->templateFolders()->create(['name' => $name])->id;
+        return ['id' => null, 'create' => $name];
+    }
+
+    /**
+     * @param  array{id: int|null, create: string|null}  $folder
+     */
+    private function createFolderIfNeeded(McpContext $ctx, array $folder): ?int
+    {
+        if ($folder['create'] === null) {
+            return $folder['id'];
+        }
+
+        return ($this->findFolder($ctx, $folder['create']) ?? $ctx->organization->templateFolders()->create(['name' => $folder['create']]))->id;
+    }
+
+    private function findFolder(McpContext $ctx, string $name): ?TemplateFolder
+    {
+        return $ctx->organization->templateFolders()->get()
+            ->first(fn (TemplateFolder $folder): bool => Str::lower($folder->name) === Str::lower($name));
     }
 
     private function uniqueSlug(McpContext $ctx, string $name): string

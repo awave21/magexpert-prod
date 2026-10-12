@@ -3,6 +3,7 @@
 namespace App\Sender\Mcp\Support;
 
 use App\Sender\Mcp\ToolException;
+use App\Sender\Support\HtmlSanitizer;
 use Dom\Element;
 use Dom\HTMLDocument;
 use Illuminate\Support\Str;
@@ -52,6 +53,13 @@ class BlockCompiler
     ];
 
     /**
+     * @var list<string>
+     */
+    private array $storedEmptyImages = [];
+
+    public function __construct(private readonly HtmlSanitizer $sanitizer = new HtmlSanitizer) {}
+
+    /**
      * Значения по умолчанию для каждого типа блока (как createBlock в редакторе), без id.
      *
      * @return array<string, mixed>
@@ -79,14 +87,20 @@ class BlockCompiler
     /**
      * Проверяет блоки ассистента и дополняет их значениями по умолчанию: получается design, который понимает редактор.
      *
+     * HTML блоков очищается от скриптов и обработчиков, ссылки — от javascript: (см. HtmlSanitizer).
+     * Картинки без адреса — ошибка, кроме уже сохранённых в письме заготовок (их id в $storedEmptyImages):
+     * редактор создаёт такие блоки, а при сборке HTML они пропускаются.
+     *
      * @param  array<int, mixed>  $blocks
      * @param  array<string, mixed>  $settings
+     * @param  list<string>  $storedEmptyImages
      * @return array{version: int, settings: array<string, mixed>, blocks: list<array<string, mixed>>}
      *
      * @throws ToolException
      */
-    public function normalize(array $blocks, array $settings = []): array
+    public function normalize(array $blocks, array $settings = [], array $storedEmptyImages = []): array
     {
+        $this->storedEmptyImages = $storedEmptyImages;
         $errors = [];
         $normalizedSettings = self::DEFAULT_SETTINGS;
 
@@ -109,6 +123,10 @@ class BlockCompiler
             };
         }
 
+        // недопустимое значение для style заменяется значением по умолчанию
+        foreach ($this->sanitizer->settings($normalizedSettings) as $key => $value) {
+            $normalizedSettings[$key] = $value === '' && is_string($normalizedSettings[$key]) && $normalizedSettings[$key] !== '' ? self::DEFAULT_SETTINGS[$key] : $value;
+        }
         $normalizedSettings['width'] = max(320, min(800, (int) $normalizedSettings['width']));
 
         $count = 0;
@@ -198,7 +216,9 @@ class BlockCompiler
             $errors[] = "{$path}.cond: имя переменной без фигурных скобок, например first_name";
         }
 
-        if ($type === 'image' && $out['src'] === '') {
+        $out = $this->sanitizer->block($out);
+
+        if ($type === 'image' && $out['src'] === '' && ! in_array($out['id'], $this->storedEmptyImages, true)) {
             $errors[] = "{$path}.src: у картинки нет адреса (https://…)";
         }
 
@@ -209,6 +229,33 @@ class BlockCompiler
         }
 
         return $out;
+    }
+
+    /**
+     * id картинок без адреса в сохранённом design, включая блоки внутри колонок.
+     *
+     * @param  array<int|string, mixed>  $blocks
+     * @return list<string>
+     */
+    public static function emptyImageIds(array $blocks): array
+    {
+        $ids = [];
+
+        foreach ($blocks as $block) {
+            if (! is_array($block)) {
+                continue;
+            }
+
+            if (($block['type'] ?? null) === 'image' && ($block['src'] ?? '') === '' && is_string($block['id'] ?? null)) {
+                $ids[] = $block['id'];
+            }
+
+            foreach (is_array($block['columns'] ?? null) ? $block['columns'] : [] as $column) {
+                $ids = [...$ids, ...(is_array($column) ? self::emptyImageIds($column) : [])];
+            }
+        }
+
+        return $ids;
     }
 
     /**

@@ -15,11 +15,16 @@ use Illuminate\Routing\Controller;
  */
 class ListController extends Controller
 {
+    public const SYNCED = 'База с таким названием собирается автоматически, выберите другое название';
+
     public function upsert(UpsertListRequest $request, ContactUpsertService $service): JsonResponse
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('sender_organization');
         [$list, $created] = $service->findOrCreateList($organization, $request->validated('name'), $request->validated('description'));
+
+        // база из источника (например, пользователи сайта) пишется только источником: записи через API получали бы 422
+        abort_if($list->isSynced(), 409, self::SYNCED);
 
         return response()->json(['data' => self::present($list)], $created ? 201 : 200);
     }

@@ -88,11 +88,30 @@ export function Layout() {
   const peekOff = () => { window.clearTimeout(peekTimer.current); peekTimer.current = window.setTimeout(() => setPeek(null), 220) }
   useEffect(() => { setPeek(null) }, [root, loc.search])
   useEffect(() => () => window.clearTimeout(peekTimer.current), [])
+  // с клавиатуры колонка открывается фокусом на пункте и закрывается, когда фокус ушёл и с пункта, и с колонки
+  const panelRef = useRef<HTMLDivElement>(null)
+  const coarse = () => window.matchMedia?.('(pointer: coarse)').matches ?? false
+  const focusOutside = (e: React.FocusEvent) => {
+    const next = e.relatedTarget as Node | null
+    return !next || !(panelRef.current?.contains(next) || (next instanceof Element && next.closest('[data-subnav-item]')))
+  }
 
   const item = (to: string, icon: React.ReactNode, label: string, badge?: number) => (
     <NavLink to={to} end={to === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-      onClick={() => { setOpen(false); if (SUBNAV_SECTIONS.includes(to)) { setSubnavHidden(false); setPeek(null) } }}
-      {...(SUBNAV_SECTIONS.includes(to) ? { onMouseEnter: () => peekOn(to), onMouseLeave: peekOff } : {})}
+      onClick={() => { setOpen(false); if (SUBNAV_SECTIONS.includes(to)) { window.clearTimeout(peekTimer.current); setSubnavHidden(false); setPeek(null) } }}
+      {...(SUBNAV_SECTIONS.includes(to) ? {
+        'data-subnav-item': '',
+        onMouseEnter: () => peekOn(to), onMouseLeave: peekOff,
+        // на сенсорном экране нажатие сразу открывает раздел и закрепляет колонку, фокус её не выдвигает
+        onFocus: () => { if (!coarse()) peekOn(to) },
+        onBlur: (e: React.FocusEvent) => { if (focusOutside(e)) peekOff() },
+        // стрелка вправо переводит фокус в открытую колонку
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key !== 'ArrowRight') return
+          const first = panelRef.current?.querySelector<HTMLElement>('a, button')
+          if (first && shown) { e.preventDefault(); peekKeep(); first.focus() }
+        },
+      } : {})}
       title={collapsed ? label : undefined} aria-label={collapsed ? label : undefined}>
       {icon}<span className="grow nav-text">{label}</span>{badge ? <span className="badge">{badge}</span> : null}
     </NavLink>
@@ -140,13 +159,14 @@ export function Layout() {
         <ChevronLeft size={14} />
       </button>
       <aside className={`subnav${docked ? ' docked' : ''}${peek && peek !== (docked ? root : null) ? ' peek' : ''}`} aria-label={shown === '/subscribers' ? 'Подписчики' : 'Папки контента'}>
-        <div className="subnav-panel" onMouseEnter={peek ? peekKeep : undefined} onMouseLeave={peek ? peekOff : undefined} inert={!shown}>
+        <div className="subnav-panel" ref={panelRef} onMouseEnter={peek ? peekKeep : undefined} onMouseLeave={peek ? peekOff : undefined} inert={!shown}
+          onFocus={peek ? peekKeep : undefined} onBlur={peek ? (e) => { if (focusOutside(e)) peekOff() } : undefined}>
           <div className="subnav-head"><span className="subnav-title">{(peek ?? shown) === '/subscribers' ? 'Подписчики' : 'Папки'}</span></div>
           {(peek ?? shown) === '/templates' && <FolderNav variant="menu" onNavigate={() => setPeek(null)} />}
           {(peek ?? shown) === '/subscribers' && <SubscribersNav onNavigate={() => setPeek(null)} />}
         </div>
         {onSection && (
-          <button type="button" className="edge-toggle subnav-toggle" onMouseEnter={peek ? peekKeep : undefined} onMouseLeave={peek ? peekOff : undefined} onClick={() => { setSubnavHidden(docked); setPeek(null) }}
+          <button type="button" className="edge-toggle subnav-toggle" data-subnav-item="" onFocus={peek ? peekKeep : undefined} onBlur={peek ? (e) => { if (focusOutside(e)) peekOff() } : undefined} onMouseEnter={peek ? peekKeep : undefined} onMouseLeave={peek ? peekOff : undefined} onClick={() => { setSubnavHidden(docked); setPeek(null) }}
             title={docked ? 'Скрыть колонку' : 'Закрепить колонку'} aria-label={docked ? 'Скрыть колонку' : 'Закрепить колонку'} aria-expanded={docked}>
             <ChevronLeft size={14} />
           </button>

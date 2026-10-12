@@ -68,7 +68,7 @@ export default function ApiKeys() {
           <form className="stack" onSubmit={submit}>
             <div className="field">
               <label htmlFor="kname">Название</label>
-              <input id="kname" autoFocus className="input" placeholder="Сайт MagExpert, продакшен" value={name} onChange={(e) => setName(e.target.value)} />
+              <input id="kname" autoFocus className="input" placeholder="Сайт компании, продакшен" value={name} onChange={(e) => setName(e.target.value)} />
               <div className="hint">Видно только вам, чтобы отличать ключи</div>
             </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>

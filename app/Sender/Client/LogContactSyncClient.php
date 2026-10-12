@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Заглушка для разработки: драйвер local без SENDER_API_URL и SENDER_API_KEY.
- * Ничего никуда не отправляет, только пишет в лог, что ушло бы в Sender.
+ * Ничего никуда не отправляет, только пишет в лог, что ушло бы в Sender: базу, количество и подписку, без адресов.
  * ID базы — 0: такой ID не запоминается, поэтому после настройки API база найдётся заново.
  */
 class LogContactSyncClient implements ContactSyncClient
@@ -21,7 +21,7 @@ class LogContactSyncClient implements ContactSyncClient
 
     public function upsertContact(int $listId, string $email, ?string $name, array $data, bool $subscribed): string
     {
-        Log::info('Sender (заглушка): контакт', ['list_id' => $listId, 'email' => $email, 'subscribed' => $subscribed]);
+        Log::info('Sender (заглушка): контакт', ['list_id' => $listId, 'subscribed' => $subscribed]);
 
         return $subscribed ? 'subscribed' : 'unsubscribed';
     }
@@ -44,6 +44,6 @@ class LogContactSyncClient implements ContactSyncClient
 
     public function deleteContact(int $listId, string $email): void
     {
-        Log::info('Sender (заглушка): удаление контакта', ['list_id' => $listId, 'email' => $email]);
+        Log::info('Sender (заглушка): удаление контакта', ['list_id' => $listId]);
     }
 }

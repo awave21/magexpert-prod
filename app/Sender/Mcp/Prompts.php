@@ -21,7 +21,7 @@ class Prompts
                     ['name' => 'title', 'description' => 'Название мероприятия', 'required' => true],
                     ['name' => 'date', 'description' => 'Дата и время, например «15 ноября 2026, 10:00 МСК»', 'required' => true],
                     ['name' => 'link', 'description' => 'Ссылка на страницу мероприятия (https://…)', 'required' => true],
-                    ['name' => 'audience', 'description' => 'Для кого: специальность, уровень, например «кардиологи и терапевты»', 'required' => false],
+                    ['name' => 'audience', 'description' => 'Для кого: специальность, уровень, например «новые клиенты» или «участники прошлых мероприятий»', 'required' => false],
                 ],
             ],
             [
@@ -49,6 +49,13 @@ class Prompts
             throw new JsonRpcException("Сценарий «{$name}» не найден", JsonRpcException::INVALID_PARAMS);
         }
 
+        // по спецификации MCP значения аргументов сценария — строки
+        $invalid = array_keys(array_filter($arguments, fn (mixed $value): bool => ! is_string($value)));
+
+        if ($invalid !== []) {
+            throw new JsonRpcException('Аргументы сценария должны быть строками: '.implode(', ', $invalid), JsonRpcException::INVALID_PARAMS);
+        }
+
         $missing = collect($prompt['arguments'])
             ->filter(fn (array $arg): bool => $arg['required'] && blank($arguments[$arg['name']] ?? null))
             ->pluck('name')->all();
@@ -66,7 +73,7 @@ class Prompts
                 Мероприятие: {$arg('title')}
                 Дата и время: {$arg('date')}
                 Ссылка: {$arg('link')}
-                Аудитория: {$this->orDefault($arg('audience'), 'врачи и медицинские специалисты')}
+                Аудитория: {$this->orDefault($arg('audience'), 'не указана — уточни у пользователя или определи по прошлым письмам организации')}
 
                 Порядок работы:
                 1. Вызови get_brand и get_block_schema (или прочитай ресурсы sender://brand, sender://blocks/schema и sender://guide/letters).

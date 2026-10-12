@@ -2,10 +2,14 @@
 
 namespace App\Sender\Http\Requests\Admin;
 
+use App\Sender\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class TransferOwnershipRequest extends FormRequest
 {
+    public const PASSWORD_NOT_SET = 'Сначала задайте пароль в профиле';
+
     public function authorize(): bool
     {
         return true;
@@ -18,8 +22,27 @@ class TransferOwnershipRequest extends FormRequest
     {
         return [
             'user_id' => ['required', 'integer'],
-            'current_password' => ['required', 'string'],
+            'current_password' => $this->ownerHasPassword() ? ['required', 'string'] : ['nullable'],
         ];
+    }
+
+    /**
+     * Владение передаётся только с паролем: после входа через Яндекс или ВКонтакте его сначала задают в профиле.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (! $this->ownerHasPassword()) {
+                $validator->errors()->add('current_password', self::PASSWORD_NOT_SET);
+            }
+        });
+    }
+
+    public function ownerHasPassword(): bool
+    {
+        $user = $this->attributes->get('sender_user');
+
+        return ! $user instanceof User || $user->hasPassword();
     }
 
     /**

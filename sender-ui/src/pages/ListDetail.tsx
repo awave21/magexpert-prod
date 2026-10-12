@@ -5,6 +5,7 @@ import { Loader2, Pencil, Plus, RefreshCw, Search, Send, Trash2, Upload, Wand2, 
 import { api, ApiError, upload, type CheckStatus, type Contact, type ContactList, type ImportResult, type Paged } from '../api'
 import { BackLink, Empty, Modal, PageHead, ago, fmtDate, useToast } from '../components/ui'
 import { ColumnMapping, ConsentCheckbox, ImportSource, useImportDraft } from '../components/ImportMapping'
+import { usePermissions } from '../auth'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
 type StatusFilter = '' | 'subscribed' | 'pending' | 'unsubscribed'
@@ -27,6 +28,7 @@ export default function ListDetail() {
   const qc = useQueryClient()
   const toast = useToast()
   const [params, setParams] = useSearchParams()
+  const { canEdit } = usePermissions()
 
   // пока адреса проверяются в фоне, сводка и таблица обновляются сами
   const lq = useQuery({
@@ -116,7 +118,7 @@ export default function ListDetail() {
       <BackLink to="/subscribers">Все базы</BackLink>
       <PageHead title={list?.name ?? '…'}
         sub={list?.source_label ? `${list.source_label} · обновлена ${ago(list.synced_at)}` : list?.description ?? (list ? `${n(list.subscribed_count)} подписчиков` : undefined)}
-        actions={<>
+        actions={canEdit && <>
           <button className="btn icon" onClick={() => { setEditErr(null); list && setEditing({ name: list.name, description: list.description ?? '', require_confirmation: Boolean(list.require_confirmation) }) }} aria-label="Переименовать базу" title="Переименовать базу"><Pencil size={15} /></button>
           <button className="btn icon" onClick={() => setRemoving(true)} aria-label="Удалить базу" title="Удалить базу"><Trash2 size={15} /></button>
           {synced ? (
@@ -131,7 +133,7 @@ export default function ListDetail() {
 
       {synced && <p className="hint" style={{ marginTop: -8, marginBottom: 16 }}>База обновляется сама перед каждой рассылкой: новые пользователи с согласием добавляются, выключившие согласие пропадают. Вручную адреса сюда не добавляются.</p>}
 
-      {id && list && !synced && (importOpen || list.contacts_count === 0) && (
+      {canEdit && id && list && !synced && (importOpen || list.contacts_count === 0) && (
         <ImportPanel listId={id} requireConfirmation={Boolean(list.require_confirmation)} onDone={refresh} onClose={list.contacts_count > 0 ? () => setImportOpen(false) : undefined} />
       )}
 
@@ -143,9 +145,9 @@ export default function ListDetail() {
               <span className="sub">Формат, опечатки, одноразовые ящики и почтовый сервер домена. Существует ли сам ящик, покажет первая отправка.</span>
             </div>
             <div className="row">
-              {!synced && list.checks.typo > 0 && <button className="btn sm" disabled={fixAll.isPending} onClick={() => fixAll.mutate()}><Wand2 size={14} />Исправить опечатки ({n(list.checks.typo)})</button>}
-              <button className="btn sm ghost" disabled={recheck.isPending || checking} onClick={() => recheck.mutate()} title="Проверить все адреса заново"><RefreshCw size={14} />Проверить заново</button>
-              {list.deliverable_count > 0 && <button className="btn sm primary" onClick={() => nav(`/campaigns/new?list=${list.id}`)}><Send size={14} />Новая рассылка</button>}
+              {canEdit && !synced && list.checks.typo > 0 && <button className="btn sm" disabled={fixAll.isPending} onClick={() => fixAll.mutate()}><Wand2 size={14} />Исправить опечатки ({n(list.checks.typo)})</button>}
+              {canEdit && <button className="btn sm ghost" disabled={recheck.isPending || checking} onClick={() => recheck.mutate()} title="Проверить все адреса заново"><RefreshCw size={14} />Проверить заново</button>}
+              {canEdit && list.deliverable_count > 0 && <button className="btn sm primary" onClick={() => nav(`/campaigns/new?list=${list.id}`)}><Send size={14} />Новая рассылка</button>}
             </div>
           </div>
           <div className="check-chips">
@@ -176,7 +178,7 @@ export default function ListDetail() {
 
       {cq.isSuccess && contacts.length === 0 ? (
         qs || status || check ? <Empty title="Ничего не найдено" /> : (
-          <Empty title="В базе пока нет адресов" text="Загрузите файл CSV из Excel или вставьте адреса списком в блоке выше." />
+          <Empty title="В базе пока нет адресов" text={canEdit ? 'Загрузите файл CSV из Excel или вставьте адреса списком в блоке выше.' : undefined} />
         )
       ) : (
         <div className="table-wrap">
@@ -195,7 +197,7 @@ export default function ListDetail() {
                       return (
                         <div className="check-cell">
                           <span className={`status ${CHECKS[k].tone}`} title={CHECKS[k].text}><i />{CHECKS[k].label}</span>
-                          {!synced && k === 'typo' && c.check_hint && (
+                          {canEdit && !synced && k === 'typo' && c.check_hint && (
                             <button className="btn sm text" onClick={() => fix.mutate(c)} disabled={fix.isPending} title={`Заменить на ${c.check_hint}`}>→ {c.check_hint.split('@')[1]}</button>
                           )}
                         </div>
@@ -204,7 +206,7 @@ export default function ListDetail() {
                   </td>
                   <td className="sub">{c.last_opened_at ? ago(c.last_opened_at) : '—'}</td>
                   <td className="sub">{fmtDate(c.created_at)}</td>
-                  <td className="r"><button className="btn icon sm ghost" onClick={() => remove.mutate(c)} aria-label={`Удалить ${c.email}`} title="Удалить из базы"><X size={15} /></button></td>
+                  <td className="r">{canEdit && <button className="btn icon sm ghost" onClick={() => remove.mutate(c)} aria-label={`Удалить ${c.email}`} title="Удалить из базы"><X size={15} /></button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -220,7 +222,7 @@ export default function ListDetail() {
       )}
 
 
-      {adding && (
+      {canEdit && adding && (
         <Modal title="Добавить адрес" onClose={() => setAdding(false)}>
           <form className="stack" onSubmit={(e: FormEvent) => { e.preventDefault(); setAddErr(null); add.mutate() }} noValidate>
             <div className="field">
@@ -240,7 +242,7 @@ export default function ListDetail() {
         </Modal>
       )}
 
-      {editing && (
+      {canEdit && editing && (
         <Modal title="База" onClose={() => setEditing(null)}>
           <form className="stack" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate() }} noValidate>
             <div className="field">
@@ -266,7 +268,7 @@ export default function ListDetail() {
         </Modal>
       )}
 
-      {removing && list && (
+      {canEdit && removing && list && (
         <Modal title="Удалить базу?" onClose={() => setRemoving(false)}>
           <p style={{ color: 'var(--ink-2)' }}>База «{list.name}» и {n(list.contacts_count)} адресов в ней будут удалены. Уже отправленные письма останутся в журнале.</p>
           <div className="row" style={{ justifyContent: 'flex-end' }}>
@@ -340,7 +342,7 @@ function ImportPanel({ listId, requireConfirmation, onClose, onDone }: { listId:
           <ColumnMapping draft={draft} />
           {err && <div className="hint err">{err}</div>}
           <div className="row">
-            <button className="btn primary" disabled={run.isPending || !draft.hasInput || !draft.mapping}>{run.isPending ? <><Loader2 size={15} className="spin" />Загружаем…</> : <><Upload size={15} />{draft.rows ? `Загрузить ${n(draft.rows)} ${draft.rows === 1 ? 'строку' : 'строк'}` : 'Загрузить'}</>}</button>
+            <button className="btn primary" disabled={run.isPending || !draft.hasInput || !draft.ready}>{run.isPending ? <><Loader2 size={15} className="spin" />Загружаем…</> : <><Upload size={15} />{draft.rows ? `Загрузить ${n(draft.rows)} ${draft.rows === 1 ? 'строку' : 'строк'}` : 'Загрузить'}</>}</button>
             {onClose && <button type="button" className="btn ghost" onClick={onClose}>Отмена</button>}
           </div>
         </form>

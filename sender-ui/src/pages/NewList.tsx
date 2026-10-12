@@ -14,7 +14,6 @@ export default function NewList() {
   const nav = useNavigate()
   const qc = useQueryClient()
   const toast = useToast()
-  const draft = useImportDraft()
   const { canEdit } = usePermissions()
 
   const [name, setName] = useState('')
@@ -25,6 +24,8 @@ export default function NewList() {
   const [naming, setNaming] = useState(true)
   const [showDesc, setShowDesc] = useState(false)
   const [requireConfirmation, setRequireConfirmation] = useState(false)
+  // согласие по умолчанию: есть, если база не требует подтверждения; после ручной отметки живёт само по себе
+  const draft = useImportDraft(!requireConfirmation)
   const [importErr, setImportErr] = useState<string | null>(null)
   // если база создалась, а загрузка не прошла, повтор загружает в неё же
   const [created, setCreated] = useState<ContactList | null>(null)
@@ -46,12 +47,14 @@ export default function NewList() {
     },
     onError: (e) => {
       if (!(e instanceof ApiError)) { setImportErr('Ошибка'); return }
-      if (e.errors.name || e.errors.source) { setNameErr(e.errors.name?.[0] ?? e.errors.source?.[0] ?? e.message); if (e.errors.name) setNaming(true) }
-      else setImportErr(Object.values(e.errors)[0]?.[0] ?? e.message)
+      // ошибка названия — в окне с названием, остальные (источник, загрузка) — внизу страницы
+      if (e.errors.name) { setNameErr(e.errors.name[0]); setNaming(true) }
+      const other = Object.entries(e.errors).find(([k]) => k !== 'name')?.[1]?.[0]
+      if (other || !e.errors.name) setImportErr(other ?? e.message)
     },
   })
 
-  const ready = name.trim() && (source || !draft.hasInput || draft.mapping)
+  const ready = name.trim() && (source || !draft.hasInput || draft.ready)
   const label = submit.isPending ? (draft.hasInput && !source ? 'Загружаем…' : 'Создаём…')
     : source ? 'Создать базу'
     : draft.hasInput ? (draft.rows ? `Создать базу и загрузить ${n(draft.rows)} ${draft.rows === 1 ? 'строку' : 'строк'}` : 'Создать базу и загрузить')
@@ -89,8 +92,8 @@ export default function NewList() {
             {importErr ? <span className="hint err">{importErr}</span>
               : created ? <span className="hint">База «{created.name}» уже создана, повтор загрузит адреса в неё.</span>
               : source ? <span className="sub">Адреса подтянутся автоматически</span>
-              : draft.mapping ? <span className="sub">{n(draft.rows)} {draft.rows === 1 ? 'строка' : 'строк'} · адрес из колонки «{emailCol && (draft.header && emailCol.header ? emailCol.header : `Колонка ${emailCol.index + 1}`)}»{varCount ? ` · переменных: ${varCount}` : ''} · {draft.consent ? 'согласие есть' : 'новым адресам придёт письмо с подтверждением'}</span>
-              : draft.hasInput ? <span className="sub">{draft.error ?? 'Читаем колонки…'}</span>
+              : draft.ready ? <span className="sub">{n(draft.rows)} {draft.rows === 1 ? 'строка' : 'строк'} · адрес из колонки «{emailCol && ((draft.namesFromFirstRow ? draft.preview.data?.data.sample_rows[0]?.[emailCol.index] : draft.header ? emailCol.header : '') || `Колонка ${emailCol.index + 1}`)}»{varCount ? ` · переменных: ${varCount}` : ''} · {draft.consent ? 'согласие есть' : 'новым адресам придёт письмо с подтверждением'}</span>
+              : draft.hasInput ? <span className="sub">{draft.settled && !draft.preview.isFetching && draft.error ? draft.error : 'Читаем колонки…'}</span>
               : <span className="sub">Без адресов база создастся пустой</span>}
           </div>
           <button type="button" className="btn ghost" onClick={() => nav(created ? `/subscribers/${created.id}` : '/subscribers')}>{created ? 'К базе' : 'Отмена'}</button>
@@ -103,7 +106,7 @@ export default function NewList() {
           <form className="stack" onSubmit={(e: FormEvent) => { e.preventDefault(); if (name.trim()) { setNameErr(null); setNaming(false) } }} noValidate>
             <div className="field">
               <label htmlFor="list-name">Название</label>
-              <input id="list-name" autoFocus className={`input${nameErr ? ' err' : ''}`} placeholder="Врачи-кардиологи" value={name} onChange={(e) => { setName(e.target.value); setNameErr(null) }} />
+              <input id="list-name" autoFocus className={`input${nameErr ? ' err' : ''}`} placeholder="Подписчики блога" value={name} onChange={(e) => { setName(e.target.value); setNameErr(null) }} />
               {nameErr ? <div className="hint err">{nameErr}</div> : <div className="hint">Видно в списке баз и при выборе получателей рассылки</div>}
             </div>
             {showDesc || description ? (
@@ -116,7 +119,7 @@ export default function NewList() {
             )}
             {!source && (
               <label className="check-row nl-consent">
-                <input type="checkbox" checked={requireConfirmation} onChange={(e) => { setRequireConfirmation(e.target.checked); draft.setConsent(!e.target.checked) }} />
+                <input type="checkbox" checked={requireConfirmation} onChange={(e) => setRequireConfirmation(e.target.checked)} />
                 <span>Требовать подтверждение подписки</span>
               </label>
             )}

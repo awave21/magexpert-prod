@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import { api, ApiError, type OrganizationInfo, type TeamMember } from '../api'
 import { useAuth } from '../auth'
@@ -87,7 +87,12 @@ export default function SettingsOrganization() {
             <span>Новый владелец получит все права, включая передачу владения. Вы станете администратором и вернуть владение сами не сможете — только если новый владелец передаст его обратно.</span>
           </div>
         </div>
-        {uq.isSuccess && candidates.length === 0 ? (
+        {user?.password_set === false ? (
+          <p className="hint">
+            Владение передаётся с подтверждением паролем, а вы входите через Яндекс или ВКонтакте и пароля пока нет.{' '}
+            <Link to="/profile">Задайте пароль в профиле</Link>, затем вернитесь сюда.
+          </p>
+        ) : uq.isSuccess && candidates.length === 0 ? (
           <p className="hint">Передать некому: сначала добавьте человека во вкладке «Команда».</p>
         ) : (
           <form className="stack" noValidate onSubmit={(e: FormEvent) => { e.preventDefault(); setErrors({}); transfer.mutate() }}>

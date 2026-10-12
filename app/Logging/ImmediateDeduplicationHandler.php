@@ -24,7 +24,13 @@ class ImmediateDeduplicationHandler extends DeduplicationHandler
     public function handle(LogRecord $record): bool
     {
         $result = parent::handle($record);
-        $this->flush();
+
+        try {
+            $this->flush();
+        } finally {
+            // если Telegram не ответил, запись не должна остаться в буфере и уйти позже, при уничтожении обработчика
+            $this->clear();
+        }
 
         return $result;
     }

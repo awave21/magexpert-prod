@@ -3,14 +3,18 @@
 use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Mcp\McpTokens;
 use App\Sender\Mcp\Permissions;
+use App\Sender\Mcp\Prompts;
 use App\Sender\Mcp\Server;
 use App\Sender\Models\AuditLog;
 use App\Sender\Models\Domain;
 use App\Sender\Models\McpToken;
 use App\Sender\Models\Organization;
+use App\Sender\Models\Suppression;
 use App\Sender\Models\Template;
+use App\Sender\Models\TemplateFolder;
 use App\Sender\Models\User;
 use App\Sender\Services\AuthService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 
@@ -81,7 +85,10 @@ it('negotiates the protocol version on initialize', function (): void {
         ->assertJsonPath('result.capabilities.tools.listChanged', false)
         ->assertJsonStructure(['result' => ['capabilities' => ['resources', 'prompts'], 'instructions']]);
 
-    mcpRpc($this->editorToken, 'initialize', ['protocolVersion' => '2099-01-01'])->assertJsonPath('result.protocolVersion', Server::DEFAULT_PROTOCOL);
+    // неизвестная версия — сервер отвечает последней поддерживаемой
+    mcpRpc($this->editorToken, 'initialize', ['protocolVersion' => '2099-01-01'])->assertJsonPath('result.protocolVersion', Server::PROTOCOL_VERSIONS[0])
+        ->assertJsonPath('result.protocolVersion', '2025-06-18');
+    mcpRpc($this->editorToken, 'initialize', [])->assertJsonPath('result.protocolVersion', '2025-06-18');
     mcpRpc($this->editorToken, 'initialize', ['protocolVersion' => '2024-11-05'])->assertJsonPath('result.protocolVersion', '2024-11-05');
     mcpRpc($this->editorToken, 'ping', [], 'abc')->assertOk()->assertJsonPath('id', 'abc')->assertJsonPath('result', []);
 });
@@ -485,4 +492,118 @@ it('issues a key from the console', function (): void {
     expect(McpToken::query()->where('name', 'Локально')->where('user_id', $this->editor->id)->exists())->toBeTrue();
 
     $this->artisan('sender:mcp-token', ['email' => 'nobody@example.com'])->assertFailed();
+});
+
+it('answers an unexpected server failure with a generic JSON-RPC internal error', function (): void {
+    Log::spy();
+    app()->instance(Prompts::class, new class extends Prompts
+    {
+        public function list(): array
+        {
+            throw new RuntimeException('секретная деталь SQLSTATE');
+        }
+    });
+
+    $response = mcpRpc($this->editorToken, 'prompts/list', [], 7)->assertOk()
+        ->assertJsonPath('id', 7)
+        ->assertJsonPath('error.code', -32603);
+
+    expect($response->json('error.message'))->toContain('Внутренняя ошибка')
+        ->and($response->getContent())->not->toContain('секретная деталь')
+        ->not->toContain('SQLSTATE')
+        ->not->toContain('trace');
+    Log::shouldHaveReceived('error')->once();
+});
+
+it('rejects non-string prompt arguments', function (): void {
+    mcpRpc($this->editorToken, 'prompts/get', ['name' => 'event_announcement', 'arguments' => ['title' => ['x' => 'y'], 'date' => '15 ноября', 'link' => 'https://mag-expert.ru/e/1']])
+        ->assertOk()
+        ->assertJsonPath('error.code', -32602)
+        ->assertJsonPath('error.message', 'Аргументы сценария должны быть строками: title');
+    mcpRpc($this->editorToken, 'prompts/get', ['name' => 'improve_letter', 'arguments' => ['template' => 15]])
+        ->assertJsonPath('error.code', -32602);
+});
+
+it('does not leave a new folder behind when a letter fails validation', function (): void {
+    $created = mcpTool($this->editorToken, 'create_template', ['name' => 'Копия', 'slug' => 'digest', 'subject' => 'Тема', 'folder' => 'Новая папка', 'html' => '<p>x</p>']);
+    expect($created['isError'])->toBeTrue()
+        ->and(TemplateFolder::query()->count())->toBe(0);
+
+    $updated = mcpTool($this->editorToken, 'update_template', ['template' => 'digest', 'subject' => '', 'folder' => 'Другая папка']);
+    expect($updated['isError'])->toBeTrue()
+        ->and(TemplateFolder::query()->count())->toBe(0)
+        ->and($this->template->fresh()->folder_id)->toBeNull();
+
+    // успешная правка создаёт папку вместе с письмом
+    expect(mcpTool($this->editorToken, 'update_template', ['template' => 'digest', 'folder' => 'Другая папка'])['isError'])->toBeFalse()
+        ->and($this->template->fresh()->folder->name)->toBe('Другая папка')
+        ->and(TemplateFolder::query()->count())->toBe(1);
+});
+
+it('keeps image placeholders without an address that the editor saved', function (): void {
+    $template = $this->organization->templates()->create([
+        'slug' => 'with-placeholder', 'name' => 'С заготовкой', 'subject' => 'Тема', 'body_html' => '<p>x</p>', 'editor' => 'blocks',
+        'design' => ['version' => 1, 'settings' => ['width' => 600], 'blocks' => [
+            ['id' => 'txt1', 'type' => 'text', 'html' => '<p>Текст</p>'],
+            ['id' => 'img1', 'type' => 'image', 'src' => ''],
+            ['id' => 'col1', 'type' => 'columns', 'columns' => [[['id' => 'img2', 'type' => 'image', 'src' => '']], []]],
+        ]],
+    ]);
+
+    $result = mcpTool($this->editorToken, 'update_template', ['template' => 'with-placeholder', 'settings' => ['buttonBg' => '#0A7B83']]);
+    expect($result['isError'])->toBeFalse();
+
+    $fresh = $template->fresh();
+    expect($fresh->design['settings']['buttonBg'])->toBe('#0A7B83')
+        ->and($fresh->design['blocks'])->toHaveCount(3)
+        ->and($fresh->design['blocks'][1]['src'])->toBe('')
+        ->and($fresh->body_html)->toContain('Текст')
+        ->and($fresh->body_html)->not->toContain('<img');
+
+    // блоки целиком с сохранённой заготовкой — можно, новая картинка без адреса — ошибка
+    expect(mcpTool($this->editorToken, 'update_template', ['template' => 'with-placeholder', 'blocks' => [['id' => 'img1', 'type' => 'image'], ['type' => 'text', 'html' => '<p>Новый</p>']]])['isError'])->toBeFalse();
+
+    $bad = mcpTool($this->editorToken, 'update_template', ['template' => 'with-placeholder', 'blocks' => [['id' => 'new-img', 'type' => 'image']]]);
+    expect($bad['isError'])->toBeTrue()
+        ->and($bad['content'][0]['text'])->toContain('у картинки нет адреса');
+});
+
+it('does not write the audit log when the test letter is blocked', function (): void {
+    Queue::fake();
+    Suppression::create(['organization_id' => $this->organization->id, 'email' => $this->editor->email, 'reason' => Suppression::REASON_BOUNCE]);
+
+    $result = mcpTool($this->editorToken, 'send_test', ['template' => 'digest']);
+
+    expect($result['isError'])->toBeTrue()
+        ->and($result['content'][0]['text'])->toContain('Тестовое письмо не отправлено')
+        ->and(AuditLog::query()->where('action', 'mcp.templates.test')->exists())->toBeFalse();
+    Queue::assertNothingPushed();
+});
+
+it('gives every organization neutral assistant rules without another company’s specifics', function (): void {
+    $other = Organization::create(['name' => 'Ромашка', 'slug' => 'romashka']);
+    $token = app(McpTokens::class)->issue(mcpUser('editor', $other), 'Ключ')['plain'];
+    $specific = '/врач|медицин|medalliance|медальянс|magexpert|нмо/iu';
+
+    $brand = mcpTool($token, 'get_brand')['structuredContent'];
+    expect($brand['organization']['name'])->toBe('Ромашка')
+        ->and($brand['rules'])->toHaveCount(4)
+        ->and(implode("\n", $brand['rules']))->toContain('«вы»', 'Arial', '{{ unsubscribe_url }}')
+        ->and(json_encode($brand, JSON_UNESCAPED_UNICODE))->not->toMatch($specific);
+
+    $texts = [
+        mcpRpc($token, 'initialize', [])->json('result.instructions'),
+        mcpRpc($token, 'resources/read', ['uri' => 'sender://guide/letters'])->json('result.contents.0.text'),
+        json_encode(mcpRpc($token, 'prompts/list')->json('result.prompts'), JSON_UNESCAPED_UNICODE),
+        mcpRpc($token, 'prompts/get', ['name' => 'event_announcement', 'arguments' => ['title' => 'Весенняя встреча', 'date' => '15 ноября', 'link' => 'https://example.com/e/1']])
+            ->json('result.messages.0.content.text'),
+        json_encode(mcpTool($token, 'list_variables')['structuredContent']['base'], JSON_UNESCAPED_UNICODE),
+    ];
+
+    foreach ($texts as $text) {
+        expect($text)->toBeString()->not->toMatch($specific);
+    }
+
+    $lint = mcpTool($token, 'check_template', ['subject' => 'Программа обучения', 'html' => '<p>Курс обучения</p>', 'kind' => 'transactional'])['structuredContent'];
+    expect(collect($lint['findings'])->pluck('code')->all())->not->toContain('forbidden_word');
 });

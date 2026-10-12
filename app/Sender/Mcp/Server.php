@@ -98,6 +98,10 @@ class Server
             return ['jsonrpc' => '2.0', 'id' => $id, 'result' => $this->dispatch($message['method'], $params, $ctx)];
         } catch (JsonRpcException $e) {
             return $this->error($id, $e->getCode(), $e->getMessage(), $e->data());
+        } catch (Throwable $e) {
+            Log::error('Sender MCP: внутренняя ошибка', ['method' => $message['method'], 'user_id' => $ctx->user->id, 'exception' => $e]);
+
+            return $this->error($id, JsonRpcException::INTERNAL_ERROR, 'Внутренняя ошибка сервера. Попробуйте ещё раз или сообщите администратору.');
         }
     }
 
@@ -130,14 +134,15 @@ class Server
         $requested = $params['protocolVersion'] ?? null;
 
         return [
-            'protocolVersion' => is_string($requested) && in_array($requested, self::PROTOCOL_VERSIONS, true) ? $requested : self::DEFAULT_PROTOCOL,
+            // неизвестную версию клиента сервер заменяет последней поддерживаемой (спецификация MCP, lifecycle)
+            'protocolVersion' => is_string($requested) && in_array($requested, self::PROTOCOL_VERSIONS, true) ? $requested : self::PROTOCOL_VERSIONS[0],
             'capabilities' => [
                 'tools' => ['listChanged' => false],
                 'resources' => (object) [],
                 'prompts' => (object) [],
             ],
             'serverInfo' => ['name' => 'sender', 'title' => 'Sender — письма', 'version' => self::VERSION],
-            'instructions' => 'Sender — сервис email-рассылок MagExpert. Через этот сервер можно работать с письмами (шаблонами) своей организации: '
+            'instructions' => 'Sender — сервис email-рассылок. Через этот сервер можно работать с письмами (шаблонами) своей организации: '
                 .'смотреть список и содержимое, создавать и менять письма из блоков визуального редактора или из HTML, собирать письмо с тестовыми данными, '
                 .'проверять его перед отправкой и отправлять тест себе на почту. Удалять письма и запускать рассылки нельзя. '
                 .'Перед созданием письма вызовите get_brand и get_block_schema, после — check_template и send_test. '

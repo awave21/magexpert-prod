@@ -466,10 +466,8 @@ class CampaignService
 
         $hourly = (int) config('sender.hourly_limit');
         if ($hourly > 0) {
-            $limits[] = $hourly - Message::query()
-                ->whereNotNull('campaign_id')
-                ->where('dispatched_at', '>', $now->subHour())
-                ->count();
+            // письма подтверждения подписки идут через ту же очередь и тоже входят в часовой лимит
+            $limits[] = $hourly - MessageService::bulkDispatchedSince($now->subHour());
         }
 
         return min($limits);

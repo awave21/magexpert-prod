@@ -47,7 +47,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
 }
 
 export type Role = 'owner' | 'admin' | 'editor' | 'designer' | 'viewer'
-export type User = { id: number; name: string; email: string; role: Role; is_owner?: boolean; organization: string | null }
+export type User = { id: number; name: string; email: string; role: Role; is_owner?: boolean; organization: string | null; password_set?: boolean }
 export type TeamMember = { id: number; name: string; email: string; role: Role; is_owner?: boolean; is_active: boolean; last_seen_at: string | null; created_at: string }
 export type AuditEntry = { id: number; action: string; subject: string | null; user: string; ip: string | null; created_at: string }
 export type Segment = { active_days?: number | null; field?: string | null; values?: string[] | null }

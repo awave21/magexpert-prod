@@ -2,8 +2,10 @@
 
 namespace App\Sender\Http\Resources;
 
+use App\Sender\Mail\SubscriptionConfirmationLetter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Arr;
 
 /**
  * @mixin \App\Sender\Models\Message
@@ -40,7 +42,8 @@ class MessageResource extends JsonResource
                 'created_at' => $e->created_at?->toIso8601String(),
             ])),
             'created_at' => $this->created_at?->toIso8601String(),
-            'variables' => $this->when($request->routeIs('sender.admin.messages.show'), $this->data),
+            // ссылка подтверждения подписки (и её ключ) не показывается никому: по ней можно подтвердить чужую подписку
+            'variables' => $this->when($request->routeIs('sender.admin.messages.show'), fn () => $this->data === null ? null : Arr::except($this->data, SubscriptionConfirmationLetter::SECRET_KEYS)),
         ];
     }
 }

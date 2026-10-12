@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Jobs\SyncUserToSender;
 use App\Models\User;
+use App\Sender\Client\HttpContactSyncClient;
 use App\Sender\Contracts\SubscriptionClient;
 use App\Sender\Events\RecipientUnsubscribed;
 use App\Sender\Services\SubscriberSources;
@@ -17,6 +18,8 @@ use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
+    private bool $usersSyncWarned = false;
+
     /**
      * Register any application services.
      */
@@ -64,7 +67,7 @@ class AppServiceProvider extends ServiceProvider
             $users->update(['newsletter_consent' => false]);
 
             // база «Пользователи MagExpert» узнаёт об отписке через API; отписку по ссылке это не вызывает повторно
-            if (config('sender.client.users_sync')) {
+            if ($this->usersSyncEnabled()) {
                 $userIds->each(fn (int $id) => SyncUserToSender::dispatch($id, mb_strtolower($event->email)));
             }
         });
@@ -90,13 +93,13 @@ class AppServiceProvider extends ServiceProvider
     private function syncUsersListWithSender(): void
     {
         User::created(function (User $user): void {
-            if (config('sender.client.users_sync')) {
+            if ($this->usersSyncEnabled()) {
                 SyncUserToSender::dispatch($user->id, $user->email);
             }
         });
 
         User::updated(function (User $user): void {
-            if (! config('sender.client.users_sync') || ! $user->wasChanged(SyncUserToSender::trackedFields())) {
+            if (! $user->wasChanged(SyncUserToSender::trackedFields()) || ! $this->usersSyncEnabled()) {
                 return;
             }
 
@@ -106,9 +109,31 @@ class AppServiceProvider extends ServiceProvider
         });
 
         User::deleted(function (User $user): void {
-            if (config('sender.client.users_sync') && filled($user->email)) {
+            if (filled($user->email) && $this->usersSyncEnabled()) {
                 SyncUserToSender::dispatch($user->id, $user->email);
             }
         });
+    }
+
+    /**
+     * Синхронизация включена (SENDER_USERS_SYNC=true) и адрес с ключом API Sender указаны. Без них задачи
+     * только копились бы в failed_jobs: они не ставятся, а в лог один раз за процесс пишется предупреждение.
+     */
+    private function usersSyncEnabled(): bool
+    {
+        if (! config('sender.client.users_sync')) {
+            return false;
+        }
+
+        if (HttpContactSyncClient::configured()) {
+            return true;
+        }
+
+        if (! $this->usersSyncWarned) {
+            $this->usersSyncWarned = true;
+            Log::warning('Sender: SENDER_USERS_SYNC включён, но SENDER_API_URL или SENDER_API_KEY не указаны — пользователи в базу не передаются');
+        }
+
+        return false;
     }
 }

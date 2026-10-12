@@ -360,8 +360,12 @@ it('refuses writes to a synced list but allows reading it', function (): void {
     $synced->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'anna@example.com']);
     $message = 'Эта база собирается автоматически, менять её через API нельзя';
 
+    // база из источника не отдаётся по названию: иначе внешняя система писала бы в неё и вечно получала 422
     $this->withToken($this->key)->putJson('/api/sender/v1/lists', ['name' => 'пользователи сайта'])
-        ->assertOk()->assertJsonPath('data.id', $synced->id);
+        ->assertConflict()
+        ->assertJsonPath('message', 'База с таким названием собирается автоматически, выберите другое название')
+        ->assertJsonMissingPath('data');
+    expect($this->organization->lists()->count())->toBe(2);
 
     $this->withToken($this->key)->putJson(contactsUrl($synced), ['email' => 'petr@example.com'])
         ->assertUnprocessable()->assertJsonPath('message', $message);
@@ -413,4 +417,67 @@ it('defaults import consent to the list setting while an explicit consent wins',
     $import(['text' => 'b@example.com'])->assertJsonPath('data.pending', 1);
     $import(['text' => 'c@example.com', 'consent' => true])->assertJsonPath('data.pending', 0);
     $import(['text' => 'd@example.com', 'consent' => 'false'])->assertJsonPath('data.pending', 1);
+});
+
+function contactsAdminToken(Organization $organization): string
+{
+    User::create(['organization_id' => $organization->id, 'name' => 'Админ', 'email' => 'admin@example.com', 'password' => 'secret-pass']);
+
+    return (new AuthService)->login('admin@example.com', 'secret-pass')['token'];
+}
+
+it('rejects an empty or unreadable column mapping instead of failing', function (mixed $mapping, string $field, string $message): void {
+    $token = contactsAdminToken($this->organization);
+
+    $this->withToken($token)->postJson('/api/sender/v1/admin/lists/'.$this->list->id.'/import', ['text' => "email;имя\nanna@example.com;Анна", 'mapping' => $mapping])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors([$field => $message]);
+
+    expect($this->list->contacts()->count())->toBe(0);
+})->with([
+    'empty object string' => ['{}', 'mapping.email', 'Выберите колонку с адресом почты'],
+    'empty array string' => ['[]', 'mapping.email', 'Выберите колонку с адресом почты'],
+    'empty array' => [[], 'mapping.email', 'Выберите колонку с адресом почты'],
+    'not json' => ['not json', 'mapping', 'Не удалось прочитать сопоставление колонок'],
+    'json scalar' => ['5', 'mapping', 'Не удалось прочитать сопоставление колонок'],
+]);
+
+it('still imports with a valid mapping passed as a json string', function (): void {
+    $token = contactsAdminToken($this->organization);
+
+    $this->withToken($token)->postJson('/api/sender/v1/admin/lists/'.$this->list->id.'/import', [
+        'text' => "имя;почта\nАнна;anna@example.com",
+        'mapping' => json_encode(['email' => 1, 'name' => 0, 'header' => true]),
+    ])->assertOk()->assertJsonPath('data.added', 1);
+
+    expect($this->list->contacts()->value('name'))->toBe('Анна');
+});
+
+it('caps the import preview at 200 columns and stays fast on very wide files', function (): void {
+    $token = contactsAdminToken($this->organization);
+    $rows = collect(range(1, 300))->map(fn (int $i): string => "user{$i}@example.com".str_repeat(';v', 999))->implode("\n");
+    $text = str_repeat(';', 1000)."\n".$rows;
+
+    $started = microtime(true);
+    $response = $this->withToken($token)->postJson('/api/sender/v1/admin/lists/import-preview', ['text' => $text])
+        ->assertOk()
+        ->assertJsonPath('data.rows', 300)
+        ->assertJsonPath('data.header', true)
+        ->assertJsonPath('data.columns_truncated', true)
+        ->assertJsonCount(200, 'data.columns')
+        ->assertJsonCount(5, 'data.columns.0.samples')
+        ->assertJsonPath('data.columns.0.samples.0', 'user1@example.com')
+        ->assertJsonPath('data.columns.199.samples.0', 'v')
+        ->assertJsonCount(200, 'data.sample_rows.0');
+
+    expect(microtime(true) - $started)->toBeLessThan(3.0)
+        ->and(strlen($response->getContent()))->toBeLessThan(200_000);
+
+    $this->withToken($token)->postJson('/api/sender/v1/admin/lists/import-preview', ['text' => "email;имя\nanna@example.com;Анна"])
+        ->assertOk()
+        ->assertJsonPath('data.columns_truncated', false)
+        ->assertJsonCount(2, 'data.columns')
+        ->assertJsonPath('data.columns.0.role', 'email')
+        ->assertJsonPath('data.columns.1.role', 'name')
+        ->assertJsonPath('data.columns.1.samples', ['Анна']);
 });

@@ -8,6 +8,7 @@ use App\Sender\Client\ImapFeedbackMailbox;
 use App\Sender\Client\LocalSenderClient;
 use App\Sender\Client\LogContactSyncClient;
 use App\Sender\Console\AddressConfirmCommand;
+use App\Sender\Console\AssignOwnerCommand;
 use App\Sender\Console\CampaignsTickCommand;
 use App\Sender\Console\ComplaintCommand;
 use App\Sender\Console\DkimExportCommand;
@@ -75,7 +76,7 @@ class SenderServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([CampaignsTickCommand::class, ComplaintCommand::class, InstallDefaultsCommand::class, DomainCommand::class, HealthCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, OrganizationCommand::class, PruneCommand::class, RecoverCommand::class, TemplateImportCommand::class, WarmupCommand::class]);
-            $this->commands([McpTokenCommand::class]);
+            $this->commands([McpTokenCommand::class, AssignOwnerCommand::class]);
 
             $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
                 $schedule->command('sender:prune')->dailyAt('03:30')->withoutOverlapping();

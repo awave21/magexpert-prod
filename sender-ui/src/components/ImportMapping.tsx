@@ -10,11 +10,22 @@ export type Mapping = { email: number; name: number | null; header: boolean; fie
 const KEY_RE = /^[a-z][a-z0-9_]{0,49}$/
 const n = (v: number) => v.toLocaleString('ru-RU')
 
+// ключ переменной из названия колонки, как на сервере: «Город» → gorod
+const RU: Record<string, string> = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p',
+  р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+}
+export function keyFromHeader(header: string, index: number): string {
+  const key = [...header.toLowerCase()].map((ch) => RU[ch] ?? ch).join('').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 50)
+  return KEY_RE.test(key) ? key : `field_${index + 1}`
+}
+
 /**
  * Черновик загрузки: адреса вручную или файл, просмотр колонок на сервере и выбор, что где.
  * Используется на странице новой базы и при дозагрузке в существующую.
+ * defaultConsent — согласие по умолчанию; пока пользователь сам не трогал галочку, она следует за ним.
  */
-export function useImportDraft(defaultConsent = false) {
+export function useImportDraft(defaultConsent: boolean) {
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [debounced, setDebounced] = useState('')
@@ -26,24 +37,41 @@ export function useImportDraft(defaultConsent = false) {
     enabled: source !== null,
     staleTime: Infinity,
     retry: false,
+    // тело строится из того же, что и ключ: файл или текст после паузы, а не текущий ввод
     queryFn: () => upload<{ data: ImportPreview }>('/lists/import-preview', body()),
   })
 
   // согласие на рассылку уже есть: без него новым адресам уходит письмо с подтверждением подписки
-  const [consent, setConsent] = useState(defaultConsent)
-  const [header, setHeader] = useState(false)
+  const [consent, setConsentState] = useState(defaultConsent)
+  const [consentTouched, setConsentTouched] = useState(false)
+  useEffect(() => { if (!consentTouched) setConsentState(defaultConsent) }, [defaultConsent, consentTouched])
+  const setConsent = (v: boolean) => { setConsentTouched(true); setConsentState(v) }
+
+  const p = preview.data?.data
+  const [header, setHeaderState] = useState(false)
   const [choices, setChoices] = useState<ColumnChoice[]>([])
   useEffect(() => {
-    const p = preview.data?.data
     if (!p) return
-    setHeader(p.header)
+    setHeaderState(p.header)
     setChoices(p.columns.map((c) => ({ role: c.role, key: c.key })))
   }, [preview.data])
+
+  // сервер не нашёл строку заголовка, а пользователь отметил: названия берутся из первой строки
+  const namesFromFirstRow = Boolean(p && header && !p.header)
+  const autoKey = (i: number, withHeader: boolean) => {
+    if (!p) return ''
+    return withHeader && !p.header ? keyFromHeader(p.sample_rows[0]?.[p.columns[i].index] ?? '', p.columns[i].index) : p.columns[i].key
+  }
+  const setHeader = (v: boolean) => {
+    // подсказанные названия переменных меняются вместе с заголовком; свои названия пользователя не трогаем
+    setChoices((prev) => prev.map((c, i) => (c.role === 'field' && c.key === autoKey(i, header) ? { ...c, key: autoKey(i, v) } : c)))
+    setHeaderState(v)
+  }
 
   function body(mapping?: Mapping): FormData {
     const b = new FormData()
     if (file) b.append('file', file)
-    else b.append('text', text)
+    else b.append('text', debounced)
     if (mapping) {
       b.append('mapping', JSON.stringify(mapping))
       b.append('consent', consent ? '1' : '0')
@@ -51,7 +79,7 @@ export function useImportDraft(defaultConsent = false) {
     return b
   }
 
-  const columns = preview.data?.data.columns ?? []
+  const columns = p?.columns ?? []
   const emailIndex = choices.findIndex((c) => c.role === 'email')
   const nameIndex = choices.findIndex((c) => c.role === 'name')
   const fieldKeys = choices.filter((c) => c.role === 'field').map((c) => c.key)
@@ -66,7 +94,10 @@ export function useImportDraft(defaultConsent = false) {
     header,
     fields: Object.fromEntries(choices.map((c, i) => [String(i), c]).filter(([, c]) => (c as ColumnChoice).role === 'field').map(([i, c]) => [i, (c as ColumnChoice).key])),
   } : null
-  const rows = preview.data ? preview.data.data.rows + (preview.data.data.header && !header ? 1 : 0) - (!preview.data.data.header && header ? 1 : 0) : 0
+  const rows = p ? p.rows + (p.header && !header ? 1 : 0) - (!p.header && header ? 1 : 0) : 0
+  // пока ввод не успокоился или колонки читаются, сопоставление может относиться к прежнему тексту
+  const settled = file ? true : text.trim() === debounced
+  const ready = settled && !preview.isFetching && Boolean(mapping)
 
   const choose = (index: number, role: Role) => setChoices((prev) => prev.map((c, i) => {
     if (i === index) return { ...c, role }
@@ -80,7 +111,8 @@ export function useImportDraft(defaultConsent = false) {
   return {
     text, setText: (v: string) => { setText(v); if (v) setFile(null) },
     file, setFile: (f: File | null) => { setFile(f); if (f) { setText(''); setDebounced('') } },
-    preview, columns, choices, choose, rename, header, setHeader, mapping, error, rows, body, reset, consent, setConsent,
+    preview, columns, choices, choose, rename, header, setHeader, namesFromFirstRow, mapping, error, rows, body, reset, consent, setConsent,
+    ready, settled,
     hasInput: Boolean(file || text.trim()),
   }
 }
@@ -155,8 +187,15 @@ export function ColumnMapping({ draft }: { draft: ImportDraft }) {
   if (!columns.length) return null
 
   const p = preview.data!.data
-  // без строки заголовка названия колонок из файла становятся первой строкой данных
-  const rows = !draft.header && p.header ? [columns.map((c) => c.header), ...p.sample_rows].slice(0, 5) : p.sample_rows
+  // без строки заголовка названия колонок из файла становятся первой строкой данных,
+  // а если заголовок отмечен вручную, первая строка примеров становится названиями
+  const rows = !draft.header && p.header ? [columns.map((c) => c.header), ...p.sample_rows].slice(0, 5)
+    : draft.namesFromFirstRow ? p.sample_rows.slice(1)
+    : p.sample_rows
+  const colName = (c: (typeof columns)[number]) => {
+    const fromFile = draft.namesFromFirstRow ? p.sample_rows[0]?.[c.index] : draft.header ? c.header : ''
+    return fromFile || `Колонка ${c.index + 1}`
+  }
 
   return (
     <section className="mapping" aria-label="Колонки">
@@ -197,7 +236,7 @@ export function ColumnMapping({ draft }: { draft: ImportDraft }) {
             </tr>
             <tr className="map-names">
               <th className="map-num" aria-hidden />
-              {columns.map((c, i) => <th key={c.index} className={`map-col role-${(choices[i] ?? c).role}`}>{draft.header && c.header ? c.header : `Колонка ${c.index + 1}`}</th>)}
+              {columns.map((c, i) => <th key={c.index} className={`map-col role-${(choices[i] ?? c).role}`}>{colName(c)}</th>)}
             </tr>
           </thead>
           <tbody>

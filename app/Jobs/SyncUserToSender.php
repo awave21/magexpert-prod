@@ -64,6 +64,13 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
         try {
             $this->sync($client, self::resolveListId($client));
         } catch (SenderApiException $exception) {
+            // название занято базой, которую Sender собирает сам: повтор не поможет, нужно другое название
+            if ($exception->status === 409) {
+                $this->fail($exception);
+
+                return;
+            }
+
             if ($exception->status !== 404) {
                 throw $exception;
             }
@@ -74,7 +81,7 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
             try {
                 $this->sync($client, self::resolveListId($client));
             } catch (SenderApiException $again) {
-                if ($again->status !== 404) {
+                if ($again->status !== 404 && $again->status !== 409) {
                     throw $again;
                 }
 

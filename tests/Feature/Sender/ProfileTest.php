@@ -1,9 +1,12 @@
 <?php
 
+use App\Sender\Mcp\McpTokens;
 use App\Sender\Models\AuditLog;
+use App\Sender\Models\McpToken;
 use App\Sender\Models\Organization;
 use App\Sender\Models\User;
 use App\Sender\Services\AuthService;
+use App\Sender\Services\SocialLoginService;
 
 beforeEach(function (): void {
     $this->migrateSenderDatabase();
@@ -123,4 +126,62 @@ it('changes only the signed-in user and ignores attempts to target someone else'
 it('requires sign-in', function (): void {
     $this->putJson(profileApi(), ['name' => 'Кто-то'])->assertUnauthorized();
     $this->putJson(profileApi('/password'), [])->assertUnauthorized();
+});
+
+it('exposes whether the password is set in /me and /profile', function (): void {
+    $this->withToken($this->token)->getJson('/api/sender/v1/admin/me')->assertOk()->assertJsonPath('data.password_set', true);
+    $this->withToken($this->token)->getJson(profileApi())->assertOk()->assertJsonPath('data.password_set', true);
+});
+
+it('revokes all MCP keys when the password changes', function (): void {
+    $keys = app(McpTokens::class);
+    $first = $keys->issue($this->user, 'Ноутбук')['plain'];
+    $keys->issue($this->user, 'Телефон');
+    $stranger = User::create(['organization_id' => $this->organization->id, 'name' => 'Иван', 'email' => 'ivan@example.com', 'password' => 'ivan-pass', 'role' => 'editor']);
+    $keys->issue($stranger, 'Чужой');
+
+    $this->withToken($this->token)->putJson(profileApi('/password'), [
+        'current_password' => 'secret-pass',
+        'password' => 'new-secret-pass',
+        'password_confirmation' => 'new-secret-pass',
+    ])->assertOk()->assertJsonPath('message', 'Пароль изменён. На других устройствах нужно войти заново, ключи MCP отозваны');
+
+    expect(McpToken::query()->where('user_id', $this->user->id)->whereNull('revoked_at')->count())->toBe(0)
+        ->and(McpToken::query()->where('user_id', $this->user->id)->whereNotNull('revoked_at')->count())->toBe(2)
+        ->and(McpToken::query()->where('user_id', $stranger->id)->whereNull('revoked_at')->count())->toBe(1);
+
+    $this->withToken($first)->postJson('/api/sender/v1/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])->assertUnauthorized();
+});
+
+it('lets a user registered through Yandex or VK set a password without the current one', function (): void {
+    config(['sender.registration' => true]);
+    $social = app(SocialLoginService::class);
+    $code = $social->handle(['provider' => 'yandex', 'id' => '777', 'email' => 'anna@clinic.ru', 'name' => 'Анна'])['code'];
+    $result = $social->register($code, 'Клиника', 'anna@clinic.ru');
+    $user = $result['user']->fresh();
+    $token = $result['token'];
+
+    expect($user->password_set)->toBeFalse()
+        ->and($user->hasPassword())->toBeFalse();
+
+    $this->withToken($token)->getJson('/api/sender/v1/admin/me')->assertOk()->assertJsonPath('data.password_set', false);
+    $this->withToken($token)->getJson(profileApi())->assertOk()->assertJsonPath('data.password_set', false);
+    $mcp = app(McpTokens::class)->issue($user, 'Ключ')['plain'];
+
+    // без текущего пароля, но с проверкой нового
+    $this->withToken($token)->putJson(profileApi('/password'), ['password' => 'short', 'password_confirmation' => 'short'])
+        ->assertUnprocessable()->assertJsonValidationErrors(['password'])->assertJsonMissingValidationErrors(['current_password']);
+
+    $this->withToken($token)->putJson(profileApi('/password'), ['password' => 'anna-new-pass', 'password_confirmation' => 'anna-new-pass'])
+        ->assertOk()->assertJsonPath('message', 'Пароль задан. Теперь можно входить по email и паролю');
+
+    expect($user->fresh()->password_set)->toBeTrue()
+        ->and((new AuthService)->login('anna@clinic.ru', 'anna-new-pass'))->not->toBeNull()
+        ->and(McpToken::query()->where('user_id', $user->id)->whereNull('revoked_at')->exists())->toBeFalse();
+    $this->withToken($mcp)->postJson('/api/sender/v1/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])->assertUnauthorized();
+
+    // теперь пароль есть: следующая смена — только с текущим
+    $this->withToken($token)->getJson('/api/sender/v1/admin/me')->assertJsonPath('data.password_set', true);
+    $this->withToken($token)->putJson(profileApi('/password'), ['password' => 'another-pass', 'password_confirmation' => 'another-pass'])
+        ->assertUnprocessable()->assertJsonValidationErrors(['current_password' => 'Укажите текущий пароль']);
 });

@@ -34,25 +34,42 @@ class OrganizationController extends Controller
 
     /**
      * Владение переходит к другому активному участнику, прежний владелец становится администратором.
+     * Обе записи блокируются до конца транзакции, и все условия проверяются заново: параллельные передачи
+     * или правки команды не оставят организацию с двумя владельцами или без владельца.
      */
     public function transfer(TransferOwnershipRequest $request): JsonResponse
     {
         $organization = $this->organization($request);
-        $owner = $this->user($request);
+        $current = $this->user($request);
 
-        if (! Hash::check($request->string('current_password')->toString(), $owner->password)) {
+        if (! $current->hasPassword()) {
+            throw ValidationException::withMessages(['current_password' => TransferOwnershipRequest::PASSWORD_NOT_SET]);
+        }
+
+        if (! Hash::check($request->string('current_password')->toString(), $current->password)) {
             throw ValidationException::withMessages(['current_password' => 'Текущий пароль указан неверно']);
         }
 
-        $target = $organization->users()->whereKey((int) $request->validated('user_id'))->first();
+        $targetId = (int) $request->validated('user_id');
 
-        if ($target === null || ! $target->is_active || $target->id === $owner->id) {
-            throw ValidationException::withMessages(['user_id' => 'Выберите активного участника команды, кроме себя']);
-        }
+        $target = $organization->getConnection()->transaction(function () use ($organization, $current, $targetId): User {
+            // блокировки в порядке id, чтобы встречные передачи не ждали друг друга по кругу
+            $locked = User::query()->whereKey(array_unique([$current->id, $targetId]))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $owner = $locked->get($current->id);
+            $target = $locked->get($targetId);
 
-        $organization->getConnection()->transaction(function () use ($owner, $target): void {
+            if ($owner === null || ! $owner->isOwner() || ! $owner->is_active || (int) $owner->organization_id !== (int) $organization->id) {
+                abort(403, 'Это может делать только владелец организации');
+            }
+
+            if ($target === null || (int) $target->organization_id !== (int) $organization->id || ! $target->is_active || $target->id === $owner->id) {
+                throw ValidationException::withMessages(['user_id' => 'Выберите активного участника команды, кроме себя']);
+            }
+
             $owner->forceFill(['role' => User::ROLE_ADMIN])->save();
             $target->forceFill(['role' => User::ROLE_OWNER])->save();
+
+            return $target;
         });
 
         return response()->json([

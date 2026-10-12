@@ -3,6 +3,7 @@
 namespace App\Sender\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ImportContactsRequest extends FormRequest
 {
@@ -16,8 +17,13 @@ class ImportContactsRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        // нечитаемая строка (не JSON или не объект) остаётся строкой: правило array вернёт понятную ошибку
         if (is_string($this->input('mapping'))) {
-            $this->merge(['mapping' => json_decode($this->input('mapping'), true)]);
+            $decoded = json_decode($this->input('mapping'), true);
+
+            if (json_last_error() === JSON_ERROR_NONE && ($decoded === null || is_array($decoded))) {
+                $this->merge(['mapping' => $decoded]);
+            }
         }
 
         // Laravel принимает как boolean только 1/0/true/false: "true"/"false" из FormData приводятся заранее
@@ -35,7 +41,8 @@ class ImportContactsRequest extends FormRequest
             'file' => ['nullable', 'file', 'max:20480', 'extensions:csv,txt'],
             'text' => ['nullable', 'string', 'max:2000000', 'required_without:file'],
             'mapping' => ['nullable', 'array'],
-            'mapping.email' => ['required_with:mapping', 'integer', 'min:0', 'max:200'],
+            // пустое сопоставление ({} или []) — тоже сопоставление без колонки адреса
+            'mapping.email' => [Rule::requiredIf(fn (): bool => is_array($this->input('mapping'))), 'integer', 'min:0', 'max:200'],
             'mapping.name' => ['nullable', 'integer', 'min:0', 'max:200', 'different:mapping.email'],
             'mapping.header' => ['boolean'],
             'mapping.fields' => ['array', 'max:50'],
@@ -71,7 +78,8 @@ class ImportContactsRequest extends FormRequest
             'file.extensions' => 'Нужен файл CSV. В Excel: «Файл → Сохранить как → CSV»',
             'file.max' => 'Файл больше 20 МБ: разделите его на части',
             'text.required_without' => 'Выберите файл или вставьте адреса',
-            'mapping.email.required_with' => 'Выберите колонку с адресом почты',
+            'mapping.array' => 'Не удалось прочитать сопоставление колонок',
+            'mapping.email.required' => 'Выберите колонку с адресом почты',
             'mapping.name.different' => 'Имя и адрес не могут быть в одной колонке',
             'mapping.fields.*.regex' => 'Название переменной: латиница, цифры и _, начинается с буквы',
             'mapping.fields.*.distinct' => 'Две колонки с одним названием переменной',

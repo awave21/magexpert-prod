@@ -5,11 +5,13 @@ import { ChevronRight, Folder as FolderIcon, GripVertical, Pencil, Plus, Trash2 
 import { api, ApiError, type Folder } from '../api'
 import { Empty, Modal, PageHead, ago, useToast } from '../components/ui'
 import { FolderNav, TEMPLATE_DRAG, useContentData, useFolderFilter, type Filter } from '../components/FolderNav'
+import { usePermissions } from '../auth'
 
 export default function Templates() {
   const nav = useNavigate()
   const qc = useQueryClient()
   const toast = useToast()
+  const { canEditContent } = usePermissions()
   const filter = useFolderFilter()
   const { q, all, folders } = useContentData()
   const folderName = (id: number | null) => folders.find((f) => f.id === id)?.name
@@ -41,7 +43,7 @@ export default function Templates() {
   return (
     <main className="page">
       <PageHead title={title} sub={current ? 'Письма проекта' : 'Письма для рассылок по базам и для отправки из приложения через API'}
-        actions={<>
+        actions={canEditContent && <>
           {current && <button className="btn" onClick={() => { setError(null); setEditing({ id: current.id, name: current.name }) }}><Pencil size={15} />Переименовать</button>}
           {current && <button className="btn danger" onClick={() => setRemoving(current)}><Trash2 size={15} />Удалить папку</button>}
           <button className="btn primary" onClick={newTemplate}><Plus size={16} />Новое письмо</button>
@@ -50,19 +52,22 @@ export default function Templates() {
       <FolderNav variant="tabs" />
 
       {q.isSuccess && list.length === 0 ? (
-        <Empty title={filter === 'all' ? 'Писем пока нет' : 'В этой папке пусто'} text="Создайте письмо: оно появится здесь и его можно будет выбрать в рассылке."
-          action={<button className="btn primary" onClick={newTemplate}><Plus size={16} />Новое письмо</button>} />
+        <Empty title={filter === 'all' ? 'Писем пока нет' : 'В этой папке пусто'} text={canEditContent ? 'Создайте письмо: оно появится здесь и его можно будет выбрать в рассылке.' : undefined}
+          action={canEditContent && <button className="btn primary" onClick={newTemplate}><Plus size={16} />Новое письмо</button>} />
       ) : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th style={{ width: 28 }} aria-label="Перетащить" /><th>Название</th><th>Ключ</th><th>Тема письма</th><th>Изменён</th><th /></tr></thead>
+            <thead><tr>{canEditContent && <th style={{ width: 28 }} aria-label="Перетащить" />}<th>Название</th><th>Ключ</th><th>Тема письма</th><th>Изменён</th><th /></tr></thead>
             <tbody>
               {list.map((t) => (
                 <tr key={t.id} className={`click${dragId === t.id ? ' dragging' : ''}`} onClick={() => nav(`/templates/${t.id}`)}
-                  draggable onDragStart={(e) => { setDragId(t.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData(TEMPLATE_DRAG, String(t.id)); e.dataTransfer.setData('text/plain', t.name) }}
-                  onDragEnd={() => setDragId(null)}
-                  title="Перетащите на папку, чтобы перенести">
-                  <td className="drag-handle"><GripVertical size={16} /></td>
+                  {...(canEditContent ? {
+                    draggable: true,
+                    onDragStart: (e: React.DragEvent) => { setDragId(t.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData(TEMPLATE_DRAG, String(t.id)); e.dataTransfer.setData('text/plain', t.name) },
+                    onDragEnd: () => setDragId(null),
+                    title: 'Перетащите на папку, чтобы перенести',
+                  } : {})}>
+                  {canEditContent && <td className="drag-handle"><GripVertical size={16} /></td>}
                   <td className="tpl-name">
                     <span>{t.name}</span>
                     {filter !== t.folder_id && folderName(t.folder_id) && (
@@ -82,12 +87,12 @@ export default function Templates() {
         </div>
       )}
 
-      {editing && (
+      {canEditContent && editing && (
         <Modal title="Переименовать папку" onClose={() => setEditing(null)}>
           <form className="stack" onSubmit={submit} noValidate>
             <div className="field">
               <label htmlFor="folder-name">Название проекта</label>
-              <input id="folder-name" className={`input${error ? ' err' : ''}`} value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Сложный пациент" autoFocus />
+              <input id="folder-name" className={`input${error ? ' err' : ''}`} value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Мероприятия" autoFocus />
               {error && <div className="hint err">{error}</div>}
             </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>
@@ -98,7 +103,7 @@ export default function Templates() {
         </Modal>
       )}
 
-      {removing && (
+      {canEditContent && removing && (
         <Modal title="Удалить папку?" onClose={() => setRemoving(null)}>
           <p style={{ color: 'var(--ink-2)' }}>Папка «{removing.name}» будет удалена. Письма из неё не удаляются, а переходят в «Без папки».</p>
           <div className="row" style={{ justifyContent: 'flex-end' }}>

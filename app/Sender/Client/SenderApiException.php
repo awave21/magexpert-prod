@@ -48,6 +48,7 @@ class SenderApiException extends RuntimeException
             $status === 401 => 'Sender не принял API-ключ (401): проверьте SENDER_API_KEY',
             $status === 403 => 'У API-ключа нет доступа к этому действию в Sender (403)',
             $status === 404 => 'В Sender не найдено: база или контакт (404)',
+            $status === 409 => 'Sender отказал (409)'.($serverMessage !== '' ? ': '.$serverMessage : '').'. Укажите другое название в SENDER_USERS_LIST_NAME',
             $status === 422 => 'Sender не принял данные (422)'.($firstError ? ': '.$firstError : ''),
             $status === 429 => 'Слишком много запросов к Sender (429), повторим позже',
             $status >= 500 => "Ошибка на стороне Sender ({$status})",

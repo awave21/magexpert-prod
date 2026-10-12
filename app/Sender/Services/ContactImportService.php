@@ -30,36 +30,71 @@ class ContactImportService
     private const SAMPLE_ROWS = 5;
 
     /**
+     * Сколько колонок показать при просмотре: дальше колонки не выбрать (mapping принимает номера до 200).
+     */
+    public const MAX_COLUMNS = 200;
+
+    /**
+     * Сколько первых строк файла просмотреть в поисках примеров значений.
+     */
+    private const SCAN_ROWS = 1000;
+
+    /**
      * Колонки файла до загрузки: что в них, примеры значений и догадка, что это за колонка.
      *
-     * @return array{rows: int, header: bool, columns: list<array{index: int, header: string, samples: list<string>, role: 'email'|'name'|'field', key: string}>, sample_rows: list<list<string>>}
+     * Показывается не больше MAX_COLUMNS колонок (columns_truncated — остальные отброшены), а примеры
+     * собираются за один проход по первым SCAN_ROWS строкам: строка из тысячи разделителей не раздувает ответ.
+     *
+     * @return array{rows: int, header: bool, columns: list<array{index: int, header: string, samples: list<string>, role: 'email'|'name'|'field', key: string}>, sample_rows: list<list<string>>, columns_truncated: bool}
      */
     public function preview(string $content): array
     {
         $rows = $this->rows($this->toUtf8($content));
 
         if ($rows === []) {
-            return ['rows' => 0, 'header' => false, 'columns' => [], 'sample_rows' => []];
+            return ['rows' => 0, 'header' => false, 'columns' => [], 'sample_rows' => [], 'columns_truncated' => false];
         }
 
         $cells = array_column($rows, 1);
         [$emailColumn, $nameColumn, $extra, $hasHeader] = $this->columns($cells);
         $headers = $hasHeader ? array_shift($cells) : [];
-        $width = max(array_map('count', $cells ?: [[]]) ?: [0]);
-        $width = max($width, count($headers));
+        $scanned = array_slice($cells, 0, self::SCAN_ROWS);
+
+        $width = count($headers);
+        foreach ($scanned as $row) {
+            $width = max($width, count($row));
+        }
+
+        $truncated = $width > self::MAX_COLUMNS;
+        $width = min($width, self::MAX_COLUMNS);
+
+        /** @var array<int, list<string>> $samples */
+        $samples = array_fill(0, $width, []);
+        $missing = $width;
+
+        foreach ($scanned as $row) {
+            if ($missing === 0) {
+                break;
+            }
+
+            foreach (array_slice($row, 0, $width) as $index => $value) {
+                if ($value !== '' && count($samples[$index]) < self::SAMPLE_ROWS) {
+                    $samples[$index][] = Str::limit($value, 60);
+                    $missing -= count($samples[$index]) === self::SAMPLE_ROWS ? 1 : 0;
+                }
+            }
+        }
+
         $columns = [];
 
         for ($index = 0; $index < $width; $index++) {
-            $samples = collect($cells)->map(fn (array $row): string => (string) ($row[$index] ?? ''))->filter(fn (string $v): bool => $v !== '')
-                ->take(self::SAMPLE_ROWS)->map(fn (string $v): string => Str::limit($v, 60))->values()->all();
-            $role = $index === $emailColumn ? 'email' : ($index === $nameColumn ? 'name' : 'field');
             $header = trim((string) ($headers[$index] ?? ''));
 
             $columns[] = [
                 'index' => $index,
                 'header' => $header,
-                'samples' => $samples,
-                'role' => $role,
+                'samples' => $samples[$index],
+                'role' => $index === $emailColumn ? 'email' : ($index === $nameColumn ? 'name' : 'field'),
                 'key' => $extra[$index] ?? $this->key($header, $index),
             ];
         }
@@ -69,7 +104,7 @@ class ContactImportService
             array_slice($cells, 0, self::SAMPLE_ROWS),
         );
 
-        return ['rows' => count($cells), 'header' => $hasHeader, 'columns' => $columns, 'sample_rows' => $sampleRows];
+        return ['rows' => count($cells), 'header' => $hasHeader, 'columns' => $columns, 'sample_rows' => $sampleRows, 'columns_truncated' => $truncated];
     }
 
     /**

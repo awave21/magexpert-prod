@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Folder as FolderIcon, FolderPlus, Inbox, Layers } from 'lucide-react'
 import { api, ApiError, type Folder, type Template } from '../api'
 import { Modal, useToast } from './ui'
+import { usePermissions } from '../auth'
 
 // фильтр контента: 'all' — все письма, 'none' — без папки, число — id папки
 export type Filter = 'all' | 'none' | number
@@ -47,6 +48,7 @@ export function FolderNav({ variant, onNavigate }: { variant: 'menu' | 'tabs'; o
   const nav = useNavigate()
   const qc = useQueryClient()
   const toast = useToast()
+  const { canEditContent } = usePermissions()
   const loc = useLocation()
   const onList = loc.pathname.replace(/\/$/, '') === '/templates'
   const filter = useFolderFilter()
@@ -80,7 +82,7 @@ export function FolderNav({ variant, onNavigate }: { variant: 'menu' | 'tabs'; o
     onSuccess: (_r, { folderId }) => toast(folderId ? `Перенесён в «${folders.find((f) => f.id === folderId)?.name}»` : 'Письмо убрано из папки'),
     onSettled: () => refresh(),
   })
-  const dropProps = (f: Filter) => f === 'all' ? {} : {
+  const dropProps = (f: Filter) => f === 'all' || !canEditContent ? {} : {
     onDragOver: (e: React.DragEvent) => { if (e.dataTransfer.types.includes(TEMPLATE_DRAG)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropTarget(f) } },
     onDragLeave: () => setDropTarget((d) => (d === f ? null : d)),
     onDrop: (e: React.DragEvent) => {
@@ -117,18 +119,20 @@ export function FolderNav({ variant, onNavigate }: { variant: 'menu' | 'tabs'; o
             {icon}<span className="grow">{label}</span><span className="count">{count}</span>
           </button>
         ))}
-        <button type="button" className={variant === 'menu' ? 'nav-sub-item add' : 'folder-tab add'} onClick={() => { setError(null); setCreating('') }}
-          title="Новая папка" aria-label="Новая папка">
-          <FolderPlus size={15} />{variant === 'menu' && <span className="grow">Новая папка</span>}
-        </button>
+        {canEditContent && (
+          <button type="button" className={variant === 'menu' ? 'nav-sub-item add' : 'folder-tab add'} onClick={() => { setError(null); setCreating('') }}
+            title="Новая папка" aria-label="Новая папка">
+            <FolderPlus size={15} />{variant === 'menu' && <span className="grow">Новая папка</span>}
+          </button>
+        )}
       </div>
 
-      {creating !== null && (
+      {canEditContent && creating !== null && (
         <Modal title="Новая папка" onClose={() => setCreating(null)}>
           <form className="stack" onSubmit={submit} noValidate>
             <div className="field">
               <label htmlFor="new-folder-name">Название проекта</label>
-              <input id="new-folder-name" className={`input${error ? ' err' : ''}`} value={creating} onChange={(e) => setCreating(e.target.value)} placeholder="Сложный пациент" autoFocus />
+              <input id="new-folder-name" className={`input${error ? ' err' : ''}`} value={creating} onChange={(e) => setCreating(e.target.value)} placeholder="Мероприятия" autoFocus />
               {error && <div className="hint err">{error}</div>}
             </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>

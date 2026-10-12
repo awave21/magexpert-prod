@@ -34,15 +34,29 @@ export default function ProfilePage() {
     onError: (e) => { if (e instanceof ApiError) { setNameErrors(e.errors); toast(e.message, true) } },
   })
 
+  const current = q.data?.data ?? user
+  // после регистрации через Яндекс или ВКонтакте пароля нет: его задают без текущего
+  const hasPassword = current?.password_set !== false
+
   const changePassword = useMutation({
-    mutationFn: () => api<{ message: string }>('/profile/password', { method: 'PUT', body: pw }),
-    onSuccess: (r) => { setPwErrors({}); setPw(EMPTY_PASSWORD); toast(r.message || 'Пароль изменён') },
+    mutationFn: () => api<{ message: string }>('/profile/password', {
+      method: 'PUT',
+      body: hasPassword ? pw : { password: pw.password, password_confirmation: pw.password_confirmation },
+    }),
+    onSuccess: (r) => {
+      setPwErrors({}); setPw(EMPTY_PASSWORD)
+      toast(r.message || (hasPassword ? 'Пароль изменён' : 'Пароль задан'))
+      if (current && !hasPassword) {
+        const next = { ...current, password_set: true }
+        updateUser(next)
+        qc.setQueryData<Profile>(['profile'], (old) => old ? { ...old, data: next } : old)
+      }
+    },
     onError: (e) => { if (e instanceof ApiError) { setPwErrors(e.errors); toast(e.message, true) } },
   })
 
   const nameErr = (k: string) => nameErrors[k]?.[0]
   const pwErr = (k: string) => pwErrors[k]?.[0]
-  const current = q.data?.data ?? user
   const nameChanged = name.trim() !== '' && name.trim() !== (current?.name ?? '')
 
   const submitName = (e: FormEvent) => { e.preventDefault(); saveName.mutate() }
@@ -81,14 +95,18 @@ export default function ProfilePage() {
       </section>
 
       <section className="profile-section">
-        <h2 className="section-title">Пароль</h2>
+        <h2 className="section-title">{hasPassword ? 'Пароль' : 'Задать пароль'}</h2>
         <form className="stack" onSubmit={submitPassword} noValidate>
-          <div className="field">
-            <label htmlFor="p-current">Текущий пароль</label>
-            <PasswordInput id="p-current" autoComplete="current-password" className={`input${pwErr('current_password') ? ' err' : ''}`}
-              value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} />
-            {pwErr('current_password') && <div className="hint err">{pwErr('current_password')}</div>}
-          </div>
+          {hasPassword ? (
+            <div className="field">
+              <label htmlFor="p-current">Текущий пароль</label>
+              <PasswordInput id="p-current" autoComplete="current-password" className={`input${pwErr('current_password') ? ' err' : ''}`}
+                value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} />
+              {pwErr('current_password') && <div className="hint err">{pwErr('current_password')}</div>}
+            </div>
+          ) : (
+            <div className="hint">Вы вошли через Яндекс или ВКонтакте, и пароля у вас пока нет. Задайте его, чтобы входить по email и паролю и передавать владение организацией.</div>
+          )}
           <div className="field">
             <label htmlFor="p-new">Новый пароль</label>
             <PasswordInput id="p-new" autoComplete="new-password" className={`input${pwErr('password') ? ' err' : ''}`}
@@ -102,12 +120,11 @@ export default function ProfilePage() {
             {pwErr('password_confirmation') && <div className="hint err">{pwErr('password_confirmation')}</div>}
           </div>
           <div className="hint">
-            После смены пароля на других устройствах нужно будет войти заново. Здесь вы останетесь в Sender.
-            {providers.length > 0 && ' Если вы входите только через Яндекс или ВКонтакте и не знаете пароль, продолжайте входить так же.'}
+            После {hasPassword ? 'смены' : 'установки'} пароля на других устройствах нужно будет войти заново, ключи MCP для ИИ-ассистентов будут отозваны. Здесь вы останетесь в Sender.
           </div>
           <div className="profile-actions">
-            <button className="btn primary" disabled={changePassword.isPending || !pw.current_password || !pw.password || !pw.password_confirmation}>
-              {changePassword.isPending ? 'Меняем…' : 'Сменить пароль'}
+            <button className="btn primary" disabled={changePassword.isPending || (hasPassword && !pw.current_password) || !pw.password || !pw.password_confirmation}>
+              {changePassword.isPending ? 'Сохраняем…' : hasPassword ? 'Сменить пароль' : 'Задать пароль'}
             </button>
           </div>
         </form>

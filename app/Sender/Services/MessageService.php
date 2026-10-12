@@ -5,6 +5,7 @@ namespace App\Sender\Services;
 use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Mail\SubscriptionConfirmationLetter;
 use App\Sender\Models\Campaign;
+use App\Sender\Models\Contact;
 use App\Sender\Models\Domain;
 use App\Sender\Models\Message;
 use App\Sender\Models\Organization;
@@ -12,6 +13,8 @@ use App\Sender\Models\SenderAddress;
 use App\Sender\Models\Suppression;
 use App\Sender\Models\Template;
 use App\Sender\Support\SenderUi;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 class MessageService
@@ -92,15 +95,16 @@ class MessageService
      * Отправитель — подтверждённый адрес организации на подтверждённом домене, иначе noreply@ её домена,
      * иначе общий адрес Sender. Адрес в блок-листе (в том числе отписавшийся) письмо не получит.
      */
-    public function sendSubscriptionConfirmation(Organization $organization, string $to, string $confirmUrl, ?string $name = null): Message
+    public function sendSubscriptionConfirmation(Organization $organization, Contact $contact): Message
     {
-        $to = Str::lower(trim($to));
+        $to = Str::lower(trim($contact->email));
         [$fromEmail, $fromName, $domain] = $this->organizationSender($organization);
+        // ссылка с ключом подтверждения в журнал не попадает: она собирается при отправке по contact_id
         $data = [
             'system' => SubscriptionConfirmationLetter::KIND,
-            'confirm_url' => $confirmUrl,
+            'contact_id' => $contact->id,
             'organization_name' => $organization->name,
-            'name' => (string) $name,
+            'name' => (string) $contact->name,
         ];
 
         $message = $organization->messages()->make([
@@ -279,6 +283,26 @@ class MessageService
             });
 
         return $result;
+    }
+
+    /**
+     * Письма, которые идут через очередь рассылок и входят в прогрев IP и часовой лимит сервера:
+     * письма рассылок и письма подтверждения подписки (у них нет шаблона, а в данных метка system).
+     *
+     * @return Builder<Message>
+     */
+    public static function bulkMessages(): Builder
+    {
+        return Message::query()->where(fn (Builder $q) => $q->whereNotNull('campaign_id')
+            ->orWhere(fn (Builder $q) => $q->whereNull('template_id')->where('data->system', SubscriptionConfirmationLetter::KIND)));
+    }
+
+    /**
+     * Сколько писем рассылок и подтверждения подписки всех организаций ушло в очередь после $since.
+     */
+    public static function bulkDispatchedSince(CarbonInterface $since): int
+    {
+        return self::bulkMessages()->where('dispatched_at', '>', $since)->count();
     }
 
     public function dispatch(Message $message): void

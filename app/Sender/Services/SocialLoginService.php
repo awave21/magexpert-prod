@@ -74,6 +74,8 @@ class SocialLoginService
         Cache::forget($this->key($code));
 
         $result = $this->auth->register($organization, $pending['name'] ?: Str::before($email, '@'), $pending['email'] ?: $email, Str::random(40));
+        // пароль случайный и никому не известен: пользователь задаёт свой в профиле без текущего пароля
+        $result['user']->forceFill(['password_set' => false])->save();
         $result['user']->socialAccounts()->create(['provider' => $pending['provider'], 'provider_user_id' => $pending['id']]);
 
         return $result;

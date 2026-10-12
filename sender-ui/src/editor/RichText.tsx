@@ -10,7 +10,7 @@ const allowedUri = (url: string) => /^(https?:\/\/|mailto:|tel:|\{\{)/i.test(url
 
 // подсветка только в тексте: внутри тегов (href="{{ unsubscribe_url }}") переменные не трогаем
 export const highlightVars = (html: string) =>
-  html.replace(/(<[^>]*>)|\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_match, tag: string | undefined, name: string | undefined) => (tag ? tag : `<span class="be-var">{{ ${name} }}</span>`))
+  html.replace(/(<(?:[^>"']|"[^"]*"|'[^']*')*>)|\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_match, tag: string | undefined, name: string | undefined) => (tag ? tag : `<span class="be-var">{{ ${name} }}</span>`))
 
 type Props = {
   html: string

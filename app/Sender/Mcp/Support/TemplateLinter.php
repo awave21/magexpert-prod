@@ -87,10 +87,6 @@ class TemplateLinter
             }
         }
 
-        if (preg_match('/обучени/iu', $subject.' '.$html)) {
-            $add(self::WARNING, 'forbidden_word', 'В письме есть слово, которое на сайте MagExpert не используется (про учёбу). Замените на «курс», «программа» или «мероприятие».');
-        }
-
         if (blank($letter['preheader'])) {
             $add(self::INFO, 'preheader_missing', 'Нет прехедера: почта покажет после темы начало текста. Добавьте короткую фразу (40–90 символов), которая дополняет тему.');
         }
