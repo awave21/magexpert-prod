@@ -5,6 +5,7 @@ namespace App\Sender\Http\Controllers\Admin;
 use App\Sender\Http\Requests\Admin\ImportContactsRequest;
 use App\Sender\Http\Requests\Admin\StoreContactRequest;
 use App\Sender\Jobs\CheckContactsJob;
+use App\Sender\Jobs\SendSubscriptionConfirmationsJob;
 use App\Sender\Models\Contact;
 use App\Sender\Models\ContactList;
 use App\Sender\Services\ContactImportService;
@@ -37,7 +38,9 @@ class ContactController extends Controller
         if ($request->input('status') === 'unsubscribed') {
             $query->whereNotNull('unsubscribed_at');
         } elseif ($request->input('status') === 'subscribed') {
-            $query->whereNull('unsubscribed_at');
+            $query->subscribed();
+        } elseif ($request->input('status') === 'pending') {
+            $query->whereNull('unsubscribed_at')->pending();
         }
 
         if ($request->input('check') === 'unchecked') {
@@ -70,16 +73,32 @@ class ContactController extends Controller
 
     public function import(ImportContactsRequest $request, int $list, ContactImportService $importer): JsonResponse
     {
-        $content = $request->hasFile('file')
-            ? (string) file_get_contents($request->file('file')->getRealPath())
-            : (string) $request->input('text');
-
         $model = $this->list($request, $list);
         abort_if($model->isSynced(), 422, self::SYNCED);
-        $result = $importer->import($model, $content);
+        $result = $importer->import($model, $this->content($request), $request->mapping(), $request->consent(! $model->require_confirmation));
         CheckContactsJob::dispatch($model->id)->onQueue(config('sender.queue'));
 
+        // письма подтверждения уходят чуть позже: проверка успеет отсеять несуществующие адреса
+        if ($result['pending'] > 0) {
+            SendSubscriptionConfirmationsJob::dispatch($model->id)->onQueue(config('sender.queue'))->delay(now()->addMinutes(2));
+        }
+
         return response()->json(['data' => $result]);
+    }
+
+    /**
+     * Колонки файла до загрузки, чтобы выбрать, где адрес, где имя и что сохранить переменными.
+     */
+    public function preview(ImportContactsRequest $request, ContactImportService $importer): JsonResponse
+    {
+        return response()->json(['data' => $importer->preview($this->content($request))]);
+    }
+
+    private function content(ImportContactsRequest $request): string
+    {
+        return $request->hasFile('file')
+            ? (string) file_get_contents($request->file('file')->getRealPath())
+            : (string) $request->input('text');
     }
 
     /**
@@ -149,6 +168,9 @@ class ContactController extends Controller
             'name' => $contact->name,
             'data' => $contact->data ?? (object) [],
             'unsubscribed_at' => $contact->unsubscribed_at?->toIso8601String(),
+            'pending' => $contact->isPending(),
+            'confirmation_sent_at' => $contact->confirmation_sent_at?->toIso8601String(),
+            'confirmed_at' => $contact->confirmed_at?->toIso8601String(),
             'check_status' => $contact->check_status,
             'check_hint' => $contact->check_hint,
             'last_opened_at' => $contact->last_opened_at?->toIso8601String(),

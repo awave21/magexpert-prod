@@ -21,7 +21,12 @@ class Webhook extends SenderModel
 
     public const EVENT_UNSUBSCRIBED = 'recipient.unsubscribed';
 
-    public const EVENTS = [self::EVENT_DELIVERED, self::EVENT_BOUNCED, self::EVENT_COMPLAINED, self::EVENT_OPENED, self::EVENT_CLICKED, self::EVENT_UNSUBSCRIBED];
+    /**
+     * Подписчик, загруженный без согласия, подтвердил подписку по ссылке из письма.
+     */
+    public const EVENT_CONFIRMED = 'contact.confirmed';
+
+    public const EVENTS = [self::EVENT_DELIVERED, self::EVENT_BOUNCED, self::EVENT_COMPLAINED, self::EVENT_OPENED, self::EVENT_CLICKED, self::EVENT_UNSUBSCRIBED, self::EVENT_CONFIRMED];
 
     protected $table = 'sender_webhooks';
 

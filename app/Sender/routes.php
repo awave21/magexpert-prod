@@ -7,7 +7,10 @@ use App\Sender\Http\Controllers\Admin\CampaignController;
 use App\Sender\Http\Controllers\Admin\ContactController;
 use App\Sender\Http\Controllers\Admin\ContactListController;
 use App\Sender\Http\Controllers\Admin\DomainController;
+use App\Sender\Http\Controllers\Admin\McpTokenController;
 use App\Sender\Http\Controllers\Admin\MessageController as AdminMessageController;
+use App\Sender\Http\Controllers\Admin\OrganizationController;
+use App\Sender\Http\Controllers\Admin\ProfileController;
 use App\Sender\Http\Controllers\Admin\SenderAddressController;
 use App\Sender\Http\Controllers\Admin\StatsController;
 use App\Sender\Http\Controllers\Admin\SuppressionController;
@@ -16,7 +19,10 @@ use App\Sender\Http\Controllers\Admin\TemplateFolderController;
 use App\Sender\Http\Controllers\Admin\UserController;
 use App\Sender\Http\Controllers\Admin\VariableController;
 use App\Sender\Http\Controllers\Admin\WebhookController;
+use App\Sender\Http\Controllers\Api\ListContactController;
+use App\Sender\Http\Controllers\Api\ListController;
 use App\Sender\Http\Controllers\ConfirmSenderAddressController;
+use App\Sender\Http\Controllers\ConfirmSubscriptionController;
 use App\Sender\Http\Controllers\MessageController;
 use App\Sender\Http\Controllers\OAuthController;
 use App\Sender\Http\Controllers\SubscriptionController;
@@ -25,7 +31,10 @@ use App\Sender\Http\Controllers\UnsubscribeController;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
 use App\Sender\Http\Middleware\AuthorizeRole;
+use App\Sender\Http\Middleware\ForceJsonResponse;
 use App\Sender\Http\Middleware\RecordAuditLog;
+use App\Sender\Mcp\Http\AuthenticateMcpToken;
+use App\Sender\Mcp\Http\McpController;
 use App\Sender\Support\SenderUi;
 use Illuminate\Support\Facades\Route;
 
@@ -34,7 +43,20 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
         Route::post('messages', [MessageController::class, 'store']);
         Route::get('messages/{uuid}', [MessageController::class, 'show']);
         Route::put('subscriptions', [SubscriptionController::class, 'update']);
+
+        // базы и подписчики для внешних систем (например, сайта), которые держат базу в актуальном состоянии
+        Route::middleware(ForceJsonResponse::class)->name('sender.api.')->group(function (): void {
+            Route::put('lists', [ListController::class, 'upsert'])->name('lists.upsert');
+            Route::put('lists/{list}/contacts', [ListContactController::class, 'upsert'])->whereNumber('list')->name('contacts.upsert');
+            Route::post('lists/{list}/contacts/batch', [ListContactController::class, 'batch'])->whereNumber('list')->name('contacts.batch');
+            Route::get('lists/{list}/contacts/{email}', [ListContactController::class, 'show'])->whereNumber('list')->name('contacts.show');
+            Route::delete('lists/{list}/contacts/{email}', [ListContactController::class, 'destroy'])->whereNumber('list')->name('contacts.destroy');
+        });
     });
+
+    // MCP-сервер для ИИ-ассистентов (Streamable HTTP без состояния), вход по личному ключу mxm_…
+    Route::post('mcp', [McpController::class, 'handle'])->middleware(AuthenticateMcpToken::class)->name('sender.mcp');
+    Route::match(['GET', 'DELETE'], 'mcp', [McpController::class, 'methodNotAllowed']);
 
     Route::prefix('admin')->name('sender.admin.')->group(function (): void {
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
@@ -48,6 +70,14 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::get('me', [AuthController::class, 'me'])->name('me');
             Route::get('stats', StatsController::class)->name('stats');
             Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+
+            Route::get('profile', [ProfileController::class, 'show'])->name('profile.show');
+            Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
+            Route::put('profile/password', [ProfileController::class, 'password'])->middleware('throttle:10,1')->name('profile.password');
+
+            Route::get('organization', [OrganizationController::class, 'show'])->name('organization.show');
+            Route::put('organization', [OrganizationController::class, 'update'])->name('organization.update');
+            Route::post('organization/transfer', [OrganizationController::class, 'transfer'])->middleware('throttle:10,1')->name('organization.transfer');
 
             Route::get('domains', [DomainController::class, 'index'])->name('domains.index');
             Route::post('domains', [DomainController::class, 'store'])->name('domains.store');
@@ -90,6 +120,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::get('lists', [ContactListController::class, 'index'])->name('lists.index');
             Route::get('list-sources', [ContactListController::class, 'sources'])->name('lists.sources');
             Route::post('lists', [ContactListController::class, 'store'])->name('lists.store');
+            Route::post('lists/import-preview', [ContactController::class, 'preview'])->middleware('throttle:60,1')->name('contacts.preview');
             Route::get('lists/{list}', [ContactListController::class, 'show'])->name('lists.show');
             Route::put('lists/{list}', [ContactListController::class, 'update'])->name('lists.update');
             Route::delete('lists/{list}', [ContactListController::class, 'destroy'])->name('lists.destroy');
@@ -132,6 +163,11 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::get('suppressions', [SuppressionController::class, 'index'])->name('suppressions.index');
             Route::post('suppressions', [SuppressionController::class, 'store'])->name('suppressions.store');
             Route::delete('suppressions/{suppression}', [SuppressionController::class, 'destroy'])->name('suppressions.destroy');
+
+            // личные ключи MCP: каждый управляет только своими
+            Route::get('mcp-tokens', [McpTokenController::class, 'index'])->name('mcp-tokens.index');
+            Route::post('mcp-tokens', [McpTokenController::class, 'store'])->middleware('throttle:10,1')->name('mcp-tokens.store');
+            Route::delete('mcp-tokens/{token}', [McpTokenController::class, 'destroy'])->name('mcp-tokens.destroy');
         });
     });
 });
@@ -150,6 +186,10 @@ if ($uiHost = SenderUi::host()) {
         Route::get('t/c/{uuid}', [TrackController::class, 'click'])->whereUuid('uuid');
         Route::get('unsubscribe/{uuid}', [UnsubscribeController::class, 'show'])->whereUuid('uuid')->name('sender.ui-host.unsubscribe');
         Route::post('unsubscribe/{uuid}', [UnsubscribeController::class, 'store'])->middleware('throttle:30,1')->whereUuid('uuid');
+        Route::get('confirm-subscription/{token}', [ConfirmSubscriptionController::class, 'show'])->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{1,64}')->name('sender.ui-host.confirm-subscription');
+        Route::post('confirm-subscription/{token}', [ConfirmSubscriptionController::class, 'store'])->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{1,64}');
+        Route::post('mcp', [McpController::class, 'handle'])->middleware(AuthenticateMcpToken::class)->name('sender.ui-host.mcp');
+        Route::match(['GET', 'DELETE'], 'mcp', [McpController::class, 'methodNotAllowed']);
         Route::get('{path?}', fn () => SenderUi::indexResponse())
             ->where('path', '(?!api/|sender-static/|storage/).*')->name('sender.ui-host');
     });
@@ -172,6 +212,10 @@ Route::get('sender/t/c/{uuid}', [TrackController::class, 'click'])->whereUuid('u
 // Отписка от рассылки по ссылке из письма
 Route::get('sender/unsubscribe/{uuid}', [UnsubscribeController::class, 'show'])->whereUuid('uuid')->name('sender.unsubscribe');
 Route::post('sender/unsubscribe/{uuid}', [UnsubscribeController::class, 'store'])->middleware('throttle:30,1')->whereUuid('uuid');
+
+// Подтверждение подписки по ссылке из письма (адреса, загруженные в базу без согласия)
+Route::get('sender/confirm-subscription/{token}', [ConfirmSubscriptionController::class, 'show'])->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{1,64}')->name('sender.confirm-subscription');
+Route::post('sender/confirm-subscription/{token}', [ConfirmSubscriptionController::class, 'store'])->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{1,64}');
 
 // Админка по /sender на домене приложения. Если у неё свой поддомен, старый адрес ведёт туда.
 Route::get('sender/{path?}', function (?string $path = null) {
