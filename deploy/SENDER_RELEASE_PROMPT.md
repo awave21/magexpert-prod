@@ -1,5 +1,7 @@
 Задача: выложить на этот VPS свежий `main` проекта MagExpert (Laravel, обычно `/var/www/magexpert`). В релизе сервис писем Sender вместо Sendsay (служебные письма сайта и рассылки через локальный Postfix + OpenDKIM), админка Sender на mail.mag-expert.ru, новый личный кабинет и вход через Яндекс и ВК. Postfix и OpenDKIM на сервере уже настроены (селектор DKIM `mail`, ключ `/etc/opendkim/keys/mag-expert.ru/mail.private`). Sender мог уже стоять здесь в старой версии из ветки `feature/sender`; этой ветки больше нет, вся работа в `main`.
 
+В этом релизе также: новая страница «Новая база» с сопоставлением колонок, подтверждение подписки (двойное согласие), роли «Владелец» и «Дизайнер» и раздел «Настройки», MCP-сервер для ИИ (`/mcp`), публичное API баз и подписчиков и синхронизация пользователей сайта в базу «Пользователи MagExpert» через это API (шаг 10а).
+
 Подробная справка по каждому шагу — в `deploy/SENDER_DEPLOY.md` из `main` (до обновления кода её можно прочитать так: `git fetch origin && git show origin/main:deploy/SENDER_DEPLOY.md`).
 
 ## Правила
@@ -50,6 +52,7 @@ php artisan migrate --force
 php artisan migrate --database=sender --path=app/Sender/Database/Migrations --force
 php artisan storage:link
 ```
+- Новые миграции этого релиза: `2026_10_12_000021`–`000025` (подтверждение подписки, роли владельца и дизайнера, ключи MCP, настройка базы «Требовать подтверждение подписки», `password_set`). Миграция `000022` назначает владельцем каждой организации самого раннего активного администратора (если его нет — самого раннего активного участника). Проверь, кто владелец (только имя и email): `php artisan tinker --execute="\$o=App\\Sender\\Models\\Organization::where('slug','magexpert')->first()?->owner; echo \$o ? \$o->name.' '.\$o->email : 'нет владельца';"`. Если владельца нет, спроси меня, кого назначить, и выполни `php artisan sender:assign-owner magexpert <email>`.
 
 ## 4. Переменные `.env`
 Покажи список имён, которые добавишь или поменяешь, и дождись «да». Старые `MAIL_*` сохрани комментарием для отката.
@@ -136,6 +139,22 @@ php artisan queue:restart
 ```
 Если php-fpm с opcache — `sudo systemctl reload php8.x-fpm` (версию определи сам).
 
+## 10а. Синхронизация пользователей сайта с Sender через API
+Сайт работает с Sender как со сторонним сервисом: только через публичное API по ключу. Включаем по шагам, каждый — после моего «да».
+1. API-ключ: я сам создам его в Sender («API-ключи» → «Создать ключ», название «Сайт MagExpert») и впишу в `.env`. Ключ в чат не присылаю и ты его не выводи.
+2. В `.env` (покажи имена, жди «да»; старые значения сохрани комментарием):
+```
+SENDER_CLIENT_DRIVER=http
+SENDER_API_URL=https://mag-expert.ru
+SENDER_API_KEY=<впишу сам>
+SENDER_USERS_LIST_NAME="Пользователи MagExpert"
+SENDER_USERS_SYNC=false
+```
+   Затем `php artisan config:cache`. Важно: с `SENDER_CLIENT_DRIVER=http` служебные письма сайта (регистрация, сброс пароля) тоже идут через API — проверь их в шаге 11.
+3. Перенос всех пользователей: `php artisan sender:sync-users --dry-run` (покажи таблицу: сколько с согласием и без), затем после «да» `php artisan sender:sync-users`. Покажи итоговую таблицу (Добавлено / Обновлено / Подписаны / Отписаны / С ошибками) и строки с ошибками, если есть. Пользователи без согласия попадают в базу со статусом «Отписан» и рассылок не получают.
+4. Включить синхронизацию новых и изменённых пользователей: `SENDER_USERS_SYNC=true`, `php artisan config:cache`, `php artisan queue:restart`.
+5. В Sender у базы «Пользователи MagExpert» настройка «Требовать подтверждение подписки» должна быть выключена (согласие дают галочкой на сайте): `php artisan tinker --execute="echo App\Sender\Models\ContactList::where('name','Пользователи MagExpert')->value('require_confirmation') ? 'включено' : 'выключено';"`.
+
 ## 11. Проверка
 - `curl -sI https://mag-expert.ru/` и админка (`https://mail.mag-expert.ru` или `https://mag-expert.ru/sender`): `200`.
 - `supervisorctl status`: оба воркера `RUNNING`.
@@ -145,13 +164,16 @@ php artisan queue:restart
   `php artisan tinker --execute="echo App\Sender\Models\Message::latest('id')->first()?->status;"`
   и что в `/var/log/mail.log` у него `status=sent`.
 - Когда я пришлю заголовки письма, разбери `Authentication-Results` (spf, dkim, dmarc должны быть pass).
+- Синхронизация: я зарегистрирую тестового пользователя на сайте. Проверь, что задача `SyncUserToSender` выполнилась (`failed_jobs` пуст) и что адрес появился в базе: `php artisan tinker --execute="echo App\Sender\Models\Contact::where('email','<адрес>')->exists() ? 'есть' : 'нет';"`.
+- MCP: `curl -s -o /dev/null -w "%{http_code}\n" -X POST https://mail.mag-expert.ru/mcp -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"ping"}'` — ожидаю 401 (без ключа). Если 404 или 200 со страницей — nginx не пропускает POST на `/mcp` в Laravel, покажи мне конфиг, ничего не меняя.
+- Страница подтверждения подписки: `curl -s -o /dev/null -w "%{http_code}\n" https://mail.mag-expert.ru/confirm-subscription/test` — ожидаю 404 («Ссылка недействительна»).
 
 ## Откат
 ```
 git checkout <коммит из шага 1>
 composer install --no-dev --optimize-autoloader && npm ci && npm run build
 ```
-Верни `.env` из копии шага 1, `php artisan optimize`, `php artisan queue:restart`. Процессы supervisor из шага 6 останови (`supervisorctl stop sender-transactional sender-campaigns`). Базу `magexpert_sender` не удаляй.
+Верни `.env` из копии шага 1 (в том числе `SENDER_CLIENT_DRIVER` и `SENDER_USERS_SYNC=false`), `php artisan optimize`, `php artisan queue:restart`. Миграции 000021–000025 только добавляют поля и таблицы: откатывать их не нужно, старый код с ними работает. Процессы supervisor из шага 6 останови (`supervisorctl stop sender-transactional sender-campaigns`). Базу `magexpert_sender` не удаляй.
 
 ## Что вернуть мне в конце
-Коротко: коммит до и после, выполненные миграции, что изменено в `.env` (только имена), состояние воркеров, cron и Redis AOF, применён ли `throttle.sh`, результат проверки письма и всё, что осталось сделать мне (DNS, значения переменных, PTR и т.п.).
+Коротко: коммит до и после, выполненные миграции, кто стал владельцем организации, что изменено в `.env` (только имена), итог `sender:sync-users`, включена ли синхронизация, состояние воркеров, cron и Redis AOF, применён ли `throttle.sh`, результат проверки письма, синхронизации и MCP, и всё, что осталось сделать мне (DNS, значения переменных, PTR и т.п.).
