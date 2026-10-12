@@ -31,7 +31,7 @@ test('сводка показывает предстоящие мероприя�
         ->where('upcoming.0.title', 'Вебинар по контурной пластике')
         ->where('upcoming.0.access', 'free')
         ->where('upcoming.1.access', 'pending')
-        ->has('calendar', 2)
+        ->missing('calendar')
         ->where('setup.email_verified', false)
         ->where('setup.phone_verified', false)
         ->where('setup.profile_filled', true));
@@ -45,7 +45,21 @@ test('документы библиотеки на сводке отдают п�
         ->where('library.latest.0.file_url', Storage::url('medical-library/guide.pdf')));
 });
 
-test('мероприятия делятся на предстоящие и записи', function () {
+test('на главной прошедшие мероприятия попадают в «Доступно», сначала с видеозаписью', function () {
+    $user = User::factory()->create();
+    grantEvent($user, Event::factory()->create(['title' => 'Будущая конференция']));
+    grantEvent($user, Event::factory()->past()->create(['title' => 'Прошедший эфир без записи', 'start_date' => now()->subDays(2)]));
+    grantEvent($user, Event::factory()->past()->create(['title' => 'Мастер-класс в записи', 'start_date' => now()->subDays(20), 'kinescope_id' => 'abc', 'kinescope_type' => 'video']));
+
+    $this->actingAs($user)->get('/dashboard')->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->missing('records')
+        ->has('upcoming', 1)
+        ->has('available', 2)
+        ->where('available.0.title', 'Мастер-класс в записи')
+        ->where('available.1.title', 'Прошедший эфир без записи'));
+});
+
+test('мероприятия делятся на предстоящие и доступные', function () {
     $user = User::factory()->create();
     grantEvent($user, Event::factory()->create());
     grantEvent($user, Event::factory()->past()->create(['kinescope_id' => 'abc', 'kinescope_type' => 'video']));

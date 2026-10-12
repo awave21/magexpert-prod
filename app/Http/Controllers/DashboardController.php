@@ -19,7 +19,6 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $events = $cabinetEvents->all($user);
-        $today = now()->toDateString();
 
         $live = $events->firstWhere('is_live', true);
 
@@ -29,33 +28,19 @@ class DashboardController extends Controller
             ->take(6)
             ->values();
 
-        $records = $events
-            ->filter(fn (array $event): bool => $event['is_past'] && $event['has_recording'])
-            ->sortByDesc('start_date')
+        $available = $events
+            ->filter(fn (array $event): bool => $event['is_past'])
+            ->sortBy([['has_recording', 'desc'], ['start_date', 'desc']])
             ->take(6)
             ->values();
 
         $watching = $this->watching($user->id, $events);
 
-        $calendar = $events
-            ->filter(fn (array $event): bool => $event['start_date'] !== null)
-            ->map(fn (array $event): array => [
-                'date' => $event['start_date'],
-                'time' => $event['start_time'],
-                'title' => $event['title'],
-                'slug' => $event['slug'],
-                'is_live' => $event['is_live'],
-                'format' => $event['format'],
-            ])
-            ->values();
-
         return Inertia::render('Dashboard', [
             'live' => $live,
             'upcoming' => $upcoming,
-            'records' => $records,
+            'available' => $available,
             'watching' => $watching,
-            'calendar' => $calendar,
-            'today' => $today,
             'library' => [
                 'total' => MedicalLibrary::query()->count(),
                 'latest' => MedicalLibrary::query()

@@ -11,20 +11,25 @@ const props = defineProps({
 
 const live = computed(() => props.events.find((event) => event.is_live));
 
+// «Доступно»: идущий эфир и всё прошедшее (сначала с записью, внутри — от новых к старым). «Предстоящие»: ещё не начавшиеся.
+const byDateDesc = (a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '');
 const groups = computed(() => ({
+    available: [
+        ...props.events.filter((event) => event.is_live),
+        ...props.events.filter((event) => event.is_past && event.has_recording).sort(byDateDesc),
+        ...props.events.filter((event) => event.is_past && !event.has_recording).sort(byDateDesc),
+    ],
     upcoming: props.events
-        .filter((event) => !event.is_past)
+        .filter((event) => !event.is_past && !event.is_live)
         .sort((a, b) => `${a.start_date ?? '9999'} ${a.start_time ?? ''}`.localeCompare(`${b.start_date ?? '9999'} ${b.start_time ?? ''}`)),
-    records: props.events.filter((event) => event.is_past && event.has_recording).sort((a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '')),
-    archive: props.events.filter((event) => event.is_past && !event.has_recording).sort((a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '')),
 }));
 
+// По умолчанию «Доступно»; «Предстоящие» — только если доступного пока нет, а предстоящее есть.
 const tabs = [
+    { key: 'available', label: 'Доступно' },
     { key: 'upcoming', label: 'Предстоящие' },
-    { key: 'records', label: 'Записи' },
-    { key: 'archive', label: 'Архив' },
 ];
-const tab = ref(groups.value.upcoming.length || !groups.value.records.length ? 'upcoming' : 'records');
+const tab = ref(groups.value.available.length || !groups.value.upcoming.length ? 'available' : 'upcoming');
 
 const chips = [
     { key: 'all', label: 'Все' },
@@ -41,12 +46,12 @@ const shown = computed(() => groups.value[tab.value].filter((event) => {
 </script>
 
 <template>
-    <Head title="Мои мероприятия" />
+    <Head title="Мои доступы" />
 
     <ProfileLayout>
         <header class="flex flex-col gap-2.5">
             <span class="cab-eyebrow">Личный кабинет</span>
-            <h1 class="cab-h1">Мероприятия</h1>
+            <h1 class="cab-h1">Мои доступы</h1>
             <p class="max-w-[640px] text-base text-gray-500 dark:text-gray-400">Всё, к чему у вас есть доступ: купленные и бесплатные мероприятия, трансляции и записи.</p>
         </header>
 
@@ -96,7 +101,7 @@ const shown = computed(() => groups.value[tab.value].filter((event) => {
         </div>
         <div v-else class="cab-panel flex flex-col items-center gap-3 p-9 text-center">
             <span class="font-display text-[22px] font-medium">Здесь пока ничего нет</span>
-            <span class="text-sm text-gray-500">Выберите мероприятие в каталоге — после записи или оплаты оно появится здесь.</span>
+            <span class="text-sm text-gray-500">Выберите мероприятие в каталоге — после регистрации или оплаты оно появится здесь.</span>
             <Link :href="route('events.index', { filter: 'all' })" class="cab-btn">Открыть каталог</Link>
         </div>
     </ProfileLayout>

@@ -5,15 +5,12 @@ import { DevicePhoneMobileIcon, EnvelopeIcon, MagnifyingGlassIcon, UserIcon } fr
 import { PlayIcon } from '@heroicons/vue/24/solid';
 import ProfileLayout from '@/Layouts/ProfileLayout.vue';
 import EventCard from '@/Components/Cabinet/EventCard.vue';
-import MiniCalendar from '@/Components/Cabinet/MiniCalendar.vue';
 
 const props = defineProps({
     live: { type: Object, default: null },
     upcoming: { type: Array, default: () => [] },
-    records: { type: Array, default: () => [] },
+    available: { type: Array, default: () => [] },
     watching: { type: Array, default: () => [] },
-    calendar: { type: Array, default: () => [] },
-    today: { type: String, required: true },
     library: { type: Object, default: () => ({ total: 0, latest: [] }) },
     setup: { type: Object, required: true },
 });
@@ -53,12 +50,13 @@ const totalSteps = computed(() => (phoneCheck.value ? 4 : 3));
 const doneCount = computed(() => 1 + Number(props.setup.email_verified) + Number(phoneCheck.value && props.setup.phone_verified) + Number(props.setup.profile_filled));
 const setupDone = computed(() => doneCount.value === totalSteps.value);
 
-const tab = ref(props.upcoming.length || !props.records.length ? 'upcoming' : 'records');
+// По умолчанию «Доступно»; «Предстоящие» — только если доступного пока нет, а предстоящее есть.
+const tab = ref(props.available.length || !props.upcoming.length ? 'available' : 'upcoming');
 const tabs = [
+    { key: 'available', label: 'Доступно' },
     { key: 'upcoming', label: 'Предстоящие' },
-    { key: 'records', label: 'Записи' },
 ];
-const shown = computed(() => (tab.value === 'upcoming' ? props.upcoming : props.records));
+const shown = computed(() => (tab.value === 'upcoming' ? props.upcoming : props.available));
 
 const libQuery = ref('');
 const searchLibrary = () => {
@@ -120,7 +118,7 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                 <!-- Продолжить просмотр -->
                 <section v-if="watching.length" aria-labelledby="watching-title" class="flex flex-col gap-6">
                     <div class="flex flex-col gap-3.5">
-                        <span class="cab-eyebrow">Записи</span>
+                        <span class="cab-eyebrow">Видео</span>
                         <h2 id="watching-title" class="font-display text-[30px] font-medium leading-9">Продолжить просмотр</h2>
                     </div>
                     <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-5 gap-y-6">
@@ -185,14 +183,14 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                     </div>
                 </section>
 
-                <!-- Мероприятия -->
+                <!-- Мои доступы -->
                 <section aria-labelledby="events-title" class="flex flex-col gap-6">
                     <div class="flex flex-wrap items-end justify-between gap-4">
                         <div class="flex flex-col gap-3.5">
-                            <span class="cab-eyebrow">Мероприятия</span>
-                            <h2 id="events-title" class="font-display text-[30px] font-medium leading-9">Ваши мероприятия</h2>
+                            <span class="cab-eyebrow">Доступ</span>
+                            <h2 id="events-title" class="font-display text-[30px] font-medium leading-9">Мои доступы</h2>
                         </div>
-                        <div role="tablist" aria-label="Мероприятия" class="inline-flex gap-1 rounded-full border border-gray-200 bg-white p-1.5 dark:border-gray-700 dark:bg-gray-900">
+                        <div role="tablist" aria-label="Мои доступы" class="inline-flex gap-1 rounded-full border border-gray-200 bg-white p-1.5 dark:border-gray-700 dark:bg-gray-900">
                             <button
                                 v-for="t in tabs"
                                 :key="t.key"
@@ -209,11 +207,11 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                         <EventCard v-for="event in shown" :key="event.id" :event="event" />
                     </div>
                     <div v-else class="cab-panel flex flex-col items-center gap-3 p-8 text-center">
-                        <span class="font-display text-[22px] font-medium">{{ tab === 'upcoming' ? 'Предстоящих мероприятий нет' : 'Записей пока нет' }}</span>
-                        <span class="text-sm text-gray-500">Выберите мероприятие в каталоге — после записи оно появится здесь.</span>
+                        <span class="font-display text-[22px] font-medium">{{ tab === 'available' ? 'Пока ничего нет' : 'Предстоящих мероприятий нет' }}</span>
+                        <span class="text-sm text-gray-500">Выберите мероприятие в каталоге — после регистрации или оплаты оно появится здесь.</span>
                         <Link :href="route('events.index', { filter: 'all' })" class="cab-btn">Открыть каталог</Link>
                     </div>
-                    <Link :href="route('my-events')" class="self-start text-[15px] font-bold text-brandblue-dark hover:underline">Все мои мероприятия →</Link>
+                    <Link :href="route('my-events')" class="self-start text-[15px] font-bold text-brandblue-dark hover:underline">Все мои доступы →</Link>
                 </section>
 
                 <!-- Библиотека -->
@@ -247,11 +245,6 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                     </Link>
                 </section>
             </div>
-
-            <!-- Правая колонка -->
-            <aside class="flex min-w-0 flex-[1_1_330px] flex-col gap-5" aria-label="Календарь">
-                <MiniCalendar :events="calendar" :today="today" />
-            </aside>
         </div>
     </ProfileLayout>
 </template>
