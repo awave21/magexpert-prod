@@ -61,7 +61,7 @@ export type Domain = {
 }
 export type Template = { id: number; folder_id: number | null; slug: string; name: string; subject: string; sender_address_id: number | null; reply_to: string | null; preheader: string | null; body_html: string; body_text: string | null; editor: 'html' | 'blocks'; design: import('./editor/model').Design | null; updated_at: string }
 export type Message = {
-  id: string; status: 'queued' | 'sending' | 'sent' | 'delivered' | 'bounced' | 'failed' | 'blocked'; to: string; from: string; subject: string
+  id: string; status: 'pending' | 'queued' | 'sending' | 'sent' | 'delivered' | 'bounced' | 'failed' | 'blocked' | 'cancelled'; to: string; from: string; subject: string
   template: string | null; attempts: number; error: string | null; sent_at: string | null; created_at: string
   delivered_at: string | null; opened_at: string | null; clicked_at: string | null; opens_count: number; clicks_count: number; tracked: boolean
   variables?: Record<string, unknown> | null
@@ -105,7 +105,7 @@ export type CampaignStats = { pending: number; cancelled: number; complained?: n
 export type Campaign = {
   id: number; name: string; status: 'draft' | 'scheduled' | 'sending' | 'paused' | 'cancelled' | 'sent'
   template: { id: number; name: string } | null; list: { id: number; name: string } | null
-  recipients_count: number; track: boolean; stats: CampaignStats | null; subscribed_count: number | null
+  recipients_count: number; rejected_count: number; track: boolean; stats: CampaignStats | null; subscribed_count: number | null
   send_mode: 'now' | 'drip'; batch_size: number | null; batch_interval: number | null; daily_limit: number | null
   window_start: string | null; window_end: string | null; window_days: number[] | null
   scheduled_at: string | null; next_batch_at: string | null; estimated_finish_at: string | null; prepared: boolean; segment: Segment | null

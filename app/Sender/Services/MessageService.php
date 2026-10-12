@@ -165,9 +165,10 @@ class MessageService
      * Адреса, которым письмо этой рассылки уже подготовлено, пропускаются (уникальный индекс).
      *
      * @param  array<string, array<string, mixed>>  $recipients  email => переменные подписчика
+     * @param  string|null  $blockReason  письма сразу блокируются с этой причиной: адрес не прошёл проверку
      * @return int сколько писем добавлено
      */
-    public function prepareCampaignMessages(Campaign $campaign, array $recipients): int
+    public function prepareCampaignMessages(Campaign $campaign, array $recipients, ?string $blockReason = null): int
     {
         if ($recipients === []) {
             return 0;
@@ -191,7 +192,7 @@ class MessageService
         foreach ($recipients as $email => $variables) {
             $uuid = (string) Str::uuid();
             $data = array_merge($defaults, $variables, ['unsubscribe_url' => SenderUi::url('unsubscribe/'.$uuid)]);
-            $reason = $senderReason ?? $this->suppressionReason($suppressed[$email] ?? null, true);
+            $reason = $blockReason ?? $senderReason ?? $this->suppressionReason($suppressed[$email] ?? null, true);
 
             $rows[] = [
                 'uuid' => $uuid,

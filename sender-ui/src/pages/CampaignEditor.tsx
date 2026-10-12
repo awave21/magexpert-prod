@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowRight, Clock, Pause, Play, Send, Trash2, X } from 'lucide-react'
-import { api, ApiError, type Campaign, type Contact, type ContactList, type ListField, type Paged, type Segment, type SenderAddress, type Template } from '../api'
-import { BackLink, CampaignStatus, Modal, fmtDate, useToast } from '../components/ui'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, ArrowRight, Clock, Eye, MousePointerClick, Pause, Play, Search, Send, Trash2, X } from 'lucide-react'
+import { api, ApiError, type Campaign, type Contact, type ContactList, type ListField, type Message, type Paged, type Segment, type SenderAddress, type Template } from '../api'
+import { BackLink, CampaignStatus, Modal, Status, fmtDate, useToast } from '../components/ui'
 import { usePermissions } from '../auth'
 import { WEEKDAYS, estimateFinish, fmtWhen, nextOpening, perHour, type Schedule } from '../schedule'
 
@@ -470,8 +470,13 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
   })
 
   const progress = (() => {
-    if (c.status === 'scheduled') return `Начнётся ${fmtDate(c.scheduled_at)}. Письма для ${n(c.recipients_count)} подписчиков подготовлены.`
-    if (c.status === 'sending' && !c.prepared) return `Готовим письма: ${n(s.pending + s.queued + s.sent + notSent)} из ${n(c.recipients_count)}`
+    const made = s.pending + s.queued + s.sent + notSent
+    if (c.status === 'scheduled') return c.prepared
+      ? `Начнётся ${fmtDate(c.scheduled_at)}. Письма для ${n(c.recipients_count)} подписчиков подготовлены.`
+      : `Начнётся ${fmtDate(c.scheduled_at)}. Пока проверяем адреса и готовим письма.`
+    if (c.status === 'sending' && !c.prepared) return made > 0
+      ? `Готовим письма: ${n(made)} из ${n(c.recipients_count)}`
+      : 'Проверяем адреса подписчиков. Письма начнут уходить сразу после проверки.'
     if (c.status === 'paused') return `На паузе. Осталось отправить ${n(left)}, новые пачки не уходят.`
     if (c.status === 'cancelled') return `Отменена ${fmtDate(c.finished_at)}. Не отправлено из-за отмены: ${n(s.cancelled)}.`
     if (c.status === 'sending') {
@@ -506,6 +511,11 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
         <i className="neutral" style={{ width: pct(s.blocked + s.cancelled) }} />
       </div>
       <div className="sub" style={{ marginTop: 8 }}>{progress}</div>
+      {c.rejected_count > 0 && (
+        <div className="sub" style={{ marginTop: 4 }}>
+          Не прошли проверку перед отправкой и не получат письмо: {n(c.rejected_count)}. Адреса и причины — в таблице получателей ниже.
+        </div>
+      )}
       {c.send_mode === 'drip' && c.batch_size && (
         <div className="sub" style={{ marginTop: 4 }}>
           По {n(c.batch_size)} писем раз в {c.batch_interval} мин{c.daily_limit ? `, до ${n(c.daily_limit)} в сутки` : ''}{c.window_start ? `, ${c.window_start}–${c.window_end} МСК` : ''}{c.window_days?.length && c.window_days.length < 7 ? `, ${WEEKDAYS.filter(([d]) => c.window_days?.includes(d)).map(([, l]) => l).join(' ')}` : ''}
@@ -530,7 +540,7 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
         {(s.complained ?? 0) > 0 && <div><span className="label">Жалобы на спам</span><span className="num" style={{ color: 'var(--err)' }}>{n(s.complained ?? 0)}</span><span className="pct">{share(s.complained ?? 0, s.delivered || s.sent)}, адреса отписаны</span></div>}
         {c.track && <div><span className="label">Перешли по ссылке</span><span className="num">{n(s.clicked)}</span><span className="pct">{share(s.clicked, s.delivered || s.sent)} от доставленных</span></div>}
         <div><span className="label">Не отправлено</span><span className="num" style={{ color: notSent ? 'var(--err)' : undefined }}>{n(notSent + s.cancelled)}</span>
-          <span className="pct">{[s.bounced && `${n(s.bounced)} отказ сервера`, s.failed && `${n(s.failed)} ошибка`, s.blocked && `${n(s.blocked)} в блокировках`, s.cancelled && `${n(s.cancelled)} отменено`].filter(Boolean).join(', ') || 'без потерь'}</span></div>
+          <span className="pct">{[s.bounced && `${n(s.bounced)} отказ сервера`, s.failed && `${n(s.failed)} ошибка`, s.blocked && `${n(s.blocked)} заблокировано`, s.cancelled && `${n(s.cancelled)} отменено`].filter(Boolean).join(', ') || 'без потерь'}</span></div>
       </div>
 
       {c.track && s.links.length > 0 && (
@@ -543,6 +553,8 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
         </>
       )}
 
+      <Recipients campaign={c} />
+
       {!c.track && <p className="hint" style={{ marginTop: 24 }}>Открытия и переходы не отслеживались: учёт был выключен в настройках рассылки.</p>}
       <p className="hint" style={{ marginTop: 12 }}>«Доставлено» — сервер получателя принял письмо. Попало ли оно во «Входящие» или в «Спам», почтовые сервисы не сообщают. Открытия считаются примерно, переходы по ссылкам — точнее.</p>
 
@@ -551,6 +563,75 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
         <div><span className="muted">База</span>{c.list ? <Link to={`/subscribers/${c.list.id}`}>{c.list.name}</Link> : 'удалена'}</div>
       </div>
     </main>
+  )
+}
+
+const RECIPIENT_TABS = [['', 'Все'], ['outgoing', 'Отправлено'], ['waiting', 'Ждут отправки'], ['missed', 'Не отправлено']] as const
+
+// кому ушло письмо рассылки: адрес, статус, причина, если не ушло
+function Recipients({ campaign: c }: { campaign: Campaign }) {
+  const [status, setStatus] = useState('')
+  const [search, setSearch] = useState('')
+  const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
+  const running = c.status === 'sending' || c.status === 'scheduled' || (c.stats?.queued ?? 0) > 0
+  const list = useQuery({
+    queryKey: ['messages', 'campaign', c.id, status, q, page],
+    queryFn: () => api<Paged<Message>>(`/messages?${new URLSearchParams({ campaign: String(c.id), ...(status && { status }), ...(q && { q }), page: String(page) })}`),
+    placeholderData: keepPreviousData,
+    refetchInterval: running ? 5000 : false,
+  })
+  const rows = list.data?.data ?? []
+  const filter = (v: string) => { setStatus(v); setPage(1) }
+
+  return (
+    <>
+      <div className="section-title" style={{ marginTop: 36 }}>Получатели</div>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 }}>
+        <div className="tabs" role="tablist" style={{ flex: 1 }}>
+          {RECIPIENT_TABS.map(([v, l]) => (
+            <button key={v} type="button" role="tab" aria-selected={status === v} className={`tab${status === v ? ' active' : ''}`} onClick={() => filter(v)}>{l}</button>
+          ))}
+        </div>
+        <form className="search" onSubmit={(e) => { e.preventDefault(); setQ(search.trim()); setPage(1) }}>
+          <Search size={16} />
+          <input className="input" placeholder="Адрес получателя" aria-label="Поиск получателя по адресу" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </form>
+      </div>
+      <div className="table-wrap">
+        {list.isSuccess && rows.length === 0 ? (
+          <p className="hint" style={{ padding: 16 }}>{q || status ? 'Под фильтр никто не подходит.' : 'Письма ещё готовятся.'}</p>
+        ) : (
+          <table className="table">
+            <thead><tr><th>Адрес</th><th>Статус</th><th>Подробности</th><th className="r">Когда</th></tr></thead>
+            <tbody>
+              {rows.map((m) => (
+                <tr key={m.id}>
+                  <td className="mono" style={{ overflowWrap: 'anywhere' }}><Link to={`/messages?q=${encodeURIComponent(m.to)}`}>{m.to}</Link></td>
+                  <td style={{ whiteSpace: 'nowrap' }}><Status value={m.status} /></td>
+                  <td className="sub">
+                    {m.error ?? (
+                      <span className="engage">
+                        {m.opened_at && <span title={`Открыто ${fmtDate(m.opened_at)}`}><Eye size={13} />открыто</span>}
+                        {m.clicked_at && <span title={`Переход ${fmtDate(m.clicked_at)}`}><MousePointerClick size={13} />клик</span>}
+                      </span>
+                    )}
+                  </td>
+                  <td className="r sub" style={{ whiteSpace: 'nowrap' }}>{m.sent_at ? fmtDate(m.sent_at) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {list.data && list.data.meta.last_page > 1 && (
+          <div className="pager">
+            <span>Стр. {list.data.meta.current_page} из {list.data.meta.last_page} · всего {n(list.data.meta.total)}</span>
+            <button type="button" className="btn sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Назад</button>
+            <button type="button" className="btn sm" disabled={page >= list.data.meta.last_page} onClick={() => setPage(page + 1)}>Дальше</button>
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 

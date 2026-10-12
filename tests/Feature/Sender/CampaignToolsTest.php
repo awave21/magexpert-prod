@@ -89,9 +89,10 @@ it('refreshes a site base right before the campaign starts', function (): void {
 
     $campaign = $this->organization->campaigns()->create(['name' => 'Ноябрь', 'template_id' => $this->template->id, 'list_id' => $list->id, 'status' => Campaign::STATUS_DRAFT]);
 
-    // запуск не ждёт синхронизации: база обновляется в начале фоновой подготовки
+    // запуск не ждёт синхронизации: база обновляется в начале фоновой проверки адресов
+    $this->mock(App\Sender\Services\EmailChecker::class)->shouldReceive('checkContacts');
     $this->withToken($this->token)->postJson(toolsApi("/campaigns/{$campaign->id}/send"))->assertOk();
-    app(CampaignService::class)->prepare($campaign->fresh());
+    (new App\Sender\Jobs\SendCampaignJob($campaign->id))->handle(app(CampaignService::class));
 
     expect($campaign->fresh()->recipients_count)->toBe(2)
         ->and($campaign->messages()->pluck('to_email')->sort()->values()->all())->toBe(['early@example.com', 'late@example.com']);

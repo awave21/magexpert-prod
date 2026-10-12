@@ -99,6 +99,7 @@ class DataPresenter
             ] : null,
             'scheduled_at' => $campaign->scheduled_at?->toIso8601String(),
             'recipients_count' => $campaign->recipients_count,
+            'rejected_count' => (int) $campaign->rejected_count,
             // сколько подписчиков получит черновик, если запустить его сейчас
             'deliverable_count' => $detailed && $campaign->isDraft()
                 ? ($campaign->list?->contacts()->deliverable()->inSegment($campaign->segment)->count() ?? 0)

@@ -1,10 +1,12 @@
 <?php
 
 use App\Models\User as SiteUser;
+use App\Sender\Dns\DnsLookup;
 use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Jobs\SendCampaignJob;
 use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Models\Campaign;
+use App\Sender\Models\Contact;
 use App\Sender\Models\Domain;
 use App\Sender\Models\Message;
 use App\Sender\Models\Organization;
@@ -222,13 +224,15 @@ it('keeps all campaigns within the hourly limit of the server', function (): voi
 it('prepares a large base in several short jobs', function (): void {
     Queue::fake();
     $campaign = dripCampaign(CampaignService::PREPARE_PER_JOB + 3);
+    test()->list->contacts()->update(['check_status' => 'ok', 'checked_at' => now()]);
     app(CampaignService::class)->start($campaign->load(['template', 'list']));
 
+    // адреса уже проверены: та же задача сразу готовит письма
     (new SendCampaignJob($campaign->id))->handle(app(CampaignService::class));
 
     expect($campaign->messages()->count())->toBe(CampaignService::PREPARE_PER_JOB)
         ->and($campaign->fresh()->prepared_at)->toBeNull();
-    Queue::assertPushed(SendCampaignJob::class, fn (SendCampaignJob $job): bool => $job->afterContactId > 0);
+    Queue::assertPushed(SendCampaignJob::class, fn (SendCampaignJob $job): bool => ! $job->checking && $job->afterContactId > 0);
 
     $next = Queue::pushed(SendCampaignJob::class)->last();
     $next->handle(app(CampaignService::class));
@@ -335,4 +339,210 @@ it('keeps at most a window of letters of one campaign in the queue and tops it u
     $campaign->messages()->where('status', Message::STATUS_QUEUED)->orderBy('id')->limit(150)->update(['status' => Message::STATUS_SENT]);
     $this->travel(1)->minutes();
     expect($service->tick($campaign->fresh()))->toBe(150);
+});
+
+/**
+ * Почта есть у example.com, у dead.ru нет почтового сервера, broken.ru не отвечает.
+ */
+function fakeMailDns(): void
+{
+    app()->instance(DnsLookup::class, new class implements DnsLookup
+    {
+        public function txt(string $host): array
+        {
+            return [];
+        }
+
+        public function mx(string $domain): ?array
+        {
+            return match ($domain) {
+                'example.com' => ['mx.example.com'],
+                'broken.ru' => null,
+                default => [],
+            };
+        }
+
+        public function ns(string $domain): ?array
+        {
+            return [];
+        }
+
+        public function hasAddress(string $domain): bool
+        {
+            return false;
+        }
+    });
+}
+
+/**
+ * Прогоняет задачи подготовки рассылки, как их выполнил бы воркер очереди.
+ */
+function runCampaignJobs(Campaign $campaign): void
+{
+    (new SendCampaignJob($campaign->id))->handle(app(CampaignService::class));
+
+    for ($done = 1; $done < 50; $done++) {
+        $jobs = Queue::pushed(SendCampaignJob::class);
+
+        if ($jobs->count() < $done) {
+            return;
+        }
+
+        $jobs->get($done - 1)->handle(app(CampaignService::class));
+    }
+}
+
+it('checks unchecked addresses before preparing letters and skips the bad ones', function (): void {
+    Queue::fake();
+    fakeMailDns();
+    $this->travelTo(CarbonImmutable::parse('2026-10-12 10:00', 'Europe/Moscow'));
+    $campaign = dripCampaign(2, ['send_mode' => Campaign::MODE_NOW, 'batch_size' => null, 'batch_interval' => null]);
+    foreach (['doctor@dead.ru', 'doctor@mailinator.com', 'doctor@broken.ru'] as $email) {
+        $this->list->contacts()->create(['organization_id' => $this->organization->id, 'email' => $email]);
+    }
+
+    $this->withToken($this->token)->postJson(scheduleApi("/campaigns/{$campaign->id}/send"))
+        ->assertOk()->assertJsonPath('data.status', 'sending')->assertJsonPath('data.prepared', false)
+        ->assertJsonPath('data.recipients_count', 5);
+
+    runCampaignJobs($campaign);
+
+    // без почтового сервера и одноразовый ящик отсеяны и видны в отчёте с причиной, неответивший DNS не повод не отправить
+    expect($campaign->messages()->where('status', '!=', Message::STATUS_BLOCKED)->orderBy('to_email')->pluck('to_email')->all())
+        ->toBe(['doctor1@example.com', 'doctor2@example.com', 'doctor@broken.ru'])
+        ->and($campaign->messages()->where('status', Message::STATUS_BLOCKED)->orderBy('to_email')->pluck('error', 'to_email')->all())->toBe([
+            'doctor@dead.ru' => 'Адрес не прошёл проверку: у домена нет почтового сервера',
+            'doctor@mailinator.com' => 'Адрес не прошёл проверку: одноразовый ящик',
+        ])
+        ->and($campaign->fresh()->rejected_count)->toBe(2)
+        ->and($campaign->fresh()->recipients_count)->toBe(5)
+        ->and($campaign->fresh()->prepared_at)->not->toBeNull();
+
+    $this->withToken($this->token)->getJson(scheduleApi("/campaigns/{$campaign->id}"))
+        ->assertOk()->assertJsonPath('data.rejected_count', 2)->assertJsonPath('data.prepared', true);
+});
+
+it('checks a big base in several short steps before preparing letters', function (): void {
+    Queue::fake();
+    fakeMailDns();
+    $campaign = dripCampaign(CheckContactsJob::PER_JOB + 2);
+    app(CampaignService::class)->start($campaign->load(['template', 'list']));
+
+    (new SendCampaignJob($campaign->id))->handle(app(CampaignService::class));
+    $next = Queue::pushed(SendCampaignJob::class)->last();
+
+    expect($next->checking)->toBeTrue()
+        ->and($next->afterContactId)->toBeGreaterThan(0)
+        ->and($campaign->messages()->count())->toBe(0)
+        ->and($this->list->contacts()->whereNull('checked_at')->count())->toBe(2);
+
+    // остаток проверяется быстро, и письма готовятся в той же задаче
+    $next->handle(app(CampaignService::class));
+
+    expect($this->list->contacts()->whereNull('checked_at')->count())->toBe(0)
+        ->and($campaign->messages()->count())->toBe(CheckContactsJob::PER_JOB + 2)
+        ->and($campaign->fresh()->prepared_at)->not->toBeNull();
+});
+
+it('does not send a prepared letter to someone who unsubscribed or was blocked before their batch', function (): void {
+    Queue::fake();
+    $this->travelTo(CarbonImmutable::parse('2026-10-12 10:00', 'Europe/Moscow'));
+    $campaign = dripCampaign(6, ['batch_size' => 10, 'scheduled_at' => now()->addDay()]);
+    $service = app(CampaignService::class);
+    $service->start($campaign->load(['template', 'list']));
+    $service->prepare($campaign->fresh());
+    expect(statuses($campaign))->toBe(['pending' => 6]);
+
+    // пока рассылка ждёт своего времени: отписка по ссылке, жалоба, удаление из базы, плохой адрес, отписка в базе
+    app(App\Sender\Services\SubscriptionService::class)->unsubscribe($this->organization, 'doctor1@example.com');
+    Suppression::create(['organization_id' => $this->organization->id, 'email' => 'doctor2@example.com', 'reason' => Suppression::REASON_COMPLAINT]);
+    Contact::query()->where('email', 'doctor3@example.com')->delete();
+    Contact::query()->where('email', 'doctor4@example.com')->update(['check_status' => 'no_mx', 'checked_at' => now()]);
+    Contact::query()->where('email', 'doctor5@example.com')->update(['unsubscribed_at' => now()]);
+
+    $this->travel(1)->day();
+    $service->tickAll();
+
+    expect(statuses($campaign))->toBe(['blocked' => 5, 'queued' => 1])
+        ->and($campaign->messages()->where('status', Message::STATUS_QUEUED)->value('to_email'))->toBe('doctor6@example.com')
+        ->and($campaign->messages()->where('status', Message::STATUS_BLOCKED)->orderBy('to_email')->pluck('error', 'to_email')->all())->toBe([
+            'doctor1@example.com' => 'Получатель отписался от рассылок',
+            'doctor2@example.com' => 'Адрес получателя в списке блокировок',
+            'doctor3@example.com' => 'Подписчика больше нет в базе рассылки',
+            'doctor4@example.com' => 'Адрес не прошёл проверку: у домена нет почтового сервера',
+            'doctor5@example.com' => 'Получатель отписался от рассылок',
+        ]);
+    Queue::assertPushed(SendMessageJob::class, 1);
+
+    $campaign->messages()->where('status', Message::STATUS_QUEUED)->update(['status' => Message::STATUS_SENT]);
+    $service->tickAll();
+    expect($campaign->fresh()->status)->toBe(Campaign::STATUS_SENT);
+});
+
+it('stops letters of a drip campaign for someone who unsubscribed between batches', function (): void {
+    Queue::fake();
+    $this->travelTo(CarbonImmutable::parse('2026-10-12 10:00', 'Europe/Moscow'));
+    $campaign = dripCampaign(4);
+    $service = app(CampaignService::class);
+    $service->start($campaign->load(['template', 'list']));
+    $service->prepare($campaign->fresh());
+    expect(statuses($campaign))->toBe(['pending' => 2, 'queued' => 2]);
+
+    app(App\Sender\Services\SubscriptionService::class)->unsubscribe($this->organization, 'doctor3@example.com');
+    $this->travel(10)->minutes();
+
+    expect($service->tick($campaign->fresh()))->toBe(1)
+        ->and(statuses($campaign))->toBe(['blocked' => 1, 'queued' => 3]);
+});
+
+it('keeps the start time chosen in the browser, which sends it in utc', function (): void {
+    Queue::fake();
+    $this->travelTo(CarbonImmutable::parse('2026-10-12 18:18', 'Europe/Moscow'));
+    $campaign = dripCampaign(2, ['send_mode' => Campaign::MODE_NOW, 'batch_size' => null, 'batch_interval' => null]);
+
+    // 18:22 по Москве: браузер присылает 15:22 UTC
+    $this->withToken($this->token)->putJson(scheduleApi("/campaigns/{$campaign->id}"), [
+        'name' => 'Ноябрь', 'template_id' => $this->template->id, 'list_id' => $this->list->id,
+        'send_mode' => Campaign::MODE_NOW, 'scheduled_at' => '2026-10-12T15:22:00.000Z',
+    ])->assertOk()->assertJsonPath('data.scheduled_at', '2026-10-12T18:22:00+03:00');
+
+    $this->withToken($this->token)->postJson(scheduleApi("/campaigns/{$campaign->id}/send"))
+        ->assertOk()->assertJsonPath('data.status', 'scheduled');
+    $service = app(CampaignService::class);
+    $service->prepare($campaign->fresh());
+
+    $this->travel(3)->minutes();
+    $service->tickAll();
+    expect(statuses($campaign))->toBe(['pending' => 2]);
+
+    $this->travel(1)->minutes();
+    $service->tickAll();
+    expect($campaign->fresh()->status)->toBe(Campaign::STATUS_SENDING)
+        ->and(statuses($campaign))->toBe(['queued' => 2]);
+});
+
+it('lists the recipients of one campaign with their status', function (): void {
+    Queue::fake();
+    $this->travelTo(CarbonImmutable::parse('2026-10-12 10:00', 'Europe/Moscow'));
+    $campaign = dripCampaign(4, ['batch_size' => 2]);
+    $other = dripCampaign(0, ['name' => 'Другая']);
+    $service = app(CampaignService::class);
+    $service->start($campaign->load(['template', 'list']));
+    $service->prepare($campaign->fresh());
+    $service->start($other->load(['template', 'list']));
+    $service->prepare($other->fresh());
+    app(App\Sender\Services\SubscriptionService::class)->unsubscribe($this->organization, 'doctor3@example.com');
+    $this->travel(10)->minutes();
+    $service->tick($campaign->fresh());
+    $campaign->messages()->where('status', Message::STATUS_QUEUED)->where('to_email', 'doctor1@example.com')->update(['status' => Message::STATUS_SENT]);
+
+    $list = fn (string $status = ''): array => $this->withToken($this->token)
+        ->getJson(scheduleApi("/messages?campaign={$campaign->id}".($status ? "&status={$status}" : '')))
+        ->assertOk()->json('data');
+
+    expect(collect($list())->pluck('to')->sort()->values()->all())->toBe(['doctor1@example.com', 'doctor2@example.com', 'doctor3@example.com', 'doctor4@example.com'])
+        ->and(collect($list('outgoing'))->pluck('to')->all())->toBe(['doctor1@example.com'])
+        ->and(collect($list('waiting'))->pluck('to')->sort()->values()->all())->toBe(['doctor2@example.com', 'doctor4@example.com'])
+        ->and($list('missed'))->toHaveCount(1)
+        ->and($list('missed')[0])->toMatchArray(['to' => 'doctor3@example.com', 'status' => 'blocked', 'error' => 'Получатель отписался от рассылок']);
 });

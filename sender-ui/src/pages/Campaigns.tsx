@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, Plus } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronRight, Pause, Play, Plus } from 'lucide-react'
 import { api, type Campaign, type Warmup } from '../api'
-import { CampaignStatus, Empty, PageHead, ago } from '../components/ui'
+import { CampaignStatus, Empty, PageHead, ago, useToast } from '../components/ui'
 import { usePermissions } from '../auth'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
@@ -18,6 +18,16 @@ export default function Campaigns() {
   const warmup = q.data?.warmup
   const create = () => nav('/campaigns/new')
   const { canEdit } = usePermissions()
+  const qc = useQueryClient()
+  const toast = useToast()
+  const action = useMutation({
+    mutationFn: ({ id, what }: { id: number; what: 'pause' | 'resume' }) => api<{ data: Campaign }>(`/campaigns/${id}/${what}`, { method: 'POST' }),
+    onSuccess: (_, { what }) => {
+      toast(what === 'pause' ? 'Рассылка на паузе' : 'Отправка продолжается')
+      qc.invalidateQueries({ queryKey: ['campaigns'] })
+    },
+    onError: (e) => toast(e instanceof Error ? e.message : 'Ошибка', true),
+  })
 
   return (
     <main className="page">
@@ -53,7 +63,17 @@ export default function Campaigns() {
                   <td className="r num-cell">{c.stats && c.track ? n(c.stats.opened) : '—'}</td>
                   <td className="r num-cell">{c.stats && c.track ? n(c.stats.clicked) : '—'}</td>
                   <td className="sub">{ago(c.started_at ?? c.created_at)}</td>
-                  <td className="r"><ChevronRight size={16} className="muted" /></td>
+                  <td className="r">
+                    <div className="row" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                      {canEdit && (c.status === 'sending' || c.status === 'scheduled') && (
+                        <button className="btn sm" disabled={action.isPending} onClick={(e) => { e.stopPropagation(); action.mutate({ id: c.id, what: 'pause' }) }}><Pause size={14} />На паузу</button>
+                      )}
+                      {canEdit && c.status === 'paused' && (
+                        <button className="btn sm primary" disabled={action.isPending} onClick={(e) => { e.stopPropagation(); action.mutate({ id: c.id, what: 'resume' }) }}><Play size={14} />Продолжить</button>
+                      )}
+                      <ChevronRight size={16} className="muted" />
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
