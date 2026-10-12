@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Editor } from '@tiptap/react'
 import {
   ArrowDown, ArrowLeft, ArrowUp, Blocks, Check, Code2, Columns2, Copy, FileCode2, Footprints, GripVertical, Heading, Image as ImageIcon,
-  LayoutTemplate, Minus, Monitor, MoveVertical, Redo2, RectangleHorizontal, Send, Share2, Smartphone, Trash2, Type, Undo2,
+  Layers, LayoutTemplate, Minus, Monitor, MoveVertical, Redo2, RectangleHorizontal, Send, Share2, Smartphone, Trash2, Type, Undo2,
 } from 'lucide-react'
 import { api, ApiError, type Domain, type Message, type Template, type Variables } from '../api'
 import { useAuth } from '../auth'
@@ -16,9 +16,13 @@ import {
 import { designToHtml, htmlToText } from '../editor/render'
 import { htmlToDesign } from '../editor/import'
 import { PRESETS } from '../editor/presets'
+import { PresetGallery } from '../editor/PresetGallery'
 import { FormatToolbar, RichText, highlightVars } from '../editor/RichText'
 import { sanitizeHtml } from '../editor/sanitize'
 import { BlockInspector, StylesPanel, UploadButton } from '../editor/Inspector'
+import { ZeroEditor, ZeroFrame } from '../editor/ZeroEditor'
+import { prepareZero } from '../editor/zero-render'
+import { canvasOf, zeroStale } from '../editor/zero'
 
 const TILES: { type: BlockType; icon: ReactNode }[] = [
   { type: 'heading', icon: <Heading size={20} /> },
@@ -31,6 +35,7 @@ const TILES: { type: BlockType; icon: ReactNode }[] = [
   { type: 'social', icon: <Share2 size={20} /> },
   { type: 'footer', icon: <Footprints size={20} /> },
   { type: 'html', icon: <FileCode2 size={20} /> },
+  { type: 'zero', icon: <Layers size={20} /> },
 ]
 const ICON: Record<BlockType, ReactNode> = Object.fromEntries(TILES.map((t) => [t.type, t.icon])) as Record<BlockType, ReactNode>
 
@@ -88,6 +93,8 @@ export default function BlockEditor() {
   const [htmlOpen, setHtmlOpen] = useState(false)
   const [testOpen, setTestOpen] = useState(false)
   const [testTo, setTestTo] = useState('')
+  const [zeroOpen, setZeroOpen] = useState<string | null>(null)
+  const [rendering, setRendering] = useState<string | null>(null)
 
   // первая загрузка: блоки из шаблона или выбор, с чего начать
   useEffect(() => {
@@ -124,12 +131,14 @@ export default function BlockEditor() {
     const preset = PRESETS.find((p) => p.key === key)
     if (!preset) return
     const next = preset.design()
-    const oldLogo = design.blocks[0]
+    // логотип из текущего письма переезжает в первый блок макета
+    const oldLogo = design.blocks.find((x) => x.type === 'image' && !x.full && x.src)
     const newLogo = next.blocks[0]
-    if (oldLogo?.type === 'image' && oldLogo.src && newLogo?.type === 'image' && !newLogo.src) {
+    if (oldLogo?.type === 'image' && newLogo?.type === 'image' && !newLogo.src) {
       next.blocks[0] = { ...newLogo, src: oldLogo.src, name: oldLogo.name, meta: oldLogo.meta, alt: oldLogo.alt || newLogo.alt }
     }
-    setDesign({ ...next, settings: design.settings })
+    // у оформленного шаблона свои цвета; служебные макеты берут стили текущего письма
+    setDesign(preset.styled ? { ...next, settings: { ...next.settings, preheader: design.settings.preheader } } : { ...next, settings: design.settings })
     setSelected(null)
     setPresetsOpen(false)
     toast(`Применён макет «${preset.title}». Отменить можно через Cmd+Z`)
@@ -169,7 +178,7 @@ export default function BlockEditor() {
     if (!target) {
       const loc = selected ? locate(design.blocks, selected) : null
       target = loc ? { container: loc.container, index: loc.index + 1 } : { container: ROOT, index: design.blocks.length }
-      if (type === 'columns' && target.container.parent !== null) {
+      if ((type === 'columns' || type === 'zero') && target.container.parent !== null) {
         const parentLoc = locate(design.blocks, target.container.parent)
         target = { container: ROOT, index: (parentLoc?.index ?? design.blocks.length - 1) + 1 }
       }
@@ -204,9 +213,9 @@ export default function BlockEditor() {
   const canDropIn = (c: Container) => {
     if (!drag) return false
     if (c.parent === null) return true
-    if (drag.kind === 'new') return drag.type !== 'columns'
+    if (drag.kind === 'new') return drag.type !== 'columns' && drag.type !== 'zero'
     const b = findBlock(design.blocks, drag.id)
-    return !!b && b.type !== 'columns'
+    return !!b && b.type !== 'columns' && b.type !== 'zero'
   }
 
   // ---------- сохранение ----------
@@ -214,18 +223,28 @@ export default function BlockEditor() {
   const html = useMemo(() => designToHtml(design, template?.subject ?? ''), [design, template?.subject])
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!template) throw new Error('Шаблон не загружен')
-      return api<{ data: Template }>(`/templates/${id}`, {
+      // зеро-блоки с изменёнными слоями сначала собираются в картинки
+      let d = design
+      try {
+        d = await prepareZero(design, setRendering)
+      } finally {
+        setRendering(null)
+      }
+      if (d !== design) setDesign(d, 'zero-render')
+      const body = d === design ? html : designToHtml(d, template.subject)
+      const r = await api<{ data: Template }>(`/templates/${id}`, {
         method: 'PUT',
         body: {
           slug: template.slug, name: template.name, subject: template.subject, folder_id: template.folder_id,
-          body_html: html, body_text: htmlToText(html) || null, editor: 'blocks', design,
+          body_html: body, body_text: htmlToText(body) || null, editor: 'blocks', design: d,
         },
       })
+      return { r, d }
     },
-    onSuccess: (r) => {
-      setSavedJson(JSON.stringify(design))
+    onSuccess: ({ r, d }) => {
+      setSavedJson(JSON.stringify(d))
       qc.setQueryData(['template', id], r)
       qc.invalidateQueries({ queryKey: ['templates'] })
       toast('Письмо сохранено')
@@ -293,13 +312,11 @@ export default function BlockEditor() {
             </div>
           </>
         )}
-        <div className="be-start-title">Готовый макет</div>
-        <div className="be-start-grid">
-          {PRESETS.map((p) => (
-            <button type="button" key={p.key} onClick={() => start(p.key)}><LayoutTemplate size={22} /><b>{p.title}</b><span>{p.text}</span></button>
-          ))}
-          <button type="button" onClick={() => start('empty')}><Type size={22} /><b>Пустое письмо</b><span>Начать с чистого листа.</span></button>
+        <div className="be-start-title be-start-row">
+          <span>Готовый макет</span>
+          <button type="button" className="btn sm ghost" onClick={() => start('empty')}><Type size={15} />Начать с пустого письма</button>
         </div>
+        <PresetGallery onPick={start} action="Начать с этого макета" />
       </div>
     )
   }
@@ -346,8 +363,9 @@ export default function BlockEditor() {
   const renderBlock = (b: Block, width: number, top = true): ReactNode => {
     const isSel = selected === b.id
     const hiddenHere = (device === 'mobile' && b.show === 'desktop') || (device === 'desktop' && b.show === 'mobile')
-    // на телефоне боковые отступы письма 20 px, как в собранном HTML
-    const side = (v: number) => (device === 'mobile' && top ? 20 : v)
+    // на телефоне боковые отступы письма 20 px, как в собранном HTML; блок без боковых отступов остаётся во всю ширину
+    const edge = b.padding.l === 0 && b.padding.r === 0 && !(b.bg && b.inset)
+    const side = (v: number) => (device === 'mobile' && top && !edge ? 20 : v)
     const pad = `${b.padding.t}px ${side(b.padding.r)}px ${b.padding.b}px ${side(b.padding.l)}px`
     const inner = (() => {
       switch (b.type) {
@@ -395,6 +413,14 @@ export default function BlockEditor() {
             </div>
           )
         case 'html': return <div className="be-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(b.html) }} />
+        case 'zero':
+          return (
+            <div className="be-zero" onDoubleClick={() => setZeroOpen(b.id)}>
+              <ZeroFrame z={canvasOf(b)} width={Math.max(0, width - side(b.padding.l) - side(b.padding.r))} />
+              {isSel && <button type="button" className="be-zero-open" onClick={(e) => { e.stopPropagation(); setZeroOpen(b.id) }}><Layers size={14} />Редактировать слои</button>}
+              {zeroStale(b) && <span className="be-zero-note" title="Картинка для письма соберётся при сохранении">Соберётся при сохранении</span>}
+            </div>
+          )
         case 'columns': {
           const [l, r] = b.ratio === '33-67' ? [1, 2] : b.ratio === '67-33' ? [2, 1] : [1, 1]
           const inner = width - b.padding.l - b.padding.r - b.gap
@@ -463,7 +489,7 @@ export default function BlockEditor() {
         <button type="button" className="btn ghost" onClick={() => setPresetsOpen(true)}><LayoutTemplate size={15} />Макеты</button>
         <button type="button" className="btn ghost" onClick={() => setHtmlOpen(true)}><Code2 size={15} />HTML</button>
         <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>
-        <button type="button" className="btn primary" disabled={save.isPending || (!dirty && !!savedJson)} onClick={() => save.mutate()} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
+        <button type="button" className="btn primary" disabled={save.isPending || (!dirty && !!savedJson)} onClick={() => save.mutate()} title="Cmd+S">{rendering ?? (save.isPending ? 'Сохраняем…' : 'Сохранить')}</button>
       </header>
 
       <div className="be-body">
@@ -518,7 +544,8 @@ export default function BlockEditor() {
             <BlockInspector block={selectedBlock} position={position} settings={s}
               varHint="Можно вставить переменную, например {{ event_url }}: ссылка станет своей для каждого получателя."
               variables={variables}
-              onChange={(p) => patchBlock(selectedBlock.id, p)} onRemove={removeSelected} onError={(m) => toast(m, true)} />
+              onChange={(p) => patchBlock(selectedBlock.id, p)} onRemove={removeSelected} onError={(m) => toast(m, true)}
+              onOpenZero={() => setZeroOpen(selectedBlock.id)} />
           ) : (
             <div className="be-inspector">
               <div className="be-rh"><b>Структура письма</b></div>
@@ -538,6 +565,14 @@ export default function BlockEditor() {
           )}
         </aside>
       </div>
+
+      {zeroOpen && (() => {
+        const zb = findBlock(design.blocks, zeroOpen)
+        return zb?.type === 'zero' ? (
+          <ZeroEditor block={zb} onClose={() => setZeroOpen(null)} onError={(m) => toast(m, true)}
+            onApply={(doc) => { patchBlock(zb.id, doc as Partial<Block>, `${zb.id}:zero:${Date.now()}`); toast('Слои применены. Картинка для письма соберётся при сохранении') }} />
+        ) : null
+      })()}
 
       {htmlOpen && (
         <Modal title="HTML письма" onClose={() => setHtmlOpen(false)}>
@@ -565,13 +600,9 @@ export default function BlockEditor() {
       )}
 
       {presetsOpen && (
-        <Modal title="Готовые макеты" onClose={() => setPresetsOpen(false)}>
-          <p className="muted" style={{ margin: 0 }}>Макет заменит блоки письма. Стили письма и логотип останутся, отменить замену можно через Cmd+Z.</p>
-          <div className="be-presets">
-            {PRESETS.map((p) => (
-              <button type="button" key={p.key} onClick={() => applyPreset(p.key)}><b>{p.title}</b><span>{p.text}</span></button>
-            ))}
-          </div>
+        <Modal title="Готовые макеты" wide onClose={() => setPresetsOpen(false)}>
+          <p className="muted" style={{ margin: 0 }}>Макет заменит блоки письма, логотип переедет в новый макет. Оформленные шаблоны приносят свои цвета, служебные письма сохраняют стили текущего. Отменить замену можно через Cmd+Z.</p>
+          <PresetGallery onPick={applyPreset} action="Заменить письмо" />
           <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn" onClick={() => setPresetsOpen(false)}>Закрыть</button></div>
         </Modal>
       )}

@@ -6,9 +6,9 @@ use App\Sender\Contracts\SubscriberSource;
 use App\Sender\Http\Requests\Admin\ContactListRequest;
 use App\Sender\Http\Requests\Admin\SegmentRequest;
 use App\Sender\Jobs\CheckContactsJob;
-use App\Sender\Models\Contact;
 use App\Sender\Models\ContactList;
 use App\Sender\Services\EmailChecker;
+use App\Sender\Services\ListFields;
 use App\Sender\Services\SubscriberSources;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -54,30 +54,9 @@ class ContactListController extends Controller
     /**
      * Дополнительные поля подписчиков базы и их частые значения: из них собирается условие отбора рассылки.
      */
-    public function fields(Request $request, int $list): JsonResponse
+    public function fields(Request $request, int $list, ListFields $fields): JsonResponse
     {
-        $model = $this->organization($request)->lists()->findOrFail($list);
-
-        // поля считаются порциями в PHP: data бывает объектом или пустым массивом [], а значения — любыми строками
-        $counts = [];
-        $model->contacts()->whereNotNull('data')->select(['id', 'data'])->lazyById(1000)->each(function (Contact $contact) use (&$counts): void {
-            foreach ((array) $contact->data as $key => $value) {
-                if (is_string($key) && is_scalar($value) && (string) $value !== '') {
-                    $counts[$key][(string) $value] = ($counts[$key][(string) $value] ?? 0) + 1;
-                }
-            }
-        });
-
-        $fields = collect($counts)->map(function (array $values, int|string $key): array {
-            arsort($values);
-
-            return [
-                'key' => (string) $key,
-                'values' => collect($values)->take(30)->map(fn (int $total, int|string $value): array => ['value' => (string) $value, 'count' => $total])->values()->all(),
-            ];
-        })->sortByDesc(fn (array $field): int => $field['values'][0]['count'] ?? 0)->values();
-
-        return response()->json(['data' => $fields]);
+        return response()->json(['data' => $fields->of($this->organization($request)->lists()->findOrFail($list))]);
     }
 
     /**

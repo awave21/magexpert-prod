@@ -116,3 +116,23 @@ test('колокольчик отдаёт свои сообщения и отм�
 test('кабинет закрыт для гостей', function (string $url) {
     $this->get($url)->assertRedirect('/login');
 })->with(['/dashboard', '/my-events', '/profile/security', '/profile/notifications', '/payments', '/cabinet/messages']);
+
+test('кнопка каталога из кабинета открывает все мероприятия, включая прошедшие', function () {
+    Event::factory()->create(['title' => 'Будущий вебинар']);
+    Event::factory()->past()->create(['title' => 'Прошедший вебинар']);
+
+    $this->get(route('events.index', ['filter' => 'all']))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('Events/Index')
+        ->where('filters.filter', 'all')
+        ->has('events.data', 2));
+});
+
+test('каталог без фильтра по умолчанию показывает все мероприятия', function () {
+    Event::factory()->create(['title' => 'Будущий вебинар']);
+    Event::factory()->past()->create(['title' => 'Прошедший вебинар']);
+
+    $this->get(route('events.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('Events/Index')
+        ->where('filters.filter', 'all')
+        ->has('events.data', 2));
+});

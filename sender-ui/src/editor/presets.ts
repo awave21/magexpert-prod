@@ -1,4 +1,5 @@
 // Готовые макеты писем: с них можно начать новое письмо в редакторе.
+import { GALLERY } from './gallery'
 import { DEFAULT_SETTINGS, createBlock, starterDesign, type Block, type ButtonBlock, type Design, type FooterBlock, type HeadingBlock, type ImageBlock, type SpacerBlock, type TextBlock } from './model'
 
 const logo = (): ImageBlock => ({ ...(createBlock('image') as ImageBlock), alt: 'Логотип', full: false, width: 180, align: 'left', radius: 0, padding: { t: 28, r: 40, b: 8, l: 40 } })
@@ -22,9 +23,12 @@ const credentials = (title: string): Block[] => [
   { ...text(`<p><strong>${title}</strong></p><p>Логин: {{ user_email }}<br>Пароль: {{ password }}</p><p>Пароль можно сменить в личном кабинете.</p>`, { bg: '#FFF6EC', inset: true, size: 15, cond: 'password' }), padding: { t: 18, r: 24, b: 18, l: 24 } },
 ]
 
-export type Preset = { key: string; title: string; text: string; design: () => Design }
+// group — раздел в галерее; styled — у макета своё оформление, и при замене письма его стили тоже меняются
+export type Preset = { key: string; title: string; text: string; design: () => Design; group: string; styled?: boolean }
 
-export const PRESETS: Preset[] = [
+export const SERVICE_GROUP = 'Служебные письма'
+
+const SERVICE: Omit<Preset, 'group'>[] = [
   {
     key: 'event',
     title: 'Регистрация на мероприятие',
@@ -95,4 +99,9 @@ export const PRESETS: Preset[] = [
     text: 'Заголовок, текст, кнопка и подвал.',
     design: starterDesign,
   },
+]
+
+export const PRESETS: Preset[] = [
+  ...GALLERY.map((p) => ({ ...p, styled: true })),
+  ...SERVICE.map((p) => ({ ...p, group: SERVICE_GROUP })),
 ]

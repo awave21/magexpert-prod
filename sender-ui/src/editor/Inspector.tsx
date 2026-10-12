@@ -1,7 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, ImageUp, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, ImageUp, Layers, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { tokenStore } from '../api'
 import { BLOCK_LABELS, FONTS, type Align, type Block, type Padding, type Settings, type Show } from './model'
+import { zeroAlt, zeroStale } from './zero'
 
 // ---------- поля ----------
 
@@ -148,9 +149,10 @@ type InspectorProps = {
   onError: (m: string) => void
   varHint: string
   variables: { key: string; label: string }[]
+  onOpenZero?: () => void
 }
 
-export function BlockInspector({ block: b, position, settings: s, onChange, onRemove, onError, varHint, variables }: InspectorProps) {
+export function BlockInspector({ block: b, position, settings: s, onChange, onRemove, onError, varHint, variables, onOpenZero }: InspectorProps) {
   const set = onChange as (p: Record<string, unknown>) => void
   let body: ReactNode = null
 
@@ -259,6 +261,27 @@ export function BlockInspector({ block: b, position, settings: s, onChange, onRe
           <button type="button" className="btn sm text" style={{ alignSelf: 'flex-start' }} onClick={() => set({ links: [...b.links, { label: 'Сайт', url: 'https://' }] })}><Plus size={14} />Добавить ссылку</button>
           <Row label="Выравнивание"><AlignSeg value={b.align} onChange={(v) => set({ align: v })} /></Row>
         </Group>
+      )
+      break
+    case 'zero':
+      body = (
+        <>
+          <Group title="Слои">
+            <button type="button" className="btn sm primary" style={{ alignSelf: 'flex-start' }} onClick={onOpenZero}><Layers size={14} />Редактировать слои</button>
+            <div className="hint">Текст, фигуры, фото и графика накладываются друг на друга. В письмо блок уходит одной картинкой, поэтому в нём можно использовать любые шрифты.</div>
+            <Row label="Высота, px"><Num label="Высота холста" value={b.height} min={80} max={1200} onChange={(v) => set({ height: v })} /></Row>
+          </Group>
+          <Group title="Картинка для письма">
+            {b.src && b.rendered ? (
+              <div className="be-file">
+                <img src={b.src} alt="" />
+                <div><b>{zeroStale(b) ? 'Устарела, пересоберётся' : 'Собрана'}</b><span className="sub">{b.meta || 'PNG'}</span></div>
+              </div>
+            ) : <div className="hint">Соберётся при сохранении письма и загрузится на сервер.</div>}
+            <TextInput label="Описание картинки" value={b.alt} onChange={(v) => set({ alt: v })} placeholder={zeroAlt(b.layers) || 'Что изображено'} hint="Видно, если почта не загрузила картинки. Если оставить пустым, возьмём текст слоёв." />
+            <TextInput label="Ссылка при нажатии" mono value={b.href} onChange={(v) => set({ href: v })} placeholder="https://… или {{ event_url }}" hint={varHint} />
+          </Group>
+        </>
       )
       break
     case 'html':

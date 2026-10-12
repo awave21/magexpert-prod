@@ -46,7 +46,7 @@ class EventsController extends Controller
             ])
             ->where('is_active', true);
 
-        $filter = $request->input('filter', 'upcoming');
+        $filter = $request->input('filter', 'all');
         if ($filter === 'upcoming') {
             $query->where('is_archived', false)
                 ->where(function ($q) {

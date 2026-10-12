@@ -166,6 +166,10 @@ class HtmlSanitizer
             }
         }
 
+        if (isset($block['layers']) && is_array($block['layers'])) {
+            $block['layers'] = array_map(fn (mixed $layer): mixed => is_array($layer) ? $this->layer($layer) : $layer, $block['layers']);
+        }
+
         if (isset($block['links']) && is_array($block['links'])) {
             $block['links'] = array_map(function (mixed $link): mixed {
                 if (is_array($link) && isset($link['url']) && is_string($link['url'])) {
@@ -177,6 +181,27 @@ class HtmlSanitizer
         }
 
         return $block;
+    }
+
+    /**
+     * Слой зеро-блока: цвета попадают в style, адрес фото — в src картинки.
+     *
+     * @param  array<string, mixed>  $layer
+     * @return array<string, mixed>
+     */
+    private function layer(array $layer): array
+    {
+        foreach (['fill', 'fill2', 'stroke', 'shadow', 'color', 'c1', 'c2', 'c3'] as $key) {
+            if (isset($layer[$key]) && is_string($layer[$key])) {
+                $layer[$key] = $this->cssValue($layer[$key]);
+            }
+        }
+
+        if (isset($layer['src']) && is_string($layer['src'])) {
+            $layer['src'] = $this->url($layer['src'], true);
+        }
+
+        return $layer;
     }
 
     /**

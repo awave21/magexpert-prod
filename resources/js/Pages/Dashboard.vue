@@ -211,7 +211,7 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                     <div v-else class="cab-panel flex flex-col items-center gap-3 p-8 text-center">
                         <span class="font-display text-[22px] font-medium">{{ tab === 'upcoming' ? 'Предстоящих мероприятий нет' : 'Записей пока нет' }}</span>
                         <span class="text-sm text-gray-500">Выберите мероприятие в каталоге — после записи оно появится здесь.</span>
-                        <Link :href="route('events.index')" class="cab-btn">Открыть каталог</Link>
+                        <Link :href="route('events.index', { filter: 'all' })" class="cab-btn">Открыть каталог</Link>
                     </div>
                     <Link :href="route('my-events')" class="self-start text-[15px] font-bold text-brandblue-dark hover:underline">Все мои мероприятия →</Link>
                 </section>

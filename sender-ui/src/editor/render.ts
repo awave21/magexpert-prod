@@ -32,9 +32,12 @@ export function inlineRichText(html: string, s: Settings, opts: { color: string;
 
 function cellTop(b: Block, inner: string, extra = '', top = true): string {
   const bg = b.bg ? `background-color:${b.bg};` : ''
+  // блок без боковых отступов (картинка во всю ширину) остаётся во всю ширину и на телефоне
+  const edge = b.padding.l === 0 && b.padding.r === 0 && !(b.bg && b.inset)
+  const px = top && !edge ? 'px' : ''
   const row = b.bg && b.inset
-    ? `<tr><td class="${top ? 'px' : ''}${showClass(b)}" style="padding:0 ${top ? 40 : 0}px"><div style="${padCss(b.padding)};${bg}${extra}">${inner}</div></td></tr>`
-    : `<tr><td class="${top ? 'px' : ''}${showClass(b)}" style="${padCss(b.padding)};${bg}${extra}">${inner}</td></tr>`
+    ? `<tr><td class="${px}${showClass(b)}" style="padding:0 ${top ? 40 : 0}px"><div style="${padCss(b.padding)};${bg}${extra}">${inner}</div></td></tr>`
+    : `<tr><td class="${px}${showClass(b)}" style="${padCss(b.padding)};${bg}${extra}">${inner}</td></tr>`
   return b.cond ? `{{#if ${b.cond}}}${row}{{/if}}` : row
 }
 
@@ -87,6 +90,12 @@ function renderBlock(b: Block, s: Settings, width: number, top = true): string {
     }
     case 'html':
       return cell(b, b.html)
+    case 'zero': {
+      // пока слои не собраны в картинку (до сохранения письма), блок в письмо не попадает
+      if (!b.src) return ''
+      const img = `<img src="${attr(b.src)}" alt="${attr(b.alt)}" width="${contentWidth}" style="display:block;width:100%;max-width:${contentWidth}px;height:auto;border:0;outline:none;text-decoration:none">`
+      return cell(b, b.href ? `<a href="${attr(b.href)}" target="_blank" style="text-decoration:none">${img}</a>` : img)
+    }
     case 'columns': {
       const [l, r] = b.ratio === '33-67' ? [33, 67] : b.ratio === '67-33' ? [67, 33] : [50, 50]
       const lw = Math.round((contentWidth - b.gap) * l / 100)

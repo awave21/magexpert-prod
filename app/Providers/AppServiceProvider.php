@@ -9,6 +9,7 @@ use App\Sender\Contracts\SubscriptionClient;
 use App\Sender\Events\RecipientUnsubscribed;
 use App\Sender\Services\SubscriberSources;
 use App\Services\NewsletterSubscribers;
+use App\Services\VkIdProvider;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Vite;
@@ -38,9 +39,7 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(function (SocialiteWasCalled $event): void {
             $event->extendSocialite('yandex', \SocialiteProviders\Yandex\Provider::class);
-            if (class_exists(\SocialiteProviders\VKID\Provider::class)) {
-                $event->extendSocialite('vkid', \SocialiteProviders\VKID\Provider::class);
-            }
+            $event->extendSocialite('vkid', VkIdProvider::class);
         });
 
         $this->syncNewsletterConsentWithSender();

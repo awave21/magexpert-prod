@@ -335,6 +335,9 @@ export function layerStyles(l: ZeroLayer, z: number): { outer: Record<string, st
 const css = (o: Record<string, string>) => Object.entries(o).map(([k, v]) => `${k}:${v}`).join(';')
 
 export type ZeroCanvas = { height: number; bg: string; bg2: string; bgAngle: number; layers: ZeroLayer[] }
+// поля холста в блоке письма называются иначе: bg у блока — его собственный фон
+export const canvasOf = (b: { height: number; canvasBg: string; canvasBg2: string; canvasAngle: number; layers: ZeroLayer[] }): ZeroCanvas =>
+  ({ height: b.height, bg: b.canvasBg, bg2: b.canvasBg2, bgAngle: b.canvasAngle, layers: b.layers })
 export const canvasBg = (z: ZeroCanvas) => fillCss({ fill: z.bg, fill2: z.bg2, grad: 'linear', angle: z.bgAngle })
 
 // разметка блока для превью макетов и iframe: слои как есть, масштаб под ширину
@@ -354,3 +357,8 @@ export function zeroHash(z: ZeroCanvas & { motion: boolean }): string {
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
   return (h >>> 0).toString(36) + s.length.toString(36)
 }
+
+type ZeroFields = { height: number; canvasBg: string; canvasBg2: string; canvasAngle: number; layers: ZeroLayer[]; motion: boolean; src: string; rendered: string }
+export const zeroHashOf = (b: ZeroFields) => zeroHash({ ...canvasOf(b), motion: b.motion })
+// нужно ли собрать картинку заново: слои менялись после последней сборки
+export const zeroStale = (b: ZeroFields) => !b.src || b.rendered !== zeroHashOf(b)

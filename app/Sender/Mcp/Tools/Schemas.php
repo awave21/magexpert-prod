@@ -21,6 +21,67 @@ class Schemas
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public static function listRef(): array
+    {
+        return [
+            'type' => ['integer', 'string'],
+            'description' => 'База подписчиков: числовой ID или название (см. list_lists).',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function campaignRef(): array
+    {
+        return ['type' => 'integer', 'description' => 'ID рассылки (см. list_campaigns).'];
+    }
+
+    /**
+     * Условие отбора подписчиков базы. Пустое — вся база.
+     *
+     * @return array<string, mixed>
+     */
+    public static function segment(): array
+    {
+        return [
+            'type' => ['object', 'null'],
+            'description' => 'Сегмент — часть базы. active_days: открывали письма за последние N дней; field + values: '
+                .'дополнительное поле подписчика равно одному из значений (поля и значения — list_fields). Условия складываются. Пусто или null — вся база.',
+            'properties' => [
+                'active_days' => ['type' => ['integer', 'null'], 'minimum' => 1, 'maximum' => 3650],
+                'field' => ['type' => ['string', 'null'], 'pattern' => '^[a-z0-9_]{1,64}$'],
+                'values' => ['type' => ['array', 'null'], 'items' => ['type' => 'string', 'maxLength' => 200], 'maxItems' => 50],
+            ],
+            'additionalProperties' => false,
+        ];
+    }
+
+    /**
+     * Настройки рассылки, кроме названия.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function campaignSettings(): array
+    {
+        return [
+            'template' => self::templateRef(),
+            'list' => self::listRef(),
+            'segment' => self::segment(),
+            'track' => ['type' => 'boolean', 'description' => 'Считать открытия и переходы по ссылкам. По умолчанию да.'],
+            'send_mode' => ['type' => 'string', 'enum' => ['now', 'drip'], 'description' => 'now — всем сразу после старта; drip — плавно, пачками.'],
+            'batch_size' => ['type' => ['integer', 'null'], 'minimum' => 1, 'maximum' => 100000, 'description' => 'drip: писем в пачке.'],
+            'batch_interval' => ['type' => ['integer', 'null'], 'minimum' => 1, 'maximum' => 1440, 'description' => 'drip: минут между пачками.'],
+            'daily_limit' => ['type' => ['integer', 'null'], 'minimum' => 1, 'maximum' => 1000000, 'description' => 'drip: не больше писем в сутки.'],
+            'window_start' => ['type' => ['string', 'null'], 'pattern' => '^\\d{2}:\\d{2}$', 'description' => 'drip: начало окна отправки, ЧЧ:ММ по Москве.'],
+            'window_end' => ['type' => ['string', 'null'], 'pattern' => '^\\d{2}:\\d{2}$', 'description' => 'drip: конец окна отправки, ЧЧ:ММ по Москве.'],
+            'window_days' => ['type' => ['array', 'null'], 'items' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 7], 'maxItems' => 7, 'description' => 'drip: дни недели отправки, 1 — понедельник … 7 — воскресенье.'],
+        ];
+    }
+
+    /**
      * Поля содержимого письма: блоки визуального редактора или готовый HTML.
      *
      * @return array<string, array<string, mixed>>

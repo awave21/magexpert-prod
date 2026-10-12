@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  */
 class BlockCompiler
 {
-    public const TYPES = ['heading', 'text', 'image', 'button', 'divider', 'spacer', 'columns', 'social', 'footer', 'html'];
+    public const TYPES = ['heading', 'text', 'image', 'button', 'divider', 'spacer', 'columns', 'social', 'footer', 'html', 'zero'];
 
     public const ALIGNS = ['left', 'center', 'right'];
 
@@ -81,6 +81,10 @@ class BlockCompiler
             'social' => [...$base(12, 40, 12, 40), 'type' => 'social', 'align' => 'center', 'links' => []],
             'footer' => [...$base(16, 40, 28, 40), 'type' => 'footer', 'align' => 'left', 'html' => '<p>Вы получили письмо, потому что зарегистрировались на сайте.</p>'],
             'html' => [...$base(0, 0, 0, 0), 'type' => 'html', 'html' => ''],
+            'zero' => [
+                ...$base(0, 0, 0, 0), 'type' => 'zero', 'height' => 280, 'canvasBg' => '#14213D', 'canvasBg2' => '', 'canvasAngle' => 180,
+                'layers' => [], 'src' => '', 'alt' => '', 'href' => '', 'rendered' => '', 'meta' => '', 'motion' => false,
+            ],
         };
     }
 
@@ -173,8 +177,8 @@ class BlockCompiler
             return null;
         }
 
-        if ($nested && $type === 'columns') {
-            $errors[] = "{$path}: колонки нельзя вкладывать в колонки";
+        if ($nested && in_array($type, ['columns', 'zero'], true)) {
+            $errors[] = $type === 'columns' ? "{$path}: колонки нельзя вкладывать в колонки" : "{$path}: зеро-блок нельзя вкладывать в колонки";
 
             return null;
         }
@@ -204,8 +208,9 @@ class BlockCompiler
                 'ratio' => $this->enum($value, self::RATIOS, "{$path}.ratio", $errors, $default),
                 'columns' => $this->columns($value, $path, $errors, $count),
                 'links' => $this->links($value, "{$path}.links", $errors),
-                'inset', 'full' => (bool) $value,
-                'size', 'radius', 'width', 'thickness', 'height', 'gap' => is_numeric($value)
+                'inset', 'full', 'motion' => (bool) $value,
+                'layers' => $this->layers($value, "{$path}.layers", $errors),
+                'size', 'radius', 'width', 'thickness', 'height', 'gap', 'canvasAngle' => is_numeric($value)
                     ? max(0, (int) round((float) $value))
                     : $this->fail($errors, "{$path}.{$key}: нужно число", $default),
                 default => is_scalar($value) ? (string) $value : $this->fail($errors, "{$path}.{$key}: нужна строка", $default),
@@ -328,6 +333,23 @@ class BlockCompiler
         }
 
         return $out;
+    }
+
+    /**
+     * Слои зеро-блока хранятся как есть: их рисует редактор и собирает в картинку при сохранении.
+     *
+     * @param  list<string>  $errors
+     * @return list<array<string, mixed>>
+     */
+    private function layers(mixed $value, string $path, array &$errors): array
+    {
+        if (! is_array($value)) {
+            $errors[] = "{$path}: нужен массив слоёв";
+
+            return [];
+        }
+
+        return array_values(array_filter($value, fn (mixed $layer): bool => is_array($layer) && in_array($layer['kind'] ?? null, ['rect', 'text', 'art', 'image'], true)));
     }
 
     /**
@@ -498,7 +520,9 @@ img{-ms-interpolation-mode:bicubic}
     private function cellTop(array $b, string $inner, string $extra = '', bool $top = true): string
     {
         $bg = $b['bg'] !== '' ? "background-color:{$b['bg']};" : '';
-        $class = ($top ? 'px' : '').$this->showClass($b);
+        // блок без боковых отступов (картинка во всю ширину) остаётся во всю ширину и на телефоне
+        $edge = (int) $b['padding']['l'] === 0 && (int) $b['padding']['r'] === 0 && ! ($b['bg'] !== '' && $b['inset']);
+        $class = ($top && ! $edge ? 'px' : '').$this->showClass($b);
         $pad = $this->padCss($b['padding']);
         $row = $b['bg'] !== '' && $b['inset']
             ? '<tr><td class="'.$class.'" style="padding:0 '.($top ? 40 : 0).'px"><div style="'.$pad.';'.$bg.$extra.'">'.$inner.'</div></td></tr>'
@@ -571,6 +595,14 @@ img{-ms-interpolation-mode:bicubic}
                 return $cell($links, "text-align:{$b['align']}");
             case 'html':
                 return $cell($b['html']);
+            case 'zero':
+                if ($b['src'] === '') {
+                    return '';
+                }
+
+                $img = '<img src="'.$this->attr($b['src']).'" alt="'.$this->attr($b['alt']).'" width="'.$contentWidth.'" style="display:block;width:100%;max-width:'.$contentWidth.'px;height:auto;border:0;outline:none;text-decoration:none">';
+
+                return $cell($b['href'] !== '' ? '<a href="'.$this->attr($b['href']).'" target="_blank" style="text-decoration:none">'.$img.'</a>' : $img);
             case 'columns':
                 [$l, $r] = match ($b['ratio']) {
                     '33-67' => [33, 67],

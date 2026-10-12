@@ -1,4 +1,5 @@
 // Модель письма из блоков. Хранится в шаблоне как design, из неё собирается HTML (render.ts).
+import { createLayer, normalizeLayers, type ZeroLayer } from './zero'
 
 export type Align = 'left' | 'center' | 'right'
 export type Show = 'all' | 'desktop' | 'mobile'
@@ -18,8 +19,14 @@ export type ColumnsBlock = Base & { type: 'columns'; ratio: '50-50' | '33-67' | 
 export type SocialBlock = Base & { type: 'social'; align: Align; links: { label: string; url: string }[] }
 export type FooterBlock = Base & { type: 'footer'; html: string; align: Align }
 export type HtmlBlock = Base & { type: 'html'; html: string }
+// слои рисуются на холсте шириной 600 px; в письмо уходит собранная из них картинка src,
+// rendered — отметка, по которой видно, что картинка собрана из текущих слоёв
+export type ZeroBlock = Base & {
+  type: 'zero'; height: number; canvasBg: string; canvasBg2: string; canvasAngle: number; layers: ZeroLayer[]
+  src: string; alt: string; href: string; rendered: string; meta: string; motion: boolean
+}
 
-export type Block = HeadingBlock | TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | ColumnsBlock | SocialBlock | FooterBlock | HtmlBlock
+export type Block = HeadingBlock | TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | ColumnsBlock | SocialBlock | FooterBlock | HtmlBlock | ZeroBlock
 export type BlockType = Block['type']
 
 export type Settings = {
@@ -75,7 +82,7 @@ const base = (p: Padding = pad(12, 40, 12, 40)) => ({ id: uid(), padding: p, bg:
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
   heading: 'Заголовок', text: 'Текст', image: 'Картинка', button: 'Кнопка', columns: 'Колонки',
-  divider: 'Разделитель', spacer: 'Отступ', social: 'Соцсети', footer: 'Подвал', html: 'Свой HTML',
+  divider: 'Разделитель', spacer: 'Отступ', social: 'Соцсети', footer: 'Подвал', html: 'Свой HTML', zero: 'Зеро-блок',
 }
 
 export function createBlock(type: BlockType): Block {
@@ -90,6 +97,14 @@ export function createBlock(type: BlockType): Block {
     case 'social': return { ...base(), type, align: 'center', links: [{ label: 'ВКонтакте', url: 'https://vk.com/' }, { label: 'Telegram', url: 'https://t.me/' }] }
     case 'footer': return { ...base(pad(16, 40, 28, 40)), type, align: 'left', html: '<p>Вы получили письмо, потому что зарегистрировались на сайте.</p><p>Название организации, город</p>' }
     case 'html': return { ...base(pad(0, 0, 0, 0)), type, html: '<!-- свой HTML -->\n<p style="margin:0">Свой фрагмент</p>' }
+    case 'zero': return {
+      ...base(pad(0, 0, 0, 0)), type, height: 280, canvasBg: '#14213D', canvasBg2: '', canvasAngle: 180, src: '', alt: '', href: '', rendered: '', meta: '', motion: false,
+      layers: [
+        createLayer('rect', { name: 'Круг', x: 380, y: -60, w: 280, h: 280, fill: '#FF7A1A', radius: 999 }),
+        createLayer('art', { name: 'Искра', art: 'sparkle', x: 330, y: 170, w: 48, h: 48, c1: '#FFD166' }),
+        createLayer('text', { x: 40, y: 92, w: 360, text: 'Заголовок\nпоедет картинкой', font: 'unb', size: 34, weight: 800, color: '#FFFFFF', lh: 1.1 }),
+      ],
+    }
   }
 }
 
@@ -174,8 +189,8 @@ export function insertBlock(blocks: Block[], c: Container, index: number, block:
   const next = clone(blocks)
   const list = listOf(next, c)
   if (!list) return blocks
-  // колонки внутрь колонок не вкладываем
-  if (c.parent !== null && block.type === 'columns') return blocks
+  // колонки и зеро-блок внутрь колонок не вкладываем
+  if (c.parent !== null && (block.type === 'columns' || block.type === 'zero')) return blocks
   list.splice(Math.max(0, Math.min(index, list.length)), 0, c.parent !== null ? nested(block) : block)
   return next
 }
@@ -217,6 +232,7 @@ export function normalizeDesign(raw: Partial<Design> | null | undefined): Design
     }
     if (b.type === 'columns') out.columns = [(b.columns?.[0] ?? []).map(fix), (b.columns?.[1] ?? []).map(fix)]
     if (b.type === 'social') out.links = (b.links ?? []).map((l) => ({ label: l.label ?? '', url: l.url ?? '' }))
+    if (b.type === 'zero') out.layers = normalizeLayers(b.layers)
     return out as unknown as Block
   }
   return { version: 1, settings: settings as Settings, blocks: (raw?.blocks ?? []).map(fix) }

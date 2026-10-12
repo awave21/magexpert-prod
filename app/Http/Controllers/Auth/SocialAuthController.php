@@ -8,6 +8,7 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use App\Services\SenderMailService;
 use App\Services\SocialAccounts;
+use App\Services\VkIdProvider;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -64,8 +65,12 @@ class SocialAuthController extends Controller
             if ($askAgain) {
                 $driver->with(['force_confirm' => 'yes']);
             }
-        } elseif ($phone) {
-            $driver->scopes(['phone']);
+        } else {
+            if ($phone) {
+                $driver->scopes(['phone']);
+            }
+
+            $this->via($driver);
         }
 
         return $driver->redirect();
@@ -243,6 +248,18 @@ class SocialAuthController extends Controller
         $request->session()->regenerate();
 
         return redirect()->route('dashboard')->with('message', 'Регистрация прошла успешно. Добро пожаловать!');
+    }
+
+    /**
+     * Кнопки «Одноклассники» и «Mail.ru» ведут в то же приложение VK ID, но сразу открывают нужный способ входа.
+     */
+    private function via(mixed $driver): void
+    {
+        $via = request()->query('via');
+
+        if (is_string($via) && in_array($via, VkIdProvider::VIA, true)) {
+            $driver->with(['provider' => $via]);
+        }
     }
 
     /**
