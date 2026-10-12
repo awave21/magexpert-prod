@@ -585,7 +585,7 @@ button { font: inherit; color: inherit; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.be-start { max-width: 880px; margin: 0 auto; padding: 56px 24px; display: flex; flex-direction: column; gap: 12px; }
+.be-start { max-width: 1120px; margin: 0 auto; padding: 56px 24px; display: flex; flex-direction: column; gap: 12px; }
 .be-start h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; margin-top: 8px; }
 .be-start-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
 .be-start-grid button { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px; border: 0; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--line); font: inherit; text-align: left; color: var(--ink-2); cursor: pointer; transition: box-shadow .14s, transform .14s; }
@@ -595,6 +595,27 @@ button { font: inherit; color: inherit; }
 .be-start-grid span { font-size: 13px; line-height: 1.45; }
 @media (max-width: 1100px) { .be-right { width: 260px; } .be-left { width: 232px; } .be-canvas { padding-left: 40px; padding-right: 56px; } }
 @media (max-width: 760px) { .be-start-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* галерея готовых макетов */
+.be-start-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.modal.wide { max-width: 1040px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.tg { display: flex; flex-direction: column; gap: 16px; }
+.tg-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.tg-filters button { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--fill); color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.tg-filters button span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tg-filters button:hover { background: var(--fill-hover); color: var(--ink); }
+.tg-filters button.on { background: var(--ink); color: var(--bg); }
+.tg-filters button.on span { color: inherit; opacity: .7; }
+.tg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 20px 16px; }
+.tg-card { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 0; border: 0; background: transparent; font: inherit; text-align: left; color: var(--ink-2); cursor: pointer; min-width: 0; }
+.tg-thumb { position: relative; height: 300px; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); transition: box-shadow .14s, transform .14s; }
+.tg-thumb iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; background: transparent; }
+.tg-card:hover .tg-thumb, .tg-card:focus-visible .tg-thumb { box-shadow: 0 0 0 2px var(--accent), 0 10px 28px -12px rgba(28, 31, 39, .35); transform: translateY(-2px); }
+.tg-meta { display: flex; flex-direction: column; gap: 3px; }
+.tg-meta b { color: var(--ink); font-size: 14px; font-weight: 600; }
+.tg-meta span { font-size: 12.5px; line-height: 1.45; }
+.tg-use { position: absolute; left: 50%; top: 250px; transform: translateX(-50%); height: 32px; padding: 0 14px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 13px; font-weight: 500; display: none; align-items: center; white-space: nowrap; box-shadow: 0 6px 16px -6px rgba(28, 31, 39, .5); }
+.tg-card:hover .tg-use, .tg-card:focus-visible .tg-use { display: inline-flex; }
 
 .tpl-blocks-card { display: flex; align-items: center; gap: 16px; padding: 22px 22px; border-radius: 16px; background: var(--accent-soft); }
 .tpl-blocks-card > svg { color: var(--accent); flex: none; }
@@ -997,3 +1018,58 @@ button { font: inherit; color: inherit; }
 .nav-sub-item:disabled:hover { background: transparent; }
 .nav-sub-item .soon { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--fill); color: var(--muted); }
 .nav-sub-sep { height: 1px; margin: 8px 10px; background: var(--line); }
+
+/* ===== Зеро-блок ===== */
+.ze-box { position: relative; overflow: hidden; }
+.be-zero { position: relative; }
+.be-zero-open { position: absolute; left: 12px; bottom: 12px; height: 30px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: inherit; font-family: var(--sans); font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 6px 16px -6px rgba(28, 31, 39, .5); z-index: 2; }
+.be-zero-note { position: absolute; right: 8px; top: 8px; font-family: var(--sans); font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(28, 31, 39, .72); color: #fff; z-index: 2; pointer-events: none; }
+
+.ze { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; }
+.ze-top { flex-wrap: wrap; height: auto; min-height: 56px; padding-top: 8px; padding-bottom: 8px; }
+.ze-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr) 304px; }
+.ze-layers { border-right: 1px solid var(--line); background: var(--surface); padding: 14px 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.ze-h { display: flex; justify-content: space-between; padding: 0 6px; }
+.ze-list { display: flex; flex-direction: column; gap: 2px; }
+.ze-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) 26px 26px; align-items: center; gap: 4px; height: 34px; padding: 0 2px 0 8px; border-radius: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.ze-row:hover { background: var(--fill); color: var(--ink); }
+.ze-row.on { background: var(--accent-soft); color: var(--accent-ink); }
+.ze-row.off .ze-name { opacity: .45; }
+.ze-ic { display: grid; place-items: center; color: var(--muted); }
+.ze-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ze-row button { width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; opacity: .5; }
+.ze-row:hover button, .ze-row button.act { opacity: 1; }
+.ze-row button:hover { background: var(--fill-hover); color: var(--ink); }
+.ze-tools { display: flex; gap: 6px; padding: 0 6px; }
+.ze-stage { position: relative; min-width: 0; overflow: auto; padding: 40px 24px; display: flex; justify-content: center; align-items: flex-start; background-color: var(--surface); background-image: radial-gradient(var(--line-2) 1px, transparent 1px); background-size: 18px 18px; touch-action: none; }
+.ze-stage .ze-box { flex: none; box-shadow: 0 1px 3px rgba(28, 31, 39, .08), 0 18px 48px -18px rgba(28, 31, 39, .35); }
+.ze-stage .zl { cursor: move; }
+.ze-stage .zl.lk { cursor: default; }
+.ze-stage .zl:not(.lk):hover { outline: calc(1px / var(--k)) dashed var(--focus); }
+.ze-sel { position: absolute; z-index: 9999; pointer-events: none; outline: calc(1.5px / var(--k)) solid var(--accent); }
+.ze-hd { position: absolute; width: calc(12px / var(--k)); height: calc(12px / var(--k)); background: #fff; border: calc(1.5px / var(--k)) solid var(--accent); border-radius: calc(3px / var(--k)); transform: translate(-50%, -50%); pointer-events: auto; touch-action: none; }
+.ze-hd.nw { left: 0; top: 0; cursor: nwse-resize; } .ze-hd.ne { left: 100%; top: 0; cursor: nesw-resize; }
+.ze-hd.sw { left: 0; top: 100%; cursor: nesw-resize; } .ze-hd.se { left: 100%; top: 100%; cursor: nwse-resize; }
+.ze-hd.e { left: 100%; top: 50%; cursor: ew-resize; } .ze-hd.w { left: 0; top: 50%; cursor: ew-resize; }
+.ze-hd.rot { left: 50%; top: calc(-28px / var(--k)); border-radius: 50%; cursor: grab; }
+.ze-hd.rot::after { content: ''; position: absolute; left: 50%; top: 100%; width: calc(1.5px / var(--k)); height: calc(16px / var(--k)); background: var(--accent); transform: translateX(-50%); }
+.ze-guide { position: absolute; z-index: 9998; pointer-events: none; background: #FF2E7E; width: calc(1px / var(--k)); min-height: calc(1px / var(--k)); }
+.ze-guide[style*="right"] { width: auto; height: calc(1px / var(--k)); }
+.ze-insp { border-left: 1px solid var(--line); overflow-y: auto; background: var(--bg); }
+.ze-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ze-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+.ze-field .be-select { width: 100%; }
+.ze-num { height: 32px; width: 100%; font-variant-numeric: tabular-nums; }
+.ze-color { width: 160px; }
+.ze-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--ink-2); }
+.ze-checks label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.ze-checks input { accent-color: var(--accent); }
+.ze-art { position: absolute; top: calc(100% + 8px); left: 0; z-index: 50; display: grid; grid-template-columns: repeat(4, 84px); gap: 6px; padding: 10px; border-radius: 14px; background: var(--bg); box-shadow: var(--shadow-pop), 0 0 0 1px var(--line); max-height: 420px; overflow-y: auto; }
+.ze-art button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: 11px; color: var(--ink-2); cursor: pointer; text-align: center; line-height: 1.25; }
+.ze-art button:hover { background: var(--fill); color: var(--ink); }
+.ze-art-pv { width: 56px; height: 44px; border-radius: 8px; background: #1C2133; display: grid; place-items: center; overflow: hidden; }
+.ze-art-pv svg { width: 48px; height: 38px; }
+.ze-shot { border-radius: 12px; overflow: hidden; background: repeating-conic-gradient(var(--fill) 0 25%, var(--bg) 0 50%) 0 0 / 16px 16px; display: grid; place-items: center; }
+.ze-shot img { display: block; max-width: 100%; height: auto; }
+@media (max-width: 1100px) { .ze-body { grid-template-columns: 200px minmax(0, 1fr) 270px; } }
+@media (max-width: 860px) { .ze-body { grid-template-columns: minmax(0, 1fr); grid-auto-rows: max-content; overflow-y: auto; } .ze-stage { order: -1; padding: 20px 12px; touch-action: pan-y; } .ze-layers, .ze-insp { border: 0; border-top: 1px solid var(--line); overflow: visible; } }
