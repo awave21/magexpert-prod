@@ -2,10 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Mail, Pencil, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import { api, ApiError, type SenderAddress } from '../api'
+import { usePermissions } from '../auth'
 import { Modal, ago, useToast } from './ui'
 
 // Адреса отправителей домена: шаблоны выбирают отправителя из этого списка
 export function SenderAddresses({ domain, verified }: { domain: string; verified: boolean }) {
+  const { isAdmin } = usePermissions()
   const qc = useQueryClient()
   const toast = useToast()
   const q = useQuery({ queryKey: ['sender-addresses'], queryFn: () => api<{ data: SenderAddress[] }>('/sender-addresses') })
@@ -60,7 +62,7 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
           <h2>Адреса отправителей</h2>
           <p className="sub">С этих адресов уходят письма. На новый адрес придёт письмо со ссылкой: пока её не открыли, письма с адреса не отправляются.</p>
         </div>
-        <button type="button" className="btn" onClick={() => { setErrors({}); setFormError(null); setAdding(true) }}><Plus size={15} />Добавить адрес</button>
+        {isAdmin && <button type="button" className="btn" onClick={() => { setErrors({}); setFormError(null); setAdding(true) }}><Plus size={15} />Добавить адрес</button>}
       </div>
 
       {list.length === 0 ? (
@@ -89,13 +91,13 @@ export function SenderAddresses({ domain, verified }: { domain: string; verified
                   <div className="addr-pending">
                     <span className="status warn"><i />Ждёт подтверждения</span>
                     <span className="sub">{a.confirmation_sent_at ? `письмо отправлено ${ago(a.confirmation_sent_at)}` : 'письмо не отправлено'}</span>
-                    <button type="button" className="btn sm text" disabled={resend.isPending} onClick={() => resend.mutate(a)}><RotateCw size={13} />Отправить ещё раз</button>
+                    {isAdmin && <button type="button" className="btn sm text" disabled={resend.isPending} onClick={() => resend.mutate(a)}><RotateCw size={13} />Отправить ещё раз</button>}
                   </div>
                 ))}
               {editing?.id !== a.id && (
                 <div className="addr-acts">
-                  <button type="button" className="btn icon sm ghost" title="Изменить имя" aria-label="Изменить имя" onClick={() => setEditing({ id: a.id, name: a.name })}><Pencil size={15} /></button>
-                  <button type="button" className="btn icon sm ghost danger-text" title="Удалить" aria-label="Удалить адрес" onClick={() => setRemoving(a)}><Trash2 size={15} /></button>
+                  {isAdmin && <button type="button" className="btn icon sm ghost" title="Изменить имя" aria-label="Изменить имя" onClick={() => setEditing({ id: a.id, name: a.name })}><Pencil size={15} /></button>}
+                  {isAdmin && <button type="button" className="btn icon sm ghost danger-text" title="Удалить" aria-label="Удалить адрес" onClick={() => setRemoving(a)}><Trash2 size={15} /></button>}
                 </div>
               )}
             </div>

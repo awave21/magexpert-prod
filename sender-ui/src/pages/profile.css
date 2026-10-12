@@ -1,0 +1,8 @@
+/* страница профиля */
+.profile-page { max-width: 640px; }
+.profile-section { padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+.profile-section:last-child { border-bottom: 0; }
+.profile-section .section-title { margin-top: 0; }
+.profile-section + .profile-section { padding-top: 28px; }
+.profile-actions { display: flex; justify-content: flex-start; }
+.profile-providers { display: flex; flex-wrap: wrap; gap: 6px; }

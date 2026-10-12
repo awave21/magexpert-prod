@@ -1,12 +1,13 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileUp, Loader2, Pencil, Plus, RefreshCw, Search, Send, Trash2, Upload, Wand2, X } from 'lucide-react'
+import { Loader2, Pencil, Plus, RefreshCw, Search, Send, Trash2, Upload, Wand2, X } from 'lucide-react'
 import { api, ApiError, upload, type CheckStatus, type Contact, type ContactList, type ImportResult, type Paged } from '../api'
 import { BackLink, Empty, Modal, PageHead, ago, fmtDate, useToast } from '../components/ui'
+import { ColumnMapping, ConsentCheckbox, ImportSource, useImportDraft } from '../components/ImportMapping'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
-type StatusFilter = '' | 'subscribed' | 'unsubscribed'
+type StatusFilter = '' | 'subscribed' | 'pending' | 'unsubscribed'
 type CheckFilter = '' | CheckStatus | 'unchecked'
 
 // результат проверки адреса: что значит и уйдёт ли на него рассылка
@@ -91,10 +92,10 @@ export default function ListDetail() {
   })
 
   // база: переименовать, удалить
-  const [editing, setEditing] = useState<{ name: string; description: string } | null>(null)
+  const [editing, setEditing] = useState<{ name: string; description: string; require_confirmation: boolean } | null>(null)
   const [editErr, setEditErr] = useState<string | null>(null)
   const save = useMutation({
-    mutationFn: () => api(`/lists/${id}`, { method: 'PUT', body: { name: editing?.name, description: editing?.description || null } }),
+    mutationFn: () => api(`/lists/${id}`, { method: 'PUT', body: { name: editing?.name, description: editing?.description || null, require_confirmation: editing?.require_confirmation ?? false } }),
     onSuccess: () => { setEditing(null); toast('База сохранена'); refresh() },
     onError: (e) => setEditErr(e instanceof ApiError ? (e.errors.name?.[0] ?? e.message) : 'Ошибка'),
   })
@@ -106,8 +107,9 @@ export default function ListDetail() {
 
   if (lq.isError) return <main className="page"><BackLink to="/subscribers">Все базы</BackLink><div className="callout err"><div><b>База не найдена</b></div></div></main>
 
-  const unsubscribed = list ? list.contacts_count - list.subscribed_count : 0
-  const filters: [StatusFilter, string, number | undefined][] = [['', 'Все', list?.contacts_count], ['subscribed', 'Подписаны', list?.subscribed_count], ['unsubscribed', 'Отписались', unsubscribed]]
+  const pending = list?.pending_count ?? 0
+  const unsubscribed = list ? list.contacts_count - list.subscribed_count - pending : 0
+  const filters: [StatusFilter, string, number | undefined][] = [['', 'Все', list?.contacts_count], ['subscribed', 'Подписаны', list?.subscribed_count], ...(pending > 0 || status === 'pending' ? [['pending', 'Ждут подтверждения', pending] as [StatusFilter, string, number]] : []), ['unsubscribed', 'Отписались', unsubscribed]]
 
   return (
     <main className="page">
@@ -115,7 +117,7 @@ export default function ListDetail() {
       <PageHead title={list?.name ?? '…'}
         sub={list?.source_label ? `${list.source_label} · обновлена ${ago(list.synced_at)}` : list?.description ?? (list ? `${n(list.subscribed_count)} подписчиков` : undefined)}
         actions={<>
-          <button className="btn icon" onClick={() => { setEditErr(null); list && setEditing({ name: list.name, description: list.description ?? '' }) }} aria-label="Переименовать базу" title="Переименовать базу"><Pencil size={15} /></button>
+          <button className="btn icon" onClick={() => { setEditErr(null); list && setEditing({ name: list.name, description: list.description ?? '', require_confirmation: Boolean(list.require_confirmation) }) }} aria-label="Переименовать базу" title="Переименовать базу"><Pencil size={15} /></button>
           <button className="btn icon" onClick={() => setRemoving(true)} aria-label="Удалить базу" title="Удалить базу"><Trash2 size={15} /></button>
           {synced ? (
             <button className="btn primary" disabled={sync.isPending} onClick={() => sync.mutate()}>{sync.isPending ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}Обновить сейчас</button>
@@ -130,7 +132,7 @@ export default function ListDetail() {
       {synced && <p className="hint" style={{ marginTop: -8, marginBottom: 16 }}>База обновляется сама перед каждой рассылкой: новые пользователи с согласием добавляются, выключившие согласие пропадают. Вручную адреса сюда не добавляются.</p>}
 
       {id && list && !synced && (importOpen || list.contacts_count === 0) && (
-        <ImportPanel listId={id} onDone={refresh} onClose={list.contacts_count > 0 ? () => setImportOpen(false) : undefined} />
+        <ImportPanel listId={id} requireConfirmation={Boolean(list.require_confirmation)} onDone={refresh} onClose={list.contacts_count > 0 ? () => setImportOpen(false) : undefined} />
       )}
 
       {list && list.contacts_count > 0 && (
@@ -186,7 +188,7 @@ export default function ListDetail() {
                   <td className="mono">{c.email}</td>
                   <td>{c.name ?? <span className="muted">—</span>}</td>
                   {columns.map((k) => <td key={k} className="muted">{c.data?.[k] ?? '—'}</td>)}
-                  <td>{c.unsubscribed_at ? <span className="status neutral"><i />Отписался</span> : <span className="status ok"><i />Подписан</span>}</td>
+                  <td>{c.unsubscribed_at ? <span className="status neutral"><i />Отписался</span> : c.pending ? <span className="status warn" title={c.confirmation_sent_at ? `Письмо для подтверждения отправлено ${fmtDate(c.confirmation_sent_at)}` : 'Письмо для подтверждения скоро уйдёт'}><i />Ждёт подтверждения</span> : <span className="status ok"><i />Подписан</span>}</td>
                   <td>
                     {(() => {
                       const k = c.check_status ?? 'unchecked'
@@ -250,6 +252,12 @@ export default function ListDetail() {
               <label htmlFor="l-desc">Описание</label>
               <input id="l-desc" className="input" value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
             </div>
+            {!synced && (
+              <label className="check-row">
+                <input type="checkbox" checked={editing.require_confirmation} onChange={(e) => setEditing({ ...editing, require_confirmation: e.target.checked })} />
+                <span><b>Требовать подтверждение подписки</b><span className="sub">Новым адресам из API и загрузок по умолчанию уходит письмо со ссылкой «Подтвердить подписку».</span></span>
+              </label>
+            )}
             <div className="row" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="btn" onClick={() => setEditing(null)}>Отмена</button>
               <button className="btn primary" disabled={!editing.name.trim() || save.isPending}>Сохранить</button>
@@ -271,26 +279,16 @@ export default function ListDetail() {
   )
 }
 
-function ImportPanel({ listId, onClose, onDone }: { listId: string; onClose?: () => void; onDone: () => void }) {
-  const [mode, setMode] = useState<'file' | 'text'>('file')
-  const [file, setFile] = useState<File | null>(null)
-  const [text, setText] = useState('')
-  const [over, setOver] = useState(false)
+function ImportPanel({ listId, requireConfirmation, onClose, onDone }: { listId: string; requireConfirmation: boolean; onClose?: () => void; onDone: () => void }) {
+  const draft = useImportDraft(!requireConfirmation)
   const [err, setErr] = useState<string | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
-  const input = useRef<HTMLInputElement>(null)
 
   const run = useMutation({
-    mutationFn: () => {
-      const body = new FormData()
-      if (mode === 'file' && file) body.append('file', file)
-      else body.append('text', text)
-      return upload<{ data: ImportResult }>(`/lists/${listId}/import`, body)
-    },
-    onSuccess: (r) => { setResult(r.data); setFile(null); setText(''); onDone() },
-    onError: (e) => setErr(e instanceof ApiError ? (e.errors.file?.[0] ?? e.errors.text?.[0] ?? e.message) : 'Не удалось загрузить'),
+    mutationFn: () => upload<{ data: ImportResult }>(`/lists/${listId}/import`, draft.body(draft.mapping ?? undefined)),
+    onSuccess: (r) => { setResult(r.data); draft.reset(); onDone() },
+    onError: (e) => setErr(e instanceof ApiError ? (Object.values(e.errors)[0]?.[0] ?? e.message) : 'Не удалось загрузить'),
   })
-  const pick = (f: File | undefined) => { if (f) { setErr(null); setFile(f) } }
 
   return (
     <section className="import-panel" aria-label="Загрузка адресов">
@@ -308,6 +306,7 @@ function ImportPanel({ listId, onClose, onDone }: { listId: string; onClose?: ()
             <div className={result.duplicates ? 'warn' : ''}><b>{n(result.duplicates)}</b><span>дублей в файле</span></div>
             <div className={result.skipped ? 'err' : ''}><b>{n(result.skipped)}</b><span>строк без адреса</span></div>
           </div>
+          {(result.pending ?? 0) > 0 && <p className="hint" style={{ margin: 0 }}>{n(result.pending ?? 0)} новым адресам отправим письмо со ссылкой «Подтвердить подписку». Рассылки им начнут приходить после подтверждения.</p>}
           <p className="hint" style={{ margin: 0 }}>Адреса сохраняются в нижнем регистре, поэтому Anna@Mail.ru и anna@mail.ru — один адрес. Из повторов остаётся последняя строка.</p>
           {result.columns.length > 0 && (
             <p style={{ color: 'var(--ink-2)', margin: 0 }}>
@@ -337,32 +336,11 @@ function ImportPanel({ listId, onClose, onDone }: { listId: string; onClose?: ()
         </>
       ) : (
         <form className="stack" onSubmit={(e) => { e.preventDefault(); setErr(null); run.mutate() }}>
-          <div className="seg" role="radiogroup" aria-label="Откуда загрузить" style={{ alignSelf: 'flex-start' }}>
-            <button type="button" role="radio" aria-checked={mode === 'file'} className={mode === 'file' ? 'on' : ''} onClick={() => setMode('file')}>Файл</button>
-            <button type="button" role="radio" aria-checked={mode === 'text'} className={mode === 'text' ? 'on' : ''} onClick={() => setMode('text')}>Вставить списком</button>
-          </div>
-          {mode === 'file' ? (
-            <>
-              <button type="button" className={`dropzone${over ? ' over' : ''}${file ? ' has' : ''}`} onClick={() => input.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
-                onDrop={(e) => { e.preventDefault(); setOver(false); pick(e.dataTransfer.files[0]) }}>
-                <FileUp size={22} />
-                {file ? <><b>{file.name}</b><span>{Math.max(1, Math.round(file.size / 1024))} КБ · нажмите, чтобы выбрать другой</span></>
-                  : <><b>Перетащите файл сюда или нажмите</b><span>CSV до 20 МБ. В Excel: Файл → Сохранить как → CSV</span></>}
-              </button>
-              <input ref={input} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={(e) => { pick(e.target.files?.[0]); e.target.value = '' }} />
-              <div className="hint">Первая строка — названия колонок: <span className="mono">email</span>, <span className="mono">имя</span> и любые другие (город, специальность), они станут переменными письма. Адреса приводятся к нижнему регистру, дубли склеиваются, адреса, которые уже есть в базе, обновляются.</div>
-            </>
-          ) : (
-            <div className="field">
-              <label htmlFor="imp-text">Адреса</label>
-              <textarea id="imp-text" className="textarea mono" rows={8} placeholder={'anna@example.com;Анна\npetr@example.com;Пётр'} value={text} onChange={(e) => setText(e.target.value)} />
-              <div className="hint">По одному на строку. Через точку с запятой можно указать имя.</div>
-            </div>
-          )}
+          <ImportSource draft={draft} between={<ConsentCheckbox draft={draft} />} />
+          <ColumnMapping draft={draft} />
           {err && <div className="hint err">{err}</div>}
           <div className="row">
-            <button className="btn primary" disabled={run.isPending || (mode === 'file' ? !file : !text.trim())}>{run.isPending ? <><Loader2 size={15} className="spin" />Загружаем…</> : <><Upload size={15} />Загрузить</>}</button>
+            <button className="btn primary" disabled={run.isPending || !draft.hasInput || !draft.mapping}>{run.isPending ? <><Loader2 size={15} className="spin" />Загружаем…</> : <><Upload size={15} />{draft.rows ? `Загрузить ${n(draft.rows)} ${draft.rows === 1 ? 'строку' : 'строк'}` : 'Загрузить'}</>}</button>
             {onClose && <button type="button" className="btn ghost" onClick={onClose}>Отмена</button>}
           </div>
         </form>

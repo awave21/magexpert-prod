@@ -80,6 +80,24 @@ export default function ApiDocs() {
       </section>
 
       <section className="api-sec">
+        <h2>Базы подписчиков</h2>
+        <p>Внешняя система, например сайт, может сама держать базу в актуальном состоянии: найти или создать базу и добавлять, обновлять, отписывать и удалять подписчиков. Ключ тот же, база должна принадлежать организации ключа, иначе ответ <span className="mono">404</span>. Базы, которые собираются автоматически из приложения, через API можно найти и посмотреть, но не менять: ответ <span className="mono">422</span>.</p>
+        <h3>Найти или создать базу</h3>
+        <p><span className="mono">PUT {origin}/api/sender/v1/lists</span> с телом <span className="mono">{'{"name": "Участники вебинаров", "description": "С сайта"}'}</span>. База ищется по названию без учёта регистра. Ответ <span className="mono">201</span>, если база создана, и <span className="mono">200</span>, если найдена.</p>
+        <Code text={'{\n  "data": {\n    "id": 7,\n    "name": "Участники вебинаров",\n    "description": "С сайта",\n    "require_confirmation": false,\n    "contacts_count": 120,\n    "subscribed_count": 110,\n    "pending_count": 4,\n    "created_at": "2026-10-12T10:00:00+03:00"\n  }\n}'} />
+        <h3>Добавить или обновить подписчика</h3>
+        <p><span className="mono">PUT {origin}/api/sender/v1/lists/{'{id}'}/contacts</span>. Имя и переменные объединяются с сохранёнными, <span className="mono">null</span> в переменной удаляет её. Ключи переменных: латиница в нижнем регистре, цифры и <span className="mono">_</span>, не больше 50 штук; значения сохраняются строками (<span className="mono">true</span> → <span className="mono">"1"</span>, <span className="mono">false</span> → <span className="mono">"0"</span>).</p>
+        <Code text={'{\n  "email": "anna@example.com",\n  "name": "Анна",\n  "data": {"city": "Москва", "specialty": "терапевт"},\n  "subscribed": true\n}'} />
+        <p>Ответ <span className="mono">201</span> для нового подписчика и <span className="mono">200</span> для существующего: <span className="mono">{'{"data": {"email": "anna@example.com", "status": "subscribed", "created": true}}'}</span>. Статусы: <span className="mono">subscribed</span> подписан, <span className="mono">pending</span> ждёт подтверждения подписки, <span className="mono">unsubscribed</span> отписан.</p>
+        <p><span className="mono">subscribed: false</span> отписывает адрес в этой базе. Если в настройках базы включено «Требовать подтверждение подписки», новый адрес получает одно письмо со ссылкой и до подтверждения рассылки ему не уходят; повторно письмо не отправляется никогда. Адреса из блок-листа (отказы, жалобы) писем не получают и через API не разблокируются.</p>
+        <h3>Пакет до 1000 подписчиков</h3>
+        <p><span className="mono">POST {origin}/api/sender/v1/lists/{'{id}'}/contacts/batch</span> с телом <span className="mono">{'{"contacts": [{"email": "…"}, …]}'}</span>, каждая строка как в запросе выше. Корректные строки применяются, ошибочные возвращаются в <span className="mono">invalid</span> с номером строки (с нуля). Пакет считается одним запросом в лимите.</p>
+        <Code text={'{\n  "data": {\n    "created": 12,\n    "updated": 85,\n    "subscribed": 90,\n    "pending": 3,\n    "unsubscribed": 4,\n    "invalid": [\n      {"index": 5, "email": "not-an-email", "errors": {"email": ["Неверный email"]}}\n    ]\n  }\n}'} />
+        <h3>Посмотреть и удалить</h3>
+        <p><span className="mono">GET {origin}/api/sender/v1/lists/{'{id}'}/contacts/{'{email}'}</span> возвращает <span className="mono">email</span>, <span className="mono">name</span>, <span className="mono">data</span>, <span className="mono">status</span>, <span className="mono">created_at</span> и <span className="mono">updated_at</span>. <span className="mono">DELETE</span> по тому же адресу удаляет подписчика из базы (ответ <span className="mono">204</span>), отправленные ему письма остаются в журнале. Если подписчика нет, ответ <span className="mono">404</span>.</p>
+      </section>
+
+      <section className="api-sec">
         <h2>Шаблоны</h2>
         <p>ID шаблона не меняется. Вместо ID можно передать алиас шаблона, например <span className="mono">password-reset</span>.</p>
         <div className="table-wrap">

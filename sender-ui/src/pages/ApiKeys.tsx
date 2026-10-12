@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Plus } from 'lucide-react'
 import { api, type ApiKey } from '../api'
 import { CopyField, Empty, Modal, PageHead, ago, fmtDate, useToast } from '../components/ui'
+import { usePermissions } from '../auth'
 
 export default function ApiKeys() {
+  const { isAdmin } = usePermissions()
   const qc = useQueryClient()
   const toast = useToast()
   const q = useQuery({ queryKey: ['keys'], queryFn: () => api<{ data: ApiKey[] }>('/api-keys') })
@@ -28,7 +30,7 @@ export default function ApiKeys() {
   return (
     <main className="page">
       <PageHead title="API-ключи" sub="Ключ нужен приложению, чтобы отправлять письма через Sender"
-        actions={<button className="btn primary" onClick={() => setCreating(true)}><Plus size={16} />Создать ключ</button>} />
+        actions={isAdmin && <button className="btn primary" onClick={() => setCreating(true)}><Plus size={16} />Создать ключ</button>} />
 
       {plain && (
         <div className="callout" style={{ marginBottom: 28, flexDirection: 'column', gap: 12 }}>
@@ -53,7 +55,7 @@ export default function ApiKeys() {
                   <td className="sub">{fmtDate(k.created_at)}</td>
                   <td className="sub">{k.last_used_at ? ago(k.last_used_at) : 'ни разу'}</td>
                   <td>{k.revoked_at ? <span className="status neutral"><i />Отозван</span> : <span className="status ok"><i />Активен</span>}</td>
-                  <td className="r">{!k.revoked_at && <button className="btn sm danger" onClick={() => setRevoke(k)}>Отозвать</button>}</td>
+                  <td className="r">{isAdmin && !k.revoked_at && <button className="btn sm danger" onClick={() => setRevoke(k)}>Отозвать</button>}</td>
                 </tr>
               ))}
             </tbody>

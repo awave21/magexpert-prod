@@ -46,9 +46,9 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   return data as T
 }
 
-export type Role = 'admin' | 'editor' | 'viewer'
-export type User = { id: number; name: string; email: string; role: Role; organization: string | null }
-export type TeamMember = { id: number; name: string; email: string; role: Role; is_active: boolean; last_seen_at: string | null; created_at: string }
+export type Role = 'owner' | 'admin' | 'editor' | 'designer' | 'viewer'
+export type User = { id: number; name: string; email: string; role: Role; is_owner?: boolean; organization: string | null }
+export type TeamMember = { id: number; name: string; email: string; role: Role; is_owner?: boolean; is_active: boolean; last_seen_at: string | null; created_at: string }
 export type AuditEntry = { id: number; action: string; subject: string | null; user: string; ip: string | null; created_at: string }
 export type Segment = { active_days?: number | null; field?: string | null; values?: string[] | null }
 export type ListField = { key: string; values: { value: string; count: number }[] }
@@ -88,12 +88,17 @@ export type CheckStatus = 'ok' | 'role' | 'typo' | 'disposable' | 'no_mx' | 'inv
 export type ContactList = {
   id: number; name: string; description: string | null; contacts_count: number; subscribed_count: number; deliverable_count: number
   source: string | null; source_label: string | null; synced_at: string | null
-  checks: Record<CheckStatus | 'unchecked', number>; created_at: string; updated_at: string
+  checks: Record<CheckStatus | 'unchecked', number>; created_at: string; updated_at: string; pending_count?: number; require_confirmation?: boolean
 }
 export type ListSource = { key: string; label: string }
-export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; last_opened_at: string | null; check_status: CheckStatus | null; check_hint: string | null; created_at: string }
+export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; last_opened_at: string | null; check_status: CheckStatus | null; check_hint: string | null; created_at: string; pending?: boolean; confirmation_sent_at?: string | null; confirmed_at?: string | null }
+export type ImportPreview = {
+  rows: number; header: boolean
+  columns: { index: number; header: string; samples: string[]; role: 'email' | 'name' | 'field'; key: string }[]
+  sample_rows: string[][]
+}
 export type ImportResult = {
-  rows: number; added: number; updated: number; duplicates: number; skipped: number; columns: string[]
+  rows: number; added: number; updated: number; duplicates: number; skipped: number; columns: string[]; pending?: number
   skipped_rows: { line: number; value: string }[]; duplicate_rows: { line: number; email: string; first_line: number }[]
 }
 export type CampaignStats = { pending: number; cancelled: number; complained?: number; queued: number; sent: number; delivered: number; bounced: number; failed: number; blocked: number; opened: number; clicked: number; links: { url: string; clicks: number }[] }
@@ -129,3 +134,9 @@ export type DnsAdvice = {
   mail_provider: { key: string; name: string; spf: string | null; dkim: string | null; mx: string[] } | null
   records: DnsAdviceRecord[]
 }
+
+// профиль: данные как в /me и привязанные способы входа
+export type SocialProvider = 'yandex' | 'vkid'
+export type Profile = { data: User; providers: SocialProvider[] }
+
+export type OrganizationInfo = { id: number; name: string; slug: string; owner: { id: number; name: string; email: string } | null }

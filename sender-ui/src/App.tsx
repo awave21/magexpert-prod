@@ -16,10 +16,17 @@ import VariablesPage from './pages/Variables'
 import ApiDocs from './pages/ApiDocs'
 import Subscribers from './pages/Subscribers'
 import ListDetail from './pages/ListDetail'
+import NewList from './pages/NewList'
+import Profile from './pages/Profile'
+import SettingsAi from './pages/SettingsAi'
 import Campaigns from './pages/Campaigns'
 import CampaignEditor from './pages/CampaignEditor'
 import Privacy from './pages/Privacy'
 import Team from './pages/Team'
+import Settings from './pages/Settings'
+import AuditLog from './pages/AuditLog'
+import SettingsOrganization from './pages/SettingsOrganization'
+import { RequireRole } from './components/SettingsParts'
 // редактор блоков тяжёлый (TipTap), грузится только когда его открывают
 const BlockEditor = lazy(() => import('./pages/BlockEditor'))
 
@@ -44,6 +51,7 @@ export default function App() {
         <Route path="campaigns" element={<Campaigns />} />
         <Route path="campaigns/:id" element={<CampaignEditor />} />
         <Route path="subscribers" element={<Subscribers />} />
+        <Route path="subscribers/new" element={<NewList />} />
         <Route path="subscribers/:id" element={<ListDetail />} />
         <Route path="messages" element={<Messages />} />
         <Route path="domains" element={<Domains />} />
@@ -54,7 +62,18 @@ export default function App() {
         <Route path="api" element={<ApiDocs />} />
         <Route path="api-keys" element={<ApiKeys />} />
         <Route path="blocked" element={<Blocked />} />
-        <Route path="team" element={<Team />} />
+        <Route path="settings" element={<Settings />}>
+          <Route index element={<Navigate to="profile" replace />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="ai" element={<SettingsAi />} />
+          <Route path="team" element={<RequireRole need="admin"><Team /></RequireRole>} />
+          <Route path="audit" element={<RequireRole need="admin"><AuditLog /></RequireRole>} />
+          <Route path="organization" element={<RequireRole need="owner"><SettingsOrganization /></RequireRole>} />
+          <Route path="*" element={<Navigate to="profile" replace />} />
+        </Route>
+        {/* старые адреса */}
+        <Route path="team" element={<Navigate to="/settings/team" replace />} />
+        <Route path="profile" element={<Navigate to="/settings/profile" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

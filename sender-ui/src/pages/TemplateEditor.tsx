@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Blocks, Check, Copy, Lock, Monitor, MoreHorizontal, PencilRuler, Send, Smartphone, Trash2, Unlock } from 'lucide-react'
 import { api, ApiError, type Domain, type SenderAddress, type Folder, type Message, type Template, type Variables } from '../api'
-import { useAuth } from '../auth'
+import { useAuth, usePermissions } from '../auth'
 import { CopyButton, Modal, ago, useToast } from '../components/ui'
 
 type Form = { slug: string; name: string; subject: string; body_html: string; body_text: string; folder_id: number | null; sender_address_id: number | null; reply_to: string; preheader: string }
@@ -37,6 +37,7 @@ export default function TemplateEditor() {
   const qc = useQueryClient()
   const toast = useToast()
   const { user } = useAuth()
+  const { canEdit, canEditContent } = usePermissions()
 
   const [form, setForm] = useState<Form>(() => ({ ...EMPTY, folder_id: Number(params.get('folder')) || null }))
   const [saved, setSaved] = useState<Form | null>(null)
@@ -163,7 +164,7 @@ export default function TemplateEditor() {
               </span>
             </div>
           </div>
-          <div className="row">
+          {canEditContent && <div className="row">
             {!isNew && <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>}
             <button className="btn primary" disabled={save.isPending || (!dirty && !isNew)} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
             {!isNew && (
@@ -177,7 +178,7 @@ export default function TemplateEditor() {
                 )}
               </div>
             )}
-          </div>
+          </div>}
         </div>
 
         <div className="tpl-grid">
@@ -305,8 +306,8 @@ export default function TemplateEditor() {
           <form className="stack" onSubmit={(e) => { e.preventDefault(); sendTest.mutate() }}>
             <div className="field">
               <label htmlFor="test-to">Кому</label>
-              <input id="test-to" type="email" autoFocus className="input mono" value={testTo} onChange={(e) => setTestTo(e.target.value)} />
-              <div className="hint">Отправим с {fromLine} от имени «{fromName}» с примерами значений переменных. Письмо появится в журнале.</div>
+              <input id="test-to" type="email" autoFocus className="input mono" value={testTo} readOnly={!canEdit} onChange={(e) => setTestTo(e.target.value)} />
+              <div className="hint">{!canEdit && 'Дизайнер отправляет тест только себе. '}Отправим с {fromLine} от имени «{fromName}» с примерами значений переменных. Письмо появится в журнале.</div>
             </div>
             {dirty && <div className="callout warn"><div><b>Есть несохранённые изменения</b><span>Сначала сохраним шаблон, потом отправим.</span></div></div>}
             {!verified && <div className="callout err"><div><b>Нет подтверждённого домена</b><span>Подтвердите домен в разделе «Домены», иначе тест не отправится.</span></div></div>}
