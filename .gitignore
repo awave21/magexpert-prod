@@ -34,3 +34,5 @@ yarn-error.log
 /storage/framework/cache/*
 /storage/framework/sessions/*
 .DS_Store
+
+/brag-output
