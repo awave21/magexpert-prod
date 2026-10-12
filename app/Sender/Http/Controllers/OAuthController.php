@@ -5,6 +5,7 @@ namespace App\Sender\Http\Controllers;
 use App\Sender\Http\Controllers\Admin\AuthController;
 use App\Sender\Services\SocialLoginService;
 use App\Sender\Support\SenderUi;
+use App\Services\VkIdProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -15,13 +16,13 @@ use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
 use Throwable;
 
 /**
- * Переход на Яндекс ID или VK ID и возврат обратно в админку Sender.
+ * Переход на Яндекс ID или VK ID (а через него — Одноклассники и Mail.ru) и возврат обратно в админку Sender.
  */
 class OAuthController extends Controller
 {
     private const NAMES = ['yandex' => 'Яндекс', 'vkid' => 'ВКонтакте'];
 
-    public function redirect(string $provider): SymfonyRedirect|RedirectResponse
+    public function redirect(Request $request, string $provider): SymfonyRedirect|RedirectResponse
     {
         if (! config("services.{$provider}.client_id")) {
             return $this->back('login', ['error' => 'Вход через '.self::NAMES[$provider].' пока не настроен']);
@@ -31,6 +32,13 @@ class OAuthController extends Controller
 
         if ($provider === 'yandex') {
             $driver->scopes(['login:email', 'login:info']);
+        }
+
+        // кнопки «Одноклассники» и «Mail.ru» ведут в то же приложение VK ID, но сразу открывают нужный способ входа
+        $via = $request->query('via');
+
+        if ($provider === 'vkid' && is_string($via) && in_array($via, VkIdProvider::VIA, true)) {
+            $driver->with(['provider' => $via]);
         }
 
         return $driver->redirect();

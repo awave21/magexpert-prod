@@ -3,6 +3,7 @@
 namespace App\Sender\Http\Requests\Admin;
 
 use App\Sender\Http\Controllers\Admin\AuthController;
+use App\Sender\Models\User;
 use App\Sender\Services\SocialLoginService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
@@ -35,6 +36,9 @@ class OAuthRegisterRequest extends FormRequest
             'code' => ['required', 'string', function (string $attribute, mixed $value, \Closure $fail) use ($pending): void {
                 if ($pending === null) {
                     $fail('Ссылка устарела: войдите через Яндекс или ВКонтакте ещё раз');
+                } elseif ($pending['email'] !== '' && User::query()->where('email', $pending['email'])->exists()) {
+                    // почта из ВКонтакте не подтверждена: к чужому аккаунту её не привязываем и второй такой же не создаём
+                    $fail('Аккаунт с этим email уже есть. Войдите по паролю');
                 }
             }],
             'organization' => ['required', 'string', 'min:2', 'max:120'],

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 
-// Вход через Яндекс ID и VK ID: обычные ссылки, браузер уходит на сайт провайдера и возвращается в Sender.
+// Вход через Яндекс ID и VK ID (через него же — Одноклассники и Mail.ru): обычные ссылки, браузер уходит на сайт провайдера и возвращается в Sender.
 // Провайдер без ключей на сервере не показывается.
 const base = () => (window.location.pathname.startsWith('/sender') ? '/sender/' : '/')
 
@@ -28,16 +28,24 @@ export function SocialButtons({ divider }: { divider: string }) {
   return (
     <>
     <div className="divider">{divider}</div>
-    <div className="social-btns" style={providers.length === 1 ? { gridTemplateColumns: '1fr' } : undefined}>
+    <div className="social-btns" style={providers.length === 1 && providers[0] === 'yandex' ? { gridTemplateColumns: '1fr' } : undefined}>
       {providers.includes('yandex') && (
         <a className="btn lg" href={`${base()}oauth/yandex/redirect`}>
           <span className="social-ic" style={{ background: '#FC3F1D', borderRadius: '50%' }}>Я</span>Яндекс ID
         </a>
       )}
       {providers.includes('vkid') && (
-        <a className="btn lg" href={`${base()}oauth/vkid/redirect`}>
+        <>
+        <a className="btn lg" href={`${base()}oauth/vkid/redirect?via=vkid`}>
           <span className="social-ic" style={{ background: '#0077FF', borderRadius: 6, fontSize: 10 }}>VK</span>ВКонтакте
         </a>
+        <a className="btn lg" href={`${base()}oauth/vkid/redirect?via=ok_ru`}>
+          <span className="social-ic" style={{ background: '#EE8208', borderRadius: 6, fontSize: 10 }}>ОК</span>Одноклассники
+        </a>
+        <a className="btn lg" href={`${base()}oauth/vkid/redirect?via=mail_ru`}>
+          <span className="social-ic" style={{ background: '#005FF9', borderRadius: 6 }}>@</span>Mail.ru
+        </a>
+        </>
       )}
     </div>
     </>

@@ -45,8 +45,8 @@ return [
     ],
 
     'vkid' => [
-        // пакет socialiteproviders/vkid требует PHP 8.4: без него вход через ВК выключен даже с ключами
-        'client_id' => class_exists(\SocialiteProviders\VKID\Provider::class) ? env('VKID_CLIENT_ID') : null,
+        // одно приложение VK ID на id.vk.com/business: через него же входят Одноклассники и Mail.ru
+        'client_id' => env('VKID_CLIENT_ID'),
         'client_secret' => env('VKID_CLIENT_SECRET'),
         'redirect' => '/auth/vkid/callback',
         // включите, когда в приложении VK ID разрешён доступ к телефону

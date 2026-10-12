@@ -155,6 +155,25 @@ it('returns to login when the user cancels or the provider is not configured', f
     $this->get('/auth/google/redirect')->assertNotFound();
 });
 
+it('opens odnoklassniki or mail.ru right away through vk id and ignores unknown methods', function (): void {
+    config(['services.vkid.client_id' => 'app-id', 'services.vkid.phone' => false]);
+
+    $location = $this->get('/auth/vkid/redirect?via=ok_ru')->assertRedirect()->headers->get('Location');
+    parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+
+    expect($location)->toStartWith('https://id.vk.com/authorize?')
+        ->and($query['provider'])->toBe('ok_ru')
+        ->and($query['redirect_uri'])->toBe(route('social.callback', 'vkid'));
+
+    // в бою каждый запрос получает новый драйвер, а в тесте Socialite хранит его между запросами
+    Socialite::forgetDrivers();
+    $location = $this->get('/auth/vkid/redirect?via=google')->headers->get('Location');
+    expect($location)->toStartWith('https://id.vk.com/authorize?')->not->toContain('provider=');
+
+    expect($this->get('/auth/yandex/redirect?via=mail_ru')->headers->get('Location'))
+        ->toStartWith('https://oauth.yandex.ru/authorize?')->not->toContain('provider=');
+});
+
 it('removes social links when the account is deleted', function (): void {
     $user = User::factory()->create();
     $user->socialAccounts()->create(['provider' => 'vkid', 'provider_user_id' => '555']);

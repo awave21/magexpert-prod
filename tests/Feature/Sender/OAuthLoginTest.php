@@ -73,6 +73,29 @@ it('registers a new organization after vk login without a password', function ()
         ->assertUnprocessable()->assertJsonValidationErrors('code');
 });
 
+it('does not open a sender account by an unconfirmed email from vk', function (): void {
+    $organization = Organization::create(['name' => 'MagExpert', 'slug' => 'magexpert']);
+    $victim = User::create(['organization_id' => $organization->id, 'name' => 'Админ', 'email' => 'admin@clinic.ru', 'password' => 'secret-pass']);
+    senderSocial('vkid', 'v-attacker', 'admin@clinic.ru');
+
+    $code = oauthCode($this->get('/sender/oauth/vkid/callback?code=x&device_id=d'), 'register');
+
+    $this->postJson('/api/sender/v1/admin/oauth/register', ['code' => $code, 'organization' => 'Чужие', 'accept_policy' => true])
+        ->assertUnprocessable()->assertJsonValidationErrors(['code' => 'Аккаунт с этим email уже есть']);
+    $this->postJson('/api/sender/v1/admin/oauth/exchange', ['code' => $code])->assertUnprocessable();
+
+    expect($victim->socialAccounts()->exists())->toBeFalse()
+        ->and(User::query()->count())->toBe(1);
+});
+
+it('opens odnoklassniki or mail.ru right away through vk id', function (): void {
+    config(['services.vkid.client_id' => 'app-id']);
+
+    $location = (string) $this->get('/sender/oauth/vkid/redirect?via=mail_ru')->headers->get('Location');
+
+    expect($location)->toStartWith('https://id.vk.com/authorize?')->toContain('provider=mail_ru');
+});
+
 it('sends an unknown social account back to login while registration is closed', function (): void {
     config(['sender.registration' => false]);
     senderSocial('yandex', 'y5', 'stranger@yandex.ru');

@@ -17,6 +17,8 @@ class SocialLoginService
 {
     private const CODE_TTL_SECONDS = 600;
 
+    private const TRUSTED_EMAIL = ['yandex'];
+
     public function __construct(private readonly AuthService $auth) {}
 
     /**
@@ -27,7 +29,9 @@ class SocialLoginService
     {
         $user = SocialAccount::query()->where('provider', $profile['provider'])->where('provider_user_id', $profile['id'])->first()?->user;
 
-        if ($user === null && $profile['email'] !== '') {
+        // по email привязываем только Яндекс: он отдаёт подтверждённую почту, а VK ID — нет,
+        // иначе чужой профиль ВКонтакте с вашим email открывал бы ваш аккаунт
+        if ($user === null && $profile['email'] !== '' && in_array($profile['provider'], self::TRUSTED_EMAIL, true)) {
             $user = User::query()->where('email', $profile['email'])->first();
             $user?->socialAccounts()->updateOrCreate(['provider' => $profile['provider']], ['provider_user_id' => $profile['id']]);
         }
