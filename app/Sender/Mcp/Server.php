@@ -3,17 +3,31 @@
 namespace App\Sender\Mcp;
 
 use App\Sender\Mcp\Support\ArgumentValidator;
+use App\Sender\Mcp\Tools\CancelCampaignTool;
 use App\Sender\Mcp\Tools\CheckTemplateTool;
+use App\Sender\Mcp\Tools\CountSegmentTool;
+use App\Sender\Mcp\Tools\CreateCampaignTool;
+use App\Sender\Mcp\Tools\CreateListTool;
 use App\Sender\Mcp\Tools\CreateTemplateTool;
 use App\Sender\Mcp\Tools\GetBlockSchemaTool;
 use App\Sender\Mcp\Tools\GetBrandTool;
+use App\Sender\Mcp\Tools\GetCampaignTool;
 use App\Sender\Mcp\Tools\GetTemplateTool;
+use App\Sender\Mcp\Tools\ListCampaignsTool;
+use App\Sender\Mcp\Tools\ListContactsTool;
+use App\Sender\Mcp\Tools\ListFieldsTool;
 use App\Sender\Mcp\Tools\ListFoldersTool;
+use App\Sender\Mcp\Tools\ListListsTool;
 use App\Sender\Mcp\Tools\ListTemplatesTool;
 use App\Sender\Mcp\Tools\ListVariablesTool;
 use App\Sender\Mcp\Tools\RenderTemplateTool;
+use App\Sender\Mcp\Tools\ScheduleCampaignTool;
+use App\Sender\Mcp\Tools\SendCampaignTestTool;
 use App\Sender\Mcp\Tools\SendTestTool;
+use App\Sender\Mcp\Tools\UpdateCampaignTool;
+use App\Sender\Mcp\Tools\UpdateListTool;
 use App\Sender\Mcp\Tools\UpdateTemplateTool;
+use App\Sender\Mcp\Tools\UpsertContactsTool;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -34,6 +48,7 @@ class Server
      * @var list<class-string<Tool>>
      */
     public const TOOLS = [
+        // письма
         GetBrandTool::class,
         GetBlockSchemaTool::class,
         ListTemplatesTool::class,
@@ -45,6 +60,22 @@ class Server
         SendTestTool::class,
         ListFoldersTool::class,
         ListVariablesTool::class,
+        // базы, подписчики и сегменты
+        ListListsTool::class,
+        CreateListTool::class,
+        UpdateListTool::class,
+        ListContactsTool::class,
+        UpsertContactsTool::class,
+        ListFieldsTool::class,
+        CountSegmentTool::class,
+        // рассылки
+        ListCampaignsTool::class,
+        GetCampaignTool::class,
+        CreateCampaignTool::class,
+        UpdateCampaignTool::class,
+        SendCampaignTestTool::class,
+        ScheduleCampaignTool::class,
+        CancelCampaignTool::class,
     ];
 
     /**
@@ -55,7 +86,6 @@ class Server
     public function __construct(
         private readonly Container $container,
         private readonly Resources $resources,
-        private readonly Prompts $prompts,
         private readonly ArgumentValidator $validator,
     ) {}
 
@@ -119,8 +149,6 @@ class Server
             'resources/list' => ['resources' => $this->resources->list()],
             'resources/templates/list' => ['resourceTemplates' => []],
             'resources/read' => ['contents' => [$this->resources->read($this->stringParam($params, 'uri'), $ctx)]],
-            'prompts/list' => ['prompts' => $this->prompts->list()],
-            'prompts/get' => $this->prompts->get($this->stringParam($params, 'name'), $this->objectParam($params, 'arguments')),
             default => throw new JsonRpcException("Метод «{$method}» не поддерживается", JsonRpcException::METHOD_NOT_FOUND),
         };
     }
@@ -139,14 +167,12 @@ class Server
             'capabilities' => [
                 'tools' => ['listChanged' => false],
                 'resources' => (object) [],
-                'prompts' => (object) [],
             ],
             'serverInfo' => ['name' => 'sender', 'title' => 'Sender — письма', 'version' => self::VERSION],
-            'instructions' => 'Sender — сервис email-рассылок. Через этот сервер можно работать с письмами (шаблонами) своей организации: '
-                .'смотреть список и содержимое, создавать и менять письма из блоков визуального редактора или из HTML, собирать письмо с тестовыми данными, '
-                .'проверять его перед отправкой и отправлять тест себе на почту. Удалять письма и запускать рассылки нельзя. '
-                .'Перед созданием письма вызовите get_brand и get_block_schema, после — check_template и send_test. '
-                .'Права зависят от роли владельца ключа: с ролью «только просмотр» письма можно только читать.',
+            'instructions' => 'Sender — сервис email-рассылок. Сервер работает с данными организации владельца ключа: '
+                .'письма (шаблоны), базы подписчиков, подписчики, сегменты и рассылки. '
+                .'Рассылку можно создать, проверить тестом себе, запланировать на время и отменить; отправить сразу и удалять что-либо через сервер нельзя. '
+                .'Права — как у роли владельца ключа в Sender: просмотр — только чтение, дизайнер — письма, редактор и выше — также базы и рассылки.',
         ];
     }
 

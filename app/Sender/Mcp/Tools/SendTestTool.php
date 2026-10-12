@@ -9,7 +9,6 @@ use App\Sender\Mcp\ToolException;
 use App\Sender\Models\Domain;
 use App\Sender\Models\Message;
 use App\Sender\Services\MessageService;
-use Illuminate\Support\Facades\RateLimiter;
 
 class SendTestTool implements Tool
 {
@@ -70,15 +69,7 @@ class SendTestTool implements Tool
             throw new ToolException('Нет подтверждённого домена: тестовое письмо отправить не с чего');
         }
 
-        $key = 'sender-mcp-test:'.$ctx->user->id;
-
-        if (RateLimiter::tooManyAttempts($key, self::PER_HOUR)) {
-            $minutes = (int) ceil(RateLimiter::availableIn($key) / 60);
-
-            throw new ToolException('Слишком много тестовых писем: не больше '.self::PER_HOUR." в час. Попробуйте через {$minutes} мин.");
-        }
-
-        RateLimiter::hit($key, 3600);
+        $ctx->throttleTestLetters(self::PER_HOUR);
 
         $message = $this->messages->send(
             $ctx->organization,

@@ -3,8 +3,9 @@
 use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Mcp\McpTokens;
 use App\Sender\Mcp\Permissions;
-use App\Sender\Mcp\Prompts;
+use App\Sender\Mcp\Resources;
 use App\Sender\Mcp\Server;
+use App\Sender\Mcp\Support\Brand;
 use App\Sender\Models\AuditLog;
 use App\Sender\Models\Domain;
 use App\Sender\Models\McpToken;
@@ -83,7 +84,8 @@ it('negotiates the protocol version on initialize', function (): void {
         ->assertJsonPath('result.protocolVersion', '2025-06-18')
         ->assertJsonPath('result.serverInfo.name', 'sender')
         ->assertJsonPath('result.capabilities.tools.listChanged', false)
-        ->assertJsonStructure(['result' => ['capabilities' => ['resources', 'prompts'], 'instructions']]);
+        ->assertJsonStructure(['result' => ['capabilities' => ['resources'], 'instructions']])
+        ->assertJsonMissingPath('result.capabilities.prompts');
 
     // неизвестная версия — сервер отвечает последней поддерживаемой
     mcpRpc($this->editorToken, 'initialize', ['protocolVersion' => '2099-01-01'])->assertJsonPath('result.protocolVersion', Server::PROTOCOL_VERSIONS[0])
@@ -117,6 +119,8 @@ it('lists all tools with schemas and annotations', function (): void {
     expect($tools->pluck('name')->all())->toEqualCanonicalizing([
         'get_brand', 'get_block_schema', 'list_templates', 'get_template', 'create_template', 'update_template',
         'render_template', 'check_template', 'send_test', 'list_folders', 'list_variables',
+        'list_lists', 'create_list', 'update_list', 'list_contacts', 'upsert_contacts', 'list_fields', 'count_segment',
+        'list_campaigns', 'get_campaign', 'create_campaign', 'update_campaign', 'send_campaign_test', 'schedule_campaign', 'cancel_campaign',
     ]);
 
     $tools->each(function (array $tool): void {
@@ -415,33 +419,19 @@ it('gives brand, block schema, folders and variables', function (): void {
         ->and($variables['organization'][0]['key'])->toBe('clinic');
 });
 
-it('serves resources and prompts', function (): void {
+it('serves resources and no ready-made prompts', function (): void {
     $resources = collect(mcpRpc($this->editorToken, 'resources/list')->json('result.resources'));
-    expect($resources->pluck('uri')->all())->toBe(['sender://brand', 'sender://blocks/schema', 'sender://guide/letters']);
-
-    $guide = mcpRpc($this->editorToken, 'resources/read', ['uri' => 'sender://guide/letters'])->assertOk()->json('result.contents.0');
-    expect($guide['mimeType'])->toBe('text/markdown')
-        ->and($guide['text'])->toContain('Призыв к действию')
-        ->and(mb_strtolower($guide['text']))->not->toContain('обучени');
+    expect($resources->pluck('uri')->all())->toBe(['sender://brand', 'sender://blocks/schema']);
 
     $brand = mcpRpc($this->editorToken, 'resources/read', ['uri' => 'sender://brand'])->json('result.contents.0');
     expect(json_decode($brand['text'], true)['organization']['name'])->toBe('MagExpert');
 
     mcpRpc($this->editorToken, 'resources/read', ['uri' => 'sender://nope'])->assertJsonPath('error.code', -32002);
+    mcpRpc($this->editorToken, 'resources/read', ['uri' => 'sender://guide/letters'])->assertJsonPath('error.code', -32002);
 
-    $prompts = collect(mcpRpc($this->editorToken, 'prompts/list')->json('result.prompts'));
-    expect($prompts->pluck('name')->all())->toBe(['event_announcement', 'improve_letter']);
-
-    $prompt = mcpRpc($this->editorToken, 'prompts/get', ['name' => 'event_announcement', 'arguments' => ['title' => 'Кардиология 2026', 'date' => '15 ноября', 'link' => 'https://mag-expert.ru/e/1']])
-        ->assertOk()->json('result');
-    expect($prompt['messages'][0]['role'])->toBe('user')
-        ->and($prompt['messages'][0]['content']['text'])->toContain('Кардиология 2026')
-        ->and($prompt['messages'][0]['content']['text'])->toContain('«Мероприятия»')
-        ->and($prompt['messages'][0]['content']['text'])->toContain('send_test');
-
-    expect(mcpRpc($this->editorToken, 'prompts/get', ['name' => 'improve_letter', 'arguments' => ['template' => 'digest']])->json('result.messages.0.content.text'))
-        ->toContain('КОПИЕЙ');
-    mcpRpc($this->editorToken, 'prompts/get', ['name' => 'event_announcement', 'arguments' => ['title' => 'X']])->assertJsonPath('error.code', -32602);
+    // сценарии и руководства, как писать, в Sender не зашиты: это дело ИИ пользователя
+    mcpRpc($this->editorToken, 'prompts/list')->assertJsonPath('error.code', -32601);
+    mcpRpc($this->editorToken, 'prompts/get', ['name' => 'event_announcement', 'arguments' => ['title' => 'X']])->assertJsonPath('error.code', -32601);
 });
 
 it('lets users manage their own MCP keys through the admin API', function (): void {
@@ -496,7 +486,7 @@ it('issues a key from the console', function (): void {
 
 it('answers an unexpected server failure with a generic JSON-RPC internal error', function (): void {
     Log::spy();
-    app()->instance(Prompts::class, new class extends Prompts
+    app()->instance(Resources::class, new class(app(Brand::class)) extends Resources
     {
         public function list(): array
         {
@@ -504,7 +494,7 @@ it('answers an unexpected server failure with a generic JSON-RPC internal error'
         }
     });
 
-    $response = mcpRpc($this->editorToken, 'prompts/list', [], 7)->assertOk()
+    $response = mcpRpc($this->editorToken, 'resources/list', [], 7)->assertOk()
         ->assertJsonPath('id', 7)
         ->assertJsonPath('error.code', -32603);
 
@@ -513,15 +503,6 @@ it('answers an unexpected server failure with a generic JSON-RPC internal error'
         ->not->toContain('SQLSTATE')
         ->not->toContain('trace');
     Log::shouldHaveReceived('error')->once();
-});
-
-it('rejects non-string prompt arguments', function (): void {
-    mcpRpc($this->editorToken, 'prompts/get', ['name' => 'event_announcement', 'arguments' => ['title' => ['x' => 'y'], 'date' => '15 ноября', 'link' => 'https://mag-expert.ru/e/1']])
-        ->assertOk()
-        ->assertJsonPath('error.code', -32602)
-        ->assertJsonPath('error.message', 'Аргументы сценария должны быть строками: title');
-    mcpRpc($this->editorToken, 'prompts/get', ['name' => 'improve_letter', 'arguments' => ['template' => 15]])
-        ->assertJsonPath('error.code', -32602);
 });
 
 it('does not leave a new folder behind when a letter fails validation', function (): void {
@@ -580,23 +561,20 @@ it('does not write the audit log when the test letter is blocked', function (): 
     Queue::assertNothingPushed();
 });
 
-it('gives every organization neutral assistant rules without another company’s specifics', function (): void {
+it('gives the assistant only data, without rules of how to write or another company’s specifics', function (): void {
     $other = Organization::create(['name' => 'Ромашка', 'slug' => 'romashka']);
     $token = app(McpTokens::class)->issue(mcpUser('editor', $other), 'Ключ')['plain'];
     $specific = '/врач|медицин|medalliance|медальянс|magexpert|нмо/iu';
 
     $brand = mcpTool($token, 'get_brand')['structuredContent'];
     expect($brand['organization']['name'])->toBe('Ромашка')
-        ->and($brand['rules'])->toHaveCount(4)
-        ->and(implode("\n", $brand['rules']))->toContain('«вы»', 'Arial', '{{ unsubscribe_url }}')
+        ->and($brand)->toHaveKeys(['organization', 'sender', 'style'])
+        ->not->toHaveKeys(['rules', 'instructions', 'ask_before_writing'])
         ->and(json_encode($brand, JSON_UNESCAPED_UNICODE))->not->toMatch($specific);
 
     $texts = [
         mcpRpc($token, 'initialize', [])->json('result.instructions'),
-        mcpRpc($token, 'resources/read', ['uri' => 'sender://guide/letters'])->json('result.contents.0.text'),
-        json_encode(mcpRpc($token, 'prompts/list')->json('result.prompts'), JSON_UNESCAPED_UNICODE),
-        mcpRpc($token, 'prompts/get', ['name' => 'event_announcement', 'arguments' => ['title' => 'Весенняя встреча', 'date' => '15 ноября', 'link' => 'https://example.com/e/1']])
-            ->json('result.messages.0.content.text'),
+        json_encode(mcpRpc($token, 'tools/list')->json('result.tools'), JSON_UNESCAPED_UNICODE),
         json_encode(mcpTool($token, 'list_variables')['structuredContent']['base'], JSON_UNESCAPED_UNICODE),
     ];
 

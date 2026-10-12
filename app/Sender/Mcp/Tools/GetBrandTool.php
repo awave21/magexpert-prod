@@ -24,8 +24,8 @@ class GetBrandTool implements Tool
     public function description(): string
     {
         return 'Фирменный стиль организации, которому должны следовать письма: название, отправитель по умолчанию и адреса отправителей, '
-            .'цвета, шрифты и логотип (выведены из последних писем, помечены inferred), правила тона. '
-            .'Вызывайте перед созданием или переделкой письма. Organization branding: name, default sender, inferred colors/fonts/logo, tone rules.';
+            .'цвета, шрифты и логотип (выведены из последних писем, помечены inferred). '
+            .'Organization branding: name, default sender, inferred colors/fonts/logo.';
     }
 
     public function schema(): array

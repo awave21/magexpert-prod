@@ -18,8 +18,17 @@ class CampaignRequest extends FormRequest
      */
     public function rules(): array
     {
+        return self::campaignRules($this->attributes->get('sender_organization')?->id);
+    }
+
+    /**
+     * Правила рассылки: их же проверяет ИИ-ассистент через MCP.
+     *
+     * @return array<string, mixed>
+     */
+    public static function campaignRules(?int $organizationId): array
+    {
         $connection = config('sender.connection', 'sender');
-        $organizationId = $this->attributes->get('sender_organization')?->id;
 
         return [
             'name' => ['required', 'string', 'max:200'],
@@ -47,6 +56,14 @@ class CampaignRequest extends FormRequest
      * @return array<string, string>
      */
     public function messages(): array
+    {
+        return self::campaignMessages();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function campaignMessages(): array
     {
         return [
             'name.required' => 'Назовите рассылку',
@@ -82,7 +99,16 @@ class CampaignRequest extends FormRequest
     {
         $data = parent::validated($key, $default);
 
-        if ($key === null && ($data['send_mode'] ?? null) === Campaign::MODE_NOW) {
+        return $key === null ? self::withoutDripSettings($data) : $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function withoutDripSettings(array $data): array
+    {
+        if (($data['send_mode'] ?? null) === Campaign::MODE_NOW) {
             $data = [...$data, 'batch_size' => null, 'batch_interval' => null, 'daily_limit' => null, 'window_start' => null, 'window_end' => null, 'window_days' => null];
         }
 
