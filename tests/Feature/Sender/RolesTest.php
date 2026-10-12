@@ -186,6 +186,9 @@ it('makes the creator of a new organization its owner', function (): void {
     $this->postJson(rolesApi('/register'), [
         'organization' => 'Клиника', 'name' => 'Анна', 'email' => 'anna@clinic.ru', 'password' => 'long-password', 'accept_policy' => true,
     ])->assertCreated()->assertJsonPath('user.role', 'owner')->assertJsonPath('user.is_owner', true);
+
+    // почту при регистрации по паролю никто не проверял
+    expect(User::query()->where('email', 'anna@clinic.ru')->value('email_verified_at'))->toBeNull();
 });
 
 it('makes the first admin created from the console the owner', function (): void {
@@ -197,7 +200,9 @@ it('makes the first admin created from the console the owner', function (): void
 
     expect(User::query()->where('email', 'boss@empty.ru')->value('role'))->toBe('owner')
         ->and(User::query()->where('email', 'second@empty.ru')->value('role'))->toBe('admin')
-        ->and($empty->users()->count())->toBe(2);
+        ->and($empty->users()->count())->toBe(2)
+        // адрес из консоли указал администратор сервера: вход через Яндекс по email к нему привяжется
+        ->and(User::query()->where('email', 'boss@empty.ru')->value('email_verified_at'))->not->toBeNull();
 });
 
 it('asks an owner without a password to set one before transferring ownership', function (): void {

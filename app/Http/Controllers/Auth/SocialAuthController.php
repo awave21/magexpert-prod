@@ -177,6 +177,14 @@ class SocialAuthController extends Controller
         // и к аккаунту ещё не привязан другой профиль этого провайдера; иначе — вход по паролю и привязка
         if ($user === null && in_array($provider, SocialAccounts::TRUSTED_EMAIL, true)) {
             $owner = $this->accounts->userByEmail($profile['email']);
+
+            // аккаунт с неподтверждённой почтой мог завести кто угодно: не входим в него и не привязываем вход
+            if ($owner !== null && $owner->email_verified_at === null) {
+                Log::channel('social')->info('Вход по email не привязан: почта аккаунта не подтверждена', ['provider' => $provider, 'user_id' => $owner->id]);
+
+                return redirect()->route('login')->withErrors(['email' => SocialAccounts::UNVERIFIED_EMAIL]);
+            }
+
             $user = $owner !== null && ! $owner->socialAccounts()->where('provider', $provider)->exists() ? $owner : null;
         }
 
@@ -314,6 +322,7 @@ class SocialAuthController extends Controller
 
     private function phoneResult(User $user, array $profile, string $back): RedirectResponse
     {
+        $alreadyVerified = filled($user->phone) && $user->phone_verified_at !== null;
         $status = $this->accounts->applyPhone($user, $profile['phone']);
         $verified = in_array($status, [SocialAccounts::PHONE_FILLED, SocialAccounts::PHONE_VERIFIED], true);
         $text = $this->accounts->message($profile['provider'], $status);
@@ -326,6 +335,11 @@ class SocialAuthController extends Controller
             'profile_has_phone' => filled($user->phone),
             'status' => $status,
         ]);
+
+        // телефон уже подтверждён раньше (Яндексом или иначе): что передал этот провайдер, неважно, ошибку не показываем
+        if ($alreadyVerified && ! $verified) {
+            return redirect()->to($back)->with('message', self::NAMES[$profile['provider']].' привязан.');
+        }
 
         // итог показываем и всплывающим сообщением, и прямо в плашке телефона — чтобы его нельзя было пропустить
         return redirect()->to($back)

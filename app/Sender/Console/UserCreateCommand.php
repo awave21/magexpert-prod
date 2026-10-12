@@ -57,7 +57,7 @@ class UserCreateCommand extends Command
             $role = User::ROLE_OWNER;
         }
 
-        User::query()->updateOrCreate(
+        $user = User::query()->updateOrCreate(
             ['email' => $email],
             [
                 'organization_id' => $organization->id,
@@ -68,6 +68,10 @@ class UserCreateCommand extends Command
                 'is_active' => true,
             ],
         );
+
+        // адрес указал администратор сервера: считаем его подтверждённым
+        $user->email_verified_at ??= now();
+        $user->save();
 
         $this->info("Пользователь {$email} готов (организация {$slug}).");
 

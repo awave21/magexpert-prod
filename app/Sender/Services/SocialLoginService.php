@@ -23,7 +23,7 @@ class SocialLoginService
 
     /**
      * @param  array{provider: string, id: string, email: string, name: string}  $profile
-     * @return array{type: 'login'|'register', code: string}
+     * @return array{type: 'login'|'register'|'unverified', code: string}
      */
     public function handle(array $profile): array
     {
@@ -33,6 +33,12 @@ class SocialLoginService
         // иначе чужой профиль ВКонтакте с вашим email открывал бы ваш аккаунт
         if ($user === null && $profile['email'] !== '' && in_array($profile['provider'], self::TRUSTED_EMAIL, true)) {
             $user = User::query()->where('email', $profile['email'])->first();
+
+            // аккаунт с неподтверждённой почтой мог завести кто угодно: не входим в него и не привязываем вход
+            if ($user !== null && $user->email_verified_at === null) {
+                return ['type' => 'unverified', 'code' => ''];
+            }
+
             $user?->socialAccounts()->updateOrCreate(['provider' => $profile['provider']], ['provider_user_id' => $profile['id']]);
         }
 
@@ -79,7 +85,11 @@ class SocialLoginService
 
         $result = $this->auth->register($organization, $pending['name'] ?: Str::before($email, '@'), $pending['email'] ?: $email, Str::random(40));
         // пароль случайный и никому не известен: пользователь задаёт свой в профиле без текущего пароля
-        $result['user']->forceFill(['password_set' => false])->save();
+        // почту из Яндекса он подтвердил сам, а введённую вручную (ВКонтакте её не отдал) — никто
+        $result['user']->forceFill([
+            'password_set' => false,
+            'email_verified_at' => $pending['email'] !== '' && in_array($pending['provider'], self::TRUSTED_EMAIL, true) ? now() : null,
+        ])->save();
         $result['user']->socialAccounts()->create(['provider' => $pending['provider'], 'provider_user_id' => $pending['id']]);
 
         return $result;

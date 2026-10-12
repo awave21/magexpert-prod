@@ -68,6 +68,10 @@ class OAuthController extends Controller
             'name' => $name,
         ]);
 
+        if ($result['type'] === 'unverified') {
+            return $this->back('login', ['error' => 'Аккаунт с этим email уже есть, но почта не подтверждена: войдите по паролю']);
+        }
+
         if ($result['type'] !== 'login' && ! config('sender.registration')) {
             return $this->back('login', ['error' => 'Аккаунта с этим входом через '.self::NAMES[$provider].' нет. '.AuthController::REGISTRATION_CLOSED]);
         }

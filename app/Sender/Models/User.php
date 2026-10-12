@@ -46,6 +46,7 @@ class User extends SenderModel
             'password' => 'hashed',
             'password_set' => 'boolean',
             'is_active' => 'boolean',
+            'email_verified_at' => 'datetime',
         ];
     }
 
