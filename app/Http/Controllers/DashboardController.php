@@ -61,7 +61,7 @@ class DashboardController extends Controller
                 'latest' => MedicalLibrary::query()
                     ->latest('publication_date')
                     ->limit(3)
-                    ->get(['id', 'title', 'publication_date', 'language']),
+                    ->get(['id', 'title', 'publication_date', 'language', 'file_path']),
             ],
             'setup' => [
                 'email_verified' => $user->hasVerifiedEmail(),

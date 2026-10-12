@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\Event;
+use App\Models\MedicalLibrary;
 use App\Models\Notification;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function grantEvent(User $user, Event $event, string $status = 'free'): void
@@ -33,6 +35,14 @@ test('сводка показывает предстоящие мероприя�
         ->where('setup.email_verified', false)
         ->where('setup.phone_verified', false)
         ->where('setup.profile_filled', true));
+});
+
+test('документы библиотеки на сводке отдают прямую ссылку на файл', function () {
+    MedicalLibrary::factory()->create(['file_path' => 'medical-library/guide.pdf']);
+
+    $this->actingAs(User::factory()->create())->get('/dashboard')->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->has('library.latest', 1)
+        ->where('library.latest.0.file_url', Storage::url('medical-library/guide.pdf')));
 });
 
 test('мероприятия делятся на предстоящие и записи', function () {

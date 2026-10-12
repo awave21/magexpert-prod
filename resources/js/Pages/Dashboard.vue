@@ -222,23 +222,25 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                         <span class="cab-eyebrow">Библиотека</span>
                         <h2 id="lib-title" class="font-display text-[26px] font-medium leading-8">Клинические руководства и исследования</h2>
                     </div>
-                    <form class="flex h-[60px] items-center gap-3 rounded-full border border-gray-200 bg-white pl-5 pr-2 dark:border-gray-700 dark:bg-gray-900" role="search" @submit.prevent="searchLibrary">
+                    <form class="flex h-[60px] items-center gap-3 rounded-full border border-gray-200 bg-white pl-5 pr-2 transition focus-within:border-brandblue focus-within:shadow-[0_0_0_4px_#6186b62e] dark:border-gray-700 dark:bg-gray-900" role="search" @submit.prevent="searchLibrary">
                         <MagnifyingGlassIcon class="h-[18px] w-[18px] shrink-0 text-gray-500" aria-hidden="true" />
                         <label for="libq" class="sr-only">Поиск по библиотеке</label>
-                        <input id="libq" v-model="libQuery" type="search" placeholder="рак шейки матки" class="min-w-0 flex-1 border-0 bg-transparent p-0 text-base font-semibold focus:ring-0" />
+                        <input id="libq" v-model="libQuery" type="search" placeholder="рак шейки матки" class="min-w-0 flex-1 border-0 bg-transparent p-0 text-base font-semibold outline-none focus:outline-none focus:ring-0" />
                         <button type="submit" class="cab-btn !min-h-11">Найти</button>
                     </form>
                     <div v-if="library.latest.length">
-                        <Link
+                        <a
                             v-for="doc in library.latest"
                             :key="doc.id"
-                            :href="route('documents.show', doc.id)"
+                            :href="doc.file_url ?? route('documents.show', doc.id)"
+                            target="_blank"
+                            rel="noopener"
                             class="flex h-[50px] items-center gap-3.5 rounded-xl border-b border-gray-100 px-3 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                         >
                             <span class="rounded-lg bg-brandblue-soft px-2 py-1 text-[11px] font-extrabold text-brandblue-dark">PDF</span>
                             <span class="min-w-0 flex-1 truncate text-[15px] font-bold">{{ doc.title }}</span>
                             <span class="shrink-0 text-[13px] text-gray-500">{{ [year(doc.publication_date), doc.language?.toUpperCase()].filter(Boolean).join(' · ') }}</span>
-                        </Link>
+                        </a>
                     </div>
                     <Link :href="route('documents.index')" class="self-start text-[15px] font-bold text-brandblue-dark hover:underline">
                         Открыть библиотеку{{ library.total ? ` · ${library.total}` : '' }} →
