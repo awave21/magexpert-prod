@@ -1,11 +1,11 @@
 <?php
 
+use App\Models\AssistantQuestion;
 use App\Models\LibraryChunk;
 use App\Models\LibraryIndex;
 use App\Models\MedicalLibrary;
 use App\Models\User;
 use App\Services\Assistant\LibraryAnswerAgent;
-use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Embeddings;
 
 /**
@@ -60,7 +60,7 @@ test('отвечает по найденному фрагменту и став�
         ->assertJsonCount(1, 'sources')
         ->assertJsonPath('sources.0.page', 3)
         ->assertJsonPath('sources.0.language', 'en')
-        ->assertJsonPath('sources.0.url', Storage::url('medical-library/22/files/guide.pdf').'#page=3');
+        ->assertJsonPath('sources.0.url', route('documents.show', ['document' => $this->document->id, 'page' => 3, 'question' => AssistantQuestion::sole()->id]));
 
     LibraryAnswerAgent::assertPrompted(fn ($prompt) => str_contains($prompt->prompt, '[1] Документ «Руководство по местной анестезии», стр. 3')
         && ! str_contains($prompt->prompt, 'Unrelated history'));

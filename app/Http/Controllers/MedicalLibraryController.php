@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AssistantQuestion;
+use App\Models\LibraryDocumentOpen;
 use App\Models\MedicalLibrary;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 class MedicalLibraryController extends Controller
 {
@@ -35,11 +38,11 @@ class MedicalLibraryController extends Controller
         // Сортировка
         $sort = $request->get('sort', 'publication_date');
         $direction = $request->get('direction', 'desc');
-        
+
         // Валидация направления сортировки
         $allowedSorts = ['title', 'publication_date'];
         $allowedDirections = ['asc', 'desc'];
-        
+
         if (in_array($sort, $allowedSorts) && in_array($direction, $allowedDirections)) {
             $query->orderBy($sort, $direction);
         } else {
@@ -79,17 +82,30 @@ class MedicalLibraryController extends Controller
     }
 
     /**
-     * Показать конкретный документ - перенаправляем к файлу.
+     * Открыть документ: запоминаем открытие для админки и перенаправляем к файлу, при ?page= — сразу на страницу.
+     * ?question= — ID вопроса к ИИ-помощнику, из ответа на который открыли документ (засчитывается только свой вопрос).
      */
-    public function show(MedicalLibrary $document)
+    public function show(Request $request, MedicalLibrary $document): RedirectResponse
     {
-        // Если есть файл, перенаправляем к нему
-        if ($document->file_url) {
-            return redirect($document->file_url);
+        if (! $document->file_url) {
+            return redirect()->route('documents.index')
+                ->with('error', 'Файл документа не найден.');
         }
-        
-        // Если файла нет, возвращаем на страницу списка с ошибкой
-        return redirect()->route('documents.index')
-            ->with('error', 'Файл документа не найден.');
+
+        $page = $request->integer('page');
+        $page = $page >= 1 && $page <= 10000 ? $page : null;
+        $question = $request->user() && $request->integer('question') > 0
+            ? AssistantQuestion::query()->whereKey($request->integer('question'))->where('user_id', $request->user()->id)->value('id')
+            : null;
+
+        LibraryDocumentOpen::create([
+            'medical_library_id' => $document->id,
+            'user_id' => $request->user()?->id,
+            'assistant_question_id' => $question,
+            'source' => $question ? LibraryDocumentOpen::FROM_ASSISTANT : LibraryDocumentOpen::FROM_LIBRARY,
+            'page' => $page,
+        ]);
+
+        return redirect($document->file_url.($page ? '#page='.$page : ''));
     }
-} 
+}

@@ -13,7 +13,18 @@ final class AssistantAnswer
     public function __construct(
         public readonly string $text,
         public readonly array $sources = [],
+        public readonly ?string $model = null,
+        public readonly int $inputTokens = 0,
+        public readonly int $outputTokens = 0,
     ) {}
+
+    /**
+     * Тот же ответ с моделью и расходом токенов: для журнала вопросов в админке.
+     */
+    public function withUsage(?string $model, int $inputTokens, int $outputTokens): self
+    {
+        return new self($this->text, $this->sources, $model, $inputTokens, $outputTokens);
+    }
 
     public static function notFound(): self
     {

@@ -31,7 +31,7 @@ test('демо-режим отвечает со сносками на докум
         ->assertJsonPath('found', true)
         ->assertJsonPath('sources.0.number', 1)
         ->assertJsonPath('sources.0.document_id', $document->id)
-        ->assertJsonPath('sources.0.url', $document->file_url.'#page='.($document->id % 12 + 1));
+        ->assertJsonPath('sources.0.url', route('documents.show', ['document' => $document->id, 'page' => $document->id % 12 + 1, 'question' => App\Models\AssistantQuestion::sole()->id]));
 });
 
 test('демо-режим не включается в продакшене', function () {

@@ -32,12 +32,13 @@ class RagLibraryAssistant implements LibraryAssistant
             return AssistantAnswer::notFound();
         }
 
-        $text = trim((new LibraryAnswerAgent)->prompt($this->prompt($question, $chunks))->text);
-        if ($text === '' || str_contains($text, LibraryAnswerAgent::NOT_FOUND)) {
-            return AssistantAnswer::notFound();
-        }
+        $response = (new LibraryAnswerAgent)->prompt($this->prompt($question, $chunks));
+        $text = trim($response->text);
+        $answer = $text === '' || str_contains($text, LibraryAnswerAgent::NOT_FOUND)
+            ? AssistantAnswer::notFound()
+            : ($this->withSources($text, $chunks) ?? AssistantAnswer::notFound());
 
-        return $this->withSources($text, $chunks) ?? AssistantAnswer::notFound();
+        return $answer->withUsage(config('ai.providers.beget.models.text.default'), $response->usage->inputTokens, $response->usage->outputTokens);
     }
 
     /**

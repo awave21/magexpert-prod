@@ -230,7 +230,7 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                         <a
                             v-for="doc in library.latest"
                             :key="doc.id"
-                            :href="doc.file_url ?? route('documents.show', doc.id)"
+                            :href="route('documents.show', doc.id)"
                             target="_blank"
                             rel="noopener"
                             class="flex h-[50px] items-center gap-3.5 rounded-xl border-b border-gray-100 px-3 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"

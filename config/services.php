@@ -63,6 +63,15 @@ return [
         'driver' => env('ASSISTANT_DRIVER'),
         // фрагменты с косинусной близостью к вопросу ниже порога в поиск по смыслу не попадают
         'min_similarity' => (float) env('ASSISTANT_MIN_SIMILARITY', 0.25),
+        // журнал вопросов и открытий документов хранится столько месяцев, затем удаляется (model:prune)
+        'history_months' => (int) env('ASSISTANT_HISTORY_MONTHS', 12),
+        // цены ИИ-шлюза Beget, ₽ за 1 млн токенов [вход, выход]: для оценки расходов в админке
+        'prices' => [
+            'gpt-6-luna' => [12, 60],
+            'deepseek-v4-flash' => [10, 20],
+            'gemini-3.1-flash-lite' => [30, 179],
+            'text-embedding-3-large' => [16, 0],
+        ],
     ],
 
 ];

@@ -549,6 +549,7 @@ import {
     BuildingOfficeIcon,
     ClipboardDocumentListIcon,
     BellAlertIcon,
+    SparklesIcon,
 } from "@heroicons/vue/24/solid";
 
 // Используем хранилище админа
@@ -610,6 +611,11 @@ const menuItems = [
             routeName: "admin.messages",
             activePattern: "admin.messages*",
             icon: BellAlertIcon,
+        }, {
+            name: "ИИ-помощник",
+            routeName: "admin.assistant",
+            activePattern: "admin.assistant*",
+            icon: SparklesIcon,
         }]
         : []),
 ];

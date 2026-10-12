@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AssistantAnalyticsController;
 use App\Http\Controllers\Admin\CabinetMessageController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\EventController;
@@ -206,6 +207,9 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
         Route::get('/messages', [CabinetMessageController::class, 'index'])->name('admin.messages');
         Route::get('/messages/count', [CabinetMessageController::class, 'count'])->name('admin.messages.count');
         Route::post('/messages', [CabinetMessageController::class, 'store'])->middleware('throttle:20,1')->name('admin.messages.store');
+
+        // ИИ-помощник: какие вопросы задают и какие документы открывают
+        Route::get('/assistant', [AssistantAnalyticsController::class, 'index'])->name('admin.assistant');
 
         // Создание пользователя
         Route::post('/users', [AdminUserController::class, 'store'])->name('admin.users.store');

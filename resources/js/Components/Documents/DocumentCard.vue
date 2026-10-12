@@ -120,7 +120,7 @@ const getLanguageLabel = (language) => {
       <div v-if="document.file_url">
         <!-- Кнопка просмотра статьи -->
         <a 
-          :href="document.file_url"
+          :href="route('documents.show', document.id)"
           target="_blank"
           class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg cursor-pointer text-brandcoral transition-all duration-200 bg-brandcoral/10 hover:bg-brandcoral hover:text-white"
           @click.stop
