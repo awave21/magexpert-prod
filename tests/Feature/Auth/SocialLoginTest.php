@@ -3,6 +3,7 @@
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Sender\Contracts\SenderClient;
+use App\Services\SocialAccounts;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
@@ -58,6 +59,20 @@ it('links yandex to an existing account with the same email', function (): void 
 
     $this->assertAuthenticatedAs($user);
     expect($user->socialAccounts()->where('provider', 'yandex')->value('provider_user_id'))->toBe('222');
+});
+
+it('does not sign in or link yandex to an account whose email is not confirmed', function (): void {
+    $squatter = User::factory()->unverified()->create(['email' => 'anna@yandex.ru']);
+    fakeSocialUser('yandex', ['id' => 'y-victim', 'first_name' => 'Анна'], 'anna@yandex.ru');
+
+    $this->get('/auth/yandex/callback?code=x')
+        ->assertRedirect(route('login'))
+        ->assertSessionHasErrors(['email' => SocialAccounts::UNVERIFIED_EMAIL]);
+
+    $this->assertGuest();
+    expect($squatter->socialAccounts()->exists())->toBeFalse()
+        ->and(User::query()->count())->toBe(1)
+        ->and(session()->has(App\Http\Controllers\Auth\SocialAuthController::PENDING))->toBeFalse();
 });
 
 it('finds an old account with a mixed-case email when signing in with yandex', function (): void {
@@ -207,6 +222,22 @@ it('links vk from the profile and confirms the matching phone', function (): voi
         ->and($user->fresh()->phone)->toBe('8 999 123-45-67')
         ->and($user->socialAccounts()->value('provider_user_id'))->toBe('701');
 });
+
+it('does not complain about the phone when it is already confirmed and vk does not share a number', function (?string $vkPhone): void {
+    $user = User::factory()->create(['phone' => '+7 (917) 385-37-42', 'phone_verified_at' => now()->subDay()]);
+    fakeSocialUser('vkid', array_filter(['id' => '901', 'first_name' => 'Максим', 'phone' => $vkPhone]), null);
+
+    $this->actingAs($user)->from(route('cabinet.security'))->get('/auth/vkid/link');
+    $this->get('/auth/vkid/callback?code=x&device_id=d')
+        ->assertRedirect(route('cabinet.security'))
+        ->assertSessionHas('message', 'ВКонтакте привязан.')
+        ->assertSessionMissing('phone_result')
+        ->assertSessionMissing('error');
+
+    expect($user->fresh()->phone)->toBe('+7 (917) 385-37-42')
+        ->and($user->fresh()->phone_verified_at)->not->toBeNull()
+        ->and($user->socialAccounts()->value('provider'))->toBe('vkid');
+})->with(['no number from vk' => null, 'another number in vk' => '79990001122']);
 
 it('does not overwrite a different phone and refuses an account linked to someone else', function (): void {
     $user = User::factory()->create(['phone' => '+7 900 000-00-00']);

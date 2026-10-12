@@ -33,6 +33,7 @@ function oauthCode(Illuminate\Testing\TestResponse $response, string $page): str
 it('signs in an existing sender user by the email from yandex and links the account', function (): void {
     $organization = Organization::create(['name' => 'MagExpert', 'slug' => 'magexpert']);
     $user = User::create(['organization_id' => $organization->id, 'name' => 'Админ', 'email' => 'anna@yandex.ru', 'password' => 'secret-pass']);
+    $user->forceFill(['email_verified_at' => now()])->save();
     senderSocial('yandex', 'y1', 'Anna@Yandex.ru');
 
     $code = oauthCode($this->get('/sender/oauth/yandex/callback?code=x&state=s'), 'login');
@@ -45,6 +46,32 @@ it('signs in an existing sender user by the email from yandex and links the acco
     // код одноразовый
     $this->postJson('/api/sender/v1/admin/oauth/exchange', ['code' => $code])->assertUnprocessable();
     expect(SocialAccount::query()->where('user_id', $user->id)->value('provider_user_id'))->toBe('y1');
+});
+
+it('does not sign in or link yandex to a sender account with an unconfirmed email', function (): void {
+    $organization = Organization::create(['name' => 'Чужая', 'slug' => 'stranger']);
+    $squatter = User::create(['organization_id' => $organization->id, 'name' => 'Захватчик', 'email' => 'anna@yandex.ru', 'password' => 'secret-pass']);
+    senderSocial('yandex', 'y-victim', 'anna@yandex.ru');
+
+    $location = urldecode((string) $this->get('/sender/oauth/yandex/callback?code=x&state=s')->headers->get('Location'));
+
+    expect($location)->toContain('/sender/login?error=Аккаунт с этим email уже есть, но почта не подтверждена')
+        ->not->toContain('oauth=')
+        ->and($squatter->socialAccounts()->exists())->toBeFalse()
+        ->and(SocialAccount::query()->count())->toBe(0);
+});
+
+it('confirms the email of an organization registered through yandex but not of one with a typed email', function (): void {
+    senderSocial('yandex', 'y7', 'owner@yandex.ru');
+    $code = oauthCode($this->get('/sender/oauth/yandex/callback?code=x&state=s'), 'register');
+    $this->postJson('/api/sender/v1/admin/oauth/register', ['code' => $code, 'organization' => 'Клиника', 'accept_policy' => true])->assertCreated();
+
+    senderSocial('vkid', 'v7', null);
+    $code = oauthCode($this->get('/sender/oauth/vkid/callback?code=x&device_id=d'), 'register');
+    $this->postJson('/api/sender/v1/admin/oauth/register', ['code' => $code, 'organization' => 'Другая', 'email' => 'typed@clinic.ru', 'accept_policy' => true])->assertCreated();
+
+    expect(User::query()->where('email', 'owner@yandex.ru')->value('email_verified_at'))->not->toBeNull()
+        ->and(User::query()->where('email', 'typed@clinic.ru')->value('email_verified_at'))->toBeNull();
 });
 
 it('registers a new organization after vk login without a password', function (): void {
