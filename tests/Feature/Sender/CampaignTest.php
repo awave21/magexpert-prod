@@ -115,6 +115,76 @@ it('imports a windows-1251 csv saved from excel and a plain list of addresses', 
         ->assertOk()->assertJsonPath('data.added', 3);
 });
 
+it('shows the columns of a file before the import with samples and a guess', function (): void {
+    $csv = "Почта;ФИО;Город;Стаж\nanna@example.com;Анна;Москва;5\npetr@example.com;Пётр;;12\n";
+
+    $this->withToken($this->token)->post(senderAdmin('/lists/import-preview'), [
+        'file' => UploadedFile::fake()->createWithContent('base.csv', $csv),
+    ], ['Accept' => 'application/json'])
+        ->assertOk()
+        ->assertJsonPath('data.rows', 2)
+        ->assertJsonPath('data.header', true)
+        ->assertJsonPath('data.columns.0', ['index' => 0, 'header' => 'Почта', 'samples' => ['anna@example.com', 'petr@example.com'], 'role' => 'email', 'key' => 'pocta'])
+        ->assertJsonPath('data.columns.1.role', 'name')
+        ->assertJsonPath('data.columns.2', ['index' => 2, 'header' => 'Город', 'samples' => ['Москва'], 'role' => 'field', 'key' => 'gorod'])
+        ->assertJsonPath('data.columns.3.key', 'staz')
+        ->assertJsonPath('data.sample_rows', [['anna@example.com', 'Анна', 'Москва', '5'], ['petr@example.com', 'Пётр', '', '12']]);
+
+    // список без заголовка
+    $this->withToken($this->token)->postJson(senderAdmin('/lists/import-preview'), ['text' => "one@example.com;Один\ntwo@example.com;Два"])
+        ->assertOk()
+        ->assertJsonPath('data.header', false)
+        ->assertJsonPath('data.rows', 2)
+        ->assertJsonPath('data.columns.0.role', 'email')
+        ->assertJsonPath('data.columns.1.role', 'name');
+
+    expect($this->list->contacts()->count())->toBe(0);
+});
+
+it('imports with the chosen mapping and skips columns left out', function (): void {
+    $csv = "Контакт;Кто;Город;Внутренний id\nМосква;anna@example.com;Анна;17\nКазань;petr@example.com;Пётр;18\n";
+    $mapping = ['email' => 1, 'name' => 2, 'header' => true, 'fields' => ['0' => 'city']];
+
+    $this->withToken($this->token)->post(senderAdmin('/lists/'.$this->list->id.'/import'), [
+        'file' => UploadedFile::fake()->createWithContent('base.csv', $csv),
+        'mapping' => json_encode($mapping),
+    ], ['Accept' => 'application/json'])
+        ->assertOk()
+        ->assertJsonPath('data.rows', 2)
+        ->assertJsonPath('data.added', 2)
+        ->assertJsonPath('data.columns', ['city']);
+
+    $anna = $this->list->contacts()->where('email', 'anna@example.com')->first();
+    expect($anna->name)->toBe('Анна')->and($anna->data)->toBe(['city' => 'Москва']);
+
+    // без заголовка первая строка тоже загружается
+    $this->withToken($this->token)->postJson(senderAdmin('/lists/'.$this->list->id.'/import'), [
+        'text' => "olga@example.com,Ольга\nivan@example.com,Иван",
+        'mapping' => ['email' => 0, 'name' => null, 'header' => false, 'fields' => ['1' => 'first_name']],
+    ])->assertOk()->assertJsonPath('data.added', 2);
+
+    expect($this->list->contacts()->where('email', 'olga@example.com')->first())
+        ->name->toBeNull()
+        ->data->toBe(['first_name' => 'Ольга']);
+});
+
+it('rejects a broken mapping', function (array $mapping, string $error): void {
+    $this->withToken($this->token)->postJson(senderAdmin('/lists/'.$this->list->id.'/import'), ['text' => 'a@example.com;A', 'mapping' => $mapping])
+        ->assertUnprocessable()->assertJsonValidationErrors($error);
+})->with([
+    'нет колонки адреса' => [['name' => 1], 'mapping.email'],
+    'имя в колонке адреса' => [['email' => 0, 'name' => 0], 'mapping.name'],
+    'кириллица в переменной' => [['email' => 0, 'fields' => ['1' => 'город']], 'mapping.fields.1'],
+    'одинаковые переменные' => [['email' => 0, 'fields' => ['1' => 'city', '2' => 'city']], 'mapping.fields.1'],
+]);
+
+it('lets only editors look at a file before the import', function (): void {
+    User::create(['organization_id' => $this->organization->id, 'name' => 'Зритель', 'email' => 'viewer@example.com', 'password' => 'secret-pass', 'role' => 'viewer']);
+    $viewer = (new AuthService)->login('viewer@example.com', 'secret-pass')['token'];
+
+    $this->withToken($viewer)->postJson(senderAdmin('/lists/import-preview'), ['text' => 'a@example.com'])->assertForbidden();
+});
+
 it('rejects an import without a file or text and a non-csv file', function (): void {
     $this->withToken($this->token)->postJson(senderAdmin('/lists/'.$this->list->id.'/import'), [])
         ->assertUnprocessable()->assertJsonValidationErrors('text');

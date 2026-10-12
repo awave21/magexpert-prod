@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Clock, Pause, Play, Send, Trash2, X } from 'lucide-react'
 import { api, ApiError, type Campaign, type Contact, type ContactList, type ListField, type Paged, type Segment, type SenderAddress, type Template } from '../api'
 import { BackLink, CampaignStatus, Modal, fmtDate, useToast } from '../components/ui'
+import { usePermissions } from '../auth'
 import { WEEKDAYS, estimateFinish, fmtWhen, nextOpening, perHour, type Schedule } from '../schedule'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
@@ -45,6 +46,7 @@ export default function CampaignEditor() {
 
 function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign?: Campaign; initialList: string | null; onSaved: (c: Campaign) => void; onDeleted: () => void }) {
   const toast = useToast()
+  const { canEdit } = usePermissions()
   const qc = useQueryClient()
   const [name, setName] = useState(campaign?.name ?? '')
   const [templateId, setTemplateId] = useState<number | ''>(campaign?.template?.id ?? '')
@@ -206,13 +208,14 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
             <h1>{campaign ? campaign.name || 'Без названия' : 'Новая рассылка'}</h1>
             {campaign && <div className="tpl-meta"><CampaignStatus campaign={campaign} /></div>}
           </div>
-          <div className="row">
+          {canEdit && <div className="row">
             {campaign && <button type="button" className="btn icon" onClick={() => setRemoving(true)} aria-label="Удалить черновик" title="Удалить черновик"><Trash2 size={15} /></button>}
             <button type="button" className="btn" disabled={!template} onClick={() => { setErrors({}); setTestOpen(true) }}><Send size={15} />Отправить тест</button>
             <button className="btn" disabled={!dirty || !name.trim() || save.isPending}>{save.isPending ? 'Сохраняем…' : 'Сохранить черновик'}</button>
             <button type="button" className="btn primary" disabled={!ready || send.isPending} onClick={() => setConfirm(true)}>{later ? 'Запланировать' : 'Отправить'}</button>
-          </div>
+          </div>}
         </div>
+        {!canEdit && <ReadOnlyNote />}
 
         <div className="tpl-grid">
           <div className="tpl-edit">
@@ -446,6 +449,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
 
 function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChanged: (c: Campaign) => void }) {
   const toast = useToast()
+  const { canEdit } = usePermissions()
   const s = c.stats ?? { pending: 0, cancelled: 0, queued: 0, sent: 0, delivered: 0, bounced: 0, failed: 0, blocked: 0, opened: 0, clicked: 0, links: [] }
   const total = Math.max(c.recipients_count, s.pending + s.queued + s.sent + s.failed + s.blocked + s.bounced + s.cancelled, 1)
   const pct = (v: number) => `${(v / total) * 100}%`
@@ -489,9 +493,9 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
           <div className="tpl-meta"><CampaignStatus campaign={c} /><span className="sub">запущена {fmtDate(c.started_at)}</span></div>
         </div>
         <div className="row">
-          {running && <button className="btn" disabled={action.isPending} onClick={() => action.mutate('pause')}><Pause size={15} />Пауза</button>}
-          {c.status === 'paused' && <button className="btn primary" disabled={action.isPending} onClick={() => action.mutate('resume')}><Play size={15} />Продолжить</button>}
-          {(running || c.status === 'paused') && <button className="btn" disabled={action.isPending} onClick={() => setCancelling(true)}><X size={15} />Отменить</button>}
+          {canEdit && running && <button className="btn" disabled={action.isPending} onClick={() => action.mutate('pause')}><Pause size={15} />Пауза</button>}
+          {canEdit && c.status === 'paused' && <button className="btn primary" disabled={action.isPending} onClick={() => action.mutate('resume')}><Play size={15} />Продолжить</button>}
+          {canEdit && (running || c.status === 'paused') && <button className="btn" disabled={action.isPending} onClick={() => setCancelling(true)}><X size={15} />Отменить</button>}
           <Link to="/messages" className="btn">Журнал отправки</Link>
         </div>
       </div>
@@ -551,6 +555,14 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
 }
 
 // значение для <input type="datetime-local"> во времени компьютера
+function ReadOnlyNote() {
+  return (
+    <div className="callout" style={{ marginBottom: 24 }}>
+      <div><b>Только просмотр</b><span>Создавать, менять и запускать рассылки может редактор или администратор.</span></div>
+    </div>
+  )
+}
+
 function toLocalInput(iso: string): string {
   const d = new Date(iso)
   const pad = (v: number) => String(v).padStart(2, '0')

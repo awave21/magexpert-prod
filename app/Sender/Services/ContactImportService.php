@@ -10,7 +10,8 @@ use Illuminate\Support\Str;
  * Загрузка подписчиков в базу из CSV (в том числе сохранённого из Excel) или из списка адресов.
  *
  * Первая строка считается заголовком, если в ней нет адресов. Колонки email и имени узнаются
- * по названию, остальные колонки сохраняются как переменные подписчика.
+ * по названию, остальные колонки сохраняются как переменные подписчика. Перед загрузкой
+ * можно посмотреть колонки (preview) и передать своё сопоставление (mapping).
  */
 class ContactImportService
 {
@@ -24,22 +25,117 @@ class ContactImportService
     private const REPORT_LIMIT = 100;
 
     /**
+     * Сколько первых строк файла показать при просмотре.
+     */
+    private const SAMPLE_ROWS = 5;
+
+    /**
+     * Сколько колонок показать при просмотре: дальше колонки не выбрать (mapping принимает номера до 200).
+     */
+    public const MAX_COLUMNS = 200;
+
+    /**
+     * Сколько первых строк файла просмотреть в поисках примеров значений.
+     */
+    private const SCAN_ROWS = 1000;
+
+    /**
+     * Колонки файла до загрузки: что в них, примеры значений и догадка, что это за колонка.
+     *
+     * Показывается не больше MAX_COLUMNS колонок (columns_truncated — остальные отброшены), а примеры
+     * собираются за один проход по первым SCAN_ROWS строкам: строка из тысячи разделителей не раздувает ответ.
+     *
+     * @return array{rows: int, header: bool, columns: list<array{index: int, header: string, samples: list<string>, role: 'email'|'name'|'field', key: string}>, sample_rows: list<list<string>>, columns_truncated: bool}
+     */
+    public function preview(string $content): array
+    {
+        $rows = $this->rows($this->toUtf8($content));
+
+        if ($rows === []) {
+            return ['rows' => 0, 'header' => false, 'columns' => [], 'sample_rows' => [], 'columns_truncated' => false];
+        }
+
+        $cells = array_column($rows, 1);
+        [$emailColumn, $nameColumn, $extra, $hasHeader] = $this->columns($cells);
+        $headers = $hasHeader ? array_shift($cells) : [];
+        $scanned = array_slice($cells, 0, self::SCAN_ROWS);
+
+        $width = count($headers);
+        foreach ($scanned as $row) {
+            $width = max($width, count($row));
+        }
+
+        $truncated = $width > self::MAX_COLUMNS;
+        $width = min($width, self::MAX_COLUMNS);
+
+        /** @var array<int, list<string>> $samples */
+        $samples = array_fill(0, $width, []);
+        $missing = $width;
+
+        foreach ($scanned as $row) {
+            if ($missing === 0) {
+                break;
+            }
+
+            foreach (array_slice($row, 0, $width) as $index => $value) {
+                if ($value !== '' && count($samples[$index]) < self::SAMPLE_ROWS) {
+                    $samples[$index][] = Str::limit($value, 60);
+                    $missing -= count($samples[$index]) === self::SAMPLE_ROWS ? 1 : 0;
+                }
+            }
+        }
+
+        $columns = [];
+
+        for ($index = 0; $index < $width; $index++) {
+            $header = trim((string) ($headers[$index] ?? ''));
+
+            $columns[] = [
+                'index' => $index,
+                'header' => $header,
+                'samples' => $samples[$index],
+                'role' => $index === $emailColumn ? 'email' : ($index === $nameColumn ? 'name' : 'field'),
+                'key' => $extra[$index] ?? $this->key($header, $index),
+            ];
+        }
+
+        $sampleRows = array_map(
+            fn (array $row): array => array_map(fn (int $i): string => Str::limit((string) ($row[$i] ?? ''), 60), range(0, max(0, $width - 1))),
+            array_slice($cells, 0, self::SAMPLE_ROWS),
+        );
+
+        return ['rows' => count($cells), 'header' => $hasHeader, 'columns' => $columns, 'sample_rows' => $sampleRows, 'columns_truncated' => $truncated];
+    }
+
+    /**
      * added — новые адреса, updated — уже были в базе (обновлены имя и переменные),
      * duplicates — повторы внутри файла (сохраняется последняя строка), skipped — строки без корректного адреса.
      *
-     * @return array{rows: int, added: int, updated: int, duplicates: int, skipped: int, columns: list<string>,
+     * $mapping — выбор пользователя после просмотра: колонка адреса, колонка имени, какие колонки
+     * сохранить переменными и под какими ключами, есть ли строка заголовка. Колонки вне mapping не загружаются.
+     *
+     * $consent — у адресов есть согласие на рассылку. Без него новые адреса ждут подтверждения подписки
+     * (pending — сколько их): рассылки им не уходят, пока они не откроют ссылку из письма подтверждения.
+     * Адреса, которые уже были в базе, своё состояние сохраняют.
+     *
+     * @param  array{email: int, name?: ?int, fields?: array<int|string, string>, header?: bool}|null  $mapping
+     * @return array{rows: int, added: int, updated: int, duplicates: int, skipped: int, pending: int, columns: list<string>,
      *     skipped_rows: list<array{line: int, value: string}>, duplicate_rows: list<array{line: int, email: string, first_line: int}>}
      */
-    public function import(ContactList $list, string $content): array
+    public function import(ContactList $list, string $content, ?array $mapping = null, bool $consent = true): array
     {
         $rows = $this->rows($this->toUtf8($content));
-        $result = ['rows' => 0, 'added' => 0, 'updated' => 0, 'duplicates' => 0, 'skipped' => 0, 'columns' => [], 'skipped_rows' => [], 'duplicate_rows' => []];
+        $result = ['rows' => 0, 'added' => 0, 'updated' => 0, 'duplicates' => 0, 'skipped' => 0, 'pending' => 0, 'columns' => [], 'skipped_rows' => [], 'duplicate_rows' => []];
+        // базы из приложения повторяют согласие пользователей сайта: подтверждать там нечего
+        $consent = $consent || $list->isSynced();
 
         if ($rows === []) {
             return $result;
         }
 
-        [$emailColumn, $nameColumn, $extra, $hasHeader] = $this->columns(array_column($rows, 1));
+        [$emailColumn, $nameColumn, $extra, $hasHeader] = $mapping === null
+            ? $this->columns(array_column($rows, 1))
+            : $this->mapped($mapping);
         $result['columns'] = array_values($extra);
 
         if ($hasHeader) {
@@ -110,6 +206,7 @@ class ContactImportService
                     'email' => $email,
                     'name' => $contact['name'],
                     'data' => $contact['data'] === [] ? null : json_encode($contact['data'], JSON_UNESCAPED_UNICODE),
+                    'confirmation_token' => $consent ? null : Str::random(48),
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -118,6 +215,7 @@ class ContactImportService
             if ($insert !== []) {
                 Contact::query()->insert($insert);
                 $result['added'] += count($insert);
+                $result['pending'] += $consent ? 0 : count($insert);
             }
         }
 
@@ -201,10 +299,36 @@ class ContactImportService
             if ($index === $emailColumn || $index === $nameColumn || $header === '') {
                 continue;
             }
-            $key = Str::slug(Str::ascii($header), '_') ?: 'field_'.($index + 1);
-            $extra[$index] = $key;
+            $extra[$index] = $this->key($header, $index);
         }
 
         return [$emailColumn, $nameColumn, $extra, true];
+    }
+
+    /**
+     * @param  array{email: int, name?: ?int, fields?: array<int|string, string>, header?: bool}  $mapping
+     * @return array{0: int, 1: ?int, 2: array<int, string>, 3: bool}
+     */
+    private function mapped(array $mapping): array
+    {
+        $email = (int) $mapping['email'];
+        $name = isset($mapping['name']) ? (int) $mapping['name'] : null;
+        $extra = [];
+
+        foreach ($mapping['fields'] ?? [] as $index => $key) {
+            if ((int) $index !== $email && (int) $index !== $name) {
+                $extra[(int) $index] = $key;
+            }
+        }
+
+        return [$email, $name, $extra, (bool) ($mapping['header'] ?? false)];
+    }
+
+    /**
+     * Ключ переменной из названия колонки: «Город» → gorod.
+     */
+    private function key(string $header, int $index): string
+    {
+        return Str::slug(Str::ascii($header), '_') ?: 'field_'.($index + 1);
     }
 }

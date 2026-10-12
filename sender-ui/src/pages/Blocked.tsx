@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import { Plus, Search } from 'lucide-react'
 import { api, ApiError, type Paged, type Suppression } from '../api'
 import { Empty, Modal, PageHead, REASONS, fmtDate, useToast } from '../components/ui'
+import { usePermissions } from '../auth'
 
 const TONE: Record<string, string> = { bounce: 'err', complaint: 'warn', unsubscribe: '', manual: 'accent' }
 
 export default function Blocked() {
+  const { isAdmin } = usePermissions()
   const qc = useQueryClient()
   const toast = useToast()
   const [search, setSearch] = useState('')
@@ -35,7 +37,7 @@ export default function Blocked() {
   return (
     <main className="page">
       <PageHead title="Блокировки" sub="На эти адреса письма не отправляются"
-        actions={<button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} />Заблокировать адрес</button>} />
+        actions={isAdmin && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} />Заблокировать адрес</button>} />
       <form className="search" style={{ marginBottom: 16 }} onSubmit={(e) => { e.preventDefault(); setPage(1); setQs(search.trim()) }}>
         <Search size={16} />
         <input className="input" placeholder="Поиск по адресу" aria-label="Поиск по адресу" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -51,7 +53,7 @@ export default function Blocked() {
                   <td className="mono">{s.email}</td>
                   <td><span className={`chip ${TONE[s.reason]}`}>{REASONS[s.reason] ?? s.reason}</span></td>
                   <td className="sub">{fmtDate(s.created_at)}</td>
-                  <td className="r">{s.reason !== 'complaint' && <button className="btn sm text" onClick={() => remove.mutate(s)}>Разблокировать</button>}</td>
+                  <td className="r">{isAdmin && s.reason !== 'complaint' && <button className="btn sm text" onClick={() => remove.mutate(s)}>Разблокировать</button>}</td>
                 </tr>
               ))}
             </tbody>

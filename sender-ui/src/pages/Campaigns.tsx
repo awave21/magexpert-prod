@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, Plus } from 'lucide-react'
 import { api, type Campaign, type Warmup } from '../api'
 import { CampaignStatus, Empty, PageHead, ago } from '../components/ui'
+import { usePermissions } from '../auth'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
 
@@ -16,11 +17,12 @@ export default function Campaigns() {
   const list = q.data?.data ?? []
   const warmup = q.data?.warmup
   const create = () => nav('/campaigns/new')
+  const { canEdit } = usePermissions()
 
   return (
     <main className="page">
       <PageHead title="Рассылки" sub="Письмо из раздела «Контент» по базе из раздела «Подписчики»"
-        actions={<button className="btn primary" onClick={create}><Plus size={16} />Новая рассылка</button>} />
+        actions={canEdit && <button className="btn primary" onClick={create}><Plus size={16} />Новая рассылка</button>} />
 
       {warmup && (
         <div className="callout" style={{ marginBottom: 20 }}>
@@ -33,7 +35,7 @@ export default function Campaigns() {
 
       {q.isSuccess && list.length === 0 ? (
         <Empty title="Рассылок пока нет" text="Выберите письмо и базу подписчиков, проверьте и отправьте."
-          action={<button className="btn primary" onClick={create}><Plus size={16} />Новая рассылка</button>} />
+          action={canEdit && <button className="btn primary" onClick={create}><Plus size={16} />Новая рассылка</button>} />
       ) : (
         <div className="table-wrap">
           <table className="table">

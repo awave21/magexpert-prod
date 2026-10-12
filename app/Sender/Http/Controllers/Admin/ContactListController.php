@@ -153,7 +153,8 @@ class ContactListController extends Controller
     {
         $counts = [
             'contacts',
-            'contacts as subscribed_count' => fn (Builder $q) => $q->whereNull('unsubscribed_at'),
+            'contacts as subscribed_count' => fn (Builder $q) => $q->subscribed(),
+            'contacts as pending_count' => fn (Builder $q) => $q->whereNull('unsubscribed_at')->pending(),
             'contacts as deliverable_count' => fn (Builder $q) => $q->deliverable(),
             'contacts as unchecked_count' => fn (Builder $q) => $q->whereNull('checked_at'),
         ];
@@ -177,8 +178,10 @@ class ContactListController extends Controller
             'source' => $list->source,
             'source_label' => $list->isSynced() ? ($this->sources->available($list->organization)[$list->source] ?? null)?->label() : null,
             'synced_at' => $list->synced_at?->toIso8601String(),
+            'require_confirmation' => (bool) $list->require_confirmation,
             'contacts_count' => (int) ($list->contacts_count ?? 0),
             'subscribed_count' => (int) ($list->subscribed_count ?? 0),
+            'pending_count' => (int) ($list->pending_count ?? 0),
             'deliverable_count' => (int) ($list->deliverable_count ?? 0),
             'checks' => [
                 'unchecked' => (int) ($list->unchecked_count ?? 0),

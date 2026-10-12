@@ -2,6 +2,7 @@
 
 namespace App\Sender\Jobs;
 
+use App\Sender\Models\Contact;
 use App\Sender\Models\ContactList;
 use App\Sender\Services\EmailChecker;
 use Illuminate\Bus\Queueable;
@@ -60,17 +61,29 @@ class CheckContactsJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
         $started = microtime(true);
         $lastId = $this->afterContactId;
         $checked = 0;
+        $unblocked = false;
 
         foreach ($list->contacts()->whereNull('checked_at')->where('id', '>', $this->afterContactId)->orderBy('id')->lazyById(100) as $contact) {
+            $wasBlocked = $this->awaitsLetter($contact) && in_array($contact->check_status, EmailChecker::UNDELIVERABLE, true);
             $checker->checkContacts([$contact]);
+            $unblocked = $unblocked || ($wasBlocked && ! in_array($contact->check_status, EmailChecker::UNDELIVERABLE, true));
             $lastId = $contact->id;
             $checked++;
 
             if ($checked >= self::PER_JOB || microtime(true) - $started >= self::MAX_SECONDS) {
                 self::dispatch($this->listId, $lastId)->onQueue($this->queue ?? config('sender.queue'));
-
-                return;
+                break;
             }
         }
+
+        // повторная проверка признала адрес, ждущий подтверждения, рабочим: ему уходит его единственное письмо
+        if ($unblocked && ! $list->isSynced()) {
+            SendSubscriptionConfirmationsJob::dispatch($list->id)->onQueue($this->queue ?? config('sender.queue'));
+        }
+    }
+
+    private function awaitsLetter(Contact $contact): bool
+    {
+        return $contact->isPending() && $contact->confirmation_sent_at === null && $contact->unsubscribed_at === null;
     }
 }

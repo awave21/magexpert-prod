@@ -9,9 +9,24 @@ type Ctx = {
   logout: () => Promise<void>
   // вход по ответу сервера с токеном: после Яндекса или ВКонтакте
   signIn: (r: { token: string; user: { data?: User } & User }) => void
+  // обновить данные пользователя после правки профиля: готовым ответом сервера или новым запросом /me
+  updateUser: (u: User) => void
+  refresh: () => Promise<void>
 }
 const AuthContext = createContext<Ctx>(null as never)
 export const useAuth = () => useContext(AuthContext)
+
+/**
+ * Что можно текущей роли. Сервер проверяет то же самое, здесь — только чтобы не показывать лишние кнопки.
+ */
+export function usePermissions() {
+  const { user } = useAuth()
+  const role = user?.role ?? 'viewer'
+  const isOwner = role === 'owner'
+  const isAdmin = isOwner || role === 'admin'
+  const canEdit = isAdmin || role === 'editor'
+  return { role, isOwner, isAdmin, canEdit, canEditContent: canEdit || role === 'designer' }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -43,12 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(r.user.data ?? r.user)
   }, [])
 
+  const updateUser = useCallback((u: User) => setUser(u), [])
+
+  const refresh = useCallback(async () => {
+    const r = await api<{ data: User }>('/me')
+    setUser(r.data)
+  }, [])
+
   const logout = useCallback(async () => {
     try { await api('/logout', { method: 'POST' }) } catch { /* токен всё равно удаляем */ }
     tokenStore.clear()
     setUser(null)
   }, [])
 
-  const value = useMemo(() => ({ user, loading, login, register, logout, signIn }), [user, loading, login, register, logout, signIn])
+  const value = useMemo(() => ({ user, loading, login, register, logout, signIn, updateUser, refresh }), [user, loading, login, register, logout, signIn, updateUser, refresh])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

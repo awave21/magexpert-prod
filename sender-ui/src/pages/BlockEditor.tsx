@@ -17,6 +17,7 @@ import { designToHtml, htmlToText } from '../editor/render'
 import { htmlToDesign } from '../editor/import'
 import { PRESETS } from '../editor/presets'
 import { FormatToolbar, RichText, highlightVars } from '../editor/RichText'
+import { sanitizeHtml } from '../editor/sanitize'
 import { BlockInspector, StylesPanel, UploadButton } from '../editor/Inspector'
 
 const TILES: { type: BlockType; icon: ReactNode }[] = [
@@ -365,7 +366,7 @@ export default function BlockEditor() {
           }
           return isSel
             ? <RichText key={b.id} html={b.html} className="be-rt" style={style} onReady={onEditorReady} onChange={(v) => patchBlock(b.id, { html: v } as Partial<Block>, `${b.id}:html`)} />
-            : <div className="be-rt" style={style} dangerouslySetInnerHTML={{ __html: highlightVars(b.html) }} />
+            : <div className="be-rt" style={style} dangerouslySetInnerHTML={{ __html: highlightVars(sanitizeHtml(b.html)) }} />
         }
         case 'image':
           return b.src
@@ -393,7 +394,7 @@ export default function BlockEditor() {
               {b.links.map((l, i) => <span key={i} className="be-social">{l.label}</span>)}
             </div>
           )
-        case 'html': return <div className="be-html" dangerouslySetInnerHTML={{ __html: b.html }} />
+        case 'html': return <div className="be-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(b.html) }} />
         case 'columns': {
           const [l, r] = b.ratio === '33-67' ? [1, 2] : b.ratio === '67-33' ? [2, 1] : [1, 1]
           const inner = width - b.padding.l - b.padding.r - b.gap

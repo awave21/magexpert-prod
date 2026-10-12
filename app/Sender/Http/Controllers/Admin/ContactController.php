@@ -5,6 +5,7 @@ namespace App\Sender\Http\Controllers\Admin;
 use App\Sender\Http\Requests\Admin\ImportContactsRequest;
 use App\Sender\Http\Requests\Admin\StoreContactRequest;
 use App\Sender\Jobs\CheckContactsJob;
+use App\Sender\Jobs\SendSubscriptionConfirmationsJob;
 use App\Sender\Models\Contact;
 use App\Sender\Models\ContactList;
 use App\Sender\Services\ContactImportService;
@@ -12,6 +13,7 @@ use App\Sender\Services\EmailChecker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 
 class ContactController extends Controller
 {
@@ -37,7 +39,9 @@ class ContactController extends Controller
         if ($request->input('status') === 'unsubscribed') {
             $query->whereNotNull('unsubscribed_at');
         } elseif ($request->input('status') === 'subscribed') {
-            $query->whereNull('unsubscribed_at');
+            $query->subscribed();
+        } elseif ($request->input('status') === 'pending') {
+            $query->whereNull('unsubscribed_at')->pending();
         }
 
         if ($request->input('check') === 'unchecked') {
@@ -70,16 +74,32 @@ class ContactController extends Controller
 
     public function import(ImportContactsRequest $request, int $list, ContactImportService $importer): JsonResponse
     {
-        $content = $request->hasFile('file')
-            ? (string) file_get_contents($request->file('file')->getRealPath())
-            : (string) $request->input('text');
-
         $model = $this->list($request, $list);
         abort_if($model->isSynced(), 422, self::SYNCED);
-        $result = $importer->import($model, $content);
+        $result = $importer->import($model, $this->content($request), $request->mapping(), $request->consent(! $model->require_confirmation));
         CheckContactsJob::dispatch($model->id)->onQueue(config('sender.queue'));
 
+        // письма подтверждения уходят чуть позже: проверка успеет отсеять несуществующие адреса
+        if ($result['pending'] > 0) {
+            SendSubscriptionConfirmationsJob::dispatch($model->id)->onQueue(config('sender.queue'))->delay(now()->addMinutes(2));
+        }
+
         return response()->json(['data' => $result]);
+    }
+
+    /**
+     * Колонки файла до загрузки, чтобы выбрать, где адрес, где имя и что сохранить переменными.
+     */
+    public function preview(ImportContactsRequest $request, ContactImportService $importer): JsonResponse
+    {
+        return response()->json(['data' => $importer->preview($this->content($request))]);
+    }
+
+    private function content(ImportContactsRequest $request): string
+    {
+        return $request->hasFile('file')
+            ? (string) file_get_contents($request->file('file')->getRealPath())
+            : (string) $request->input('text');
     }
 
     /**
@@ -90,7 +110,9 @@ class ContactController extends Controller
         $model = $this->list($request, $list)->contacts()->findOrFail($contact);
         abort_unless($model->check_status === EmailChecker::STATUS_TYPO && $model->check_hint, 422, 'Для этого адреса нет исправления');
 
-        $this->applyHint($model, $checker);
+        if ($this->applyHint($model, $checker)) {
+            $this->sendConfirmations($model->list_id);
+        }
 
         return response()->json(['message' => 'Адрес исправлен']);
     }
@@ -98,32 +120,61 @@ class ContactController extends Controller
     public function fixAll(Request $request, int $list, EmailChecker $checker): JsonResponse
     {
         $fixed = 0;
-        $this->list($request, $list)->contacts()->where('check_status', EmailChecker::STATUS_TYPO)->whereNotNull('check_hint')
-            ->chunkById(500, function ($contacts) use ($checker, &$fixed): void {
+        $awaitingLetter = false;
+        $model = $this->list($request, $list);
+        $model->contacts()->where('check_status', EmailChecker::STATUS_TYPO)->whereNotNull('check_hint')
+            ->chunkById(500, function ($contacts) use ($checker, &$fixed, &$awaitingLetter): void {
                 foreach ($contacts as $contact) {
-                    $this->applyHint($contact, $checker);
+                    $awaitingLetter = $this->applyHint($contact, $checker) || $awaitingLetter;
                     $fixed++;
                 }
             });
+
+        // одна задача на весь запрос: она сама разошлёт письма порциями
+        if ($awaitingLetter) {
+            $this->sendConfirmations($model->id);
+        }
 
         return response()->json(['data' => ['fixed' => $fixed]]);
     }
 
     /**
      * Если исправленный адрес уже есть в базе, опечатка просто удаляется.
+     *
+     * Подписчик, ждущий подтверждения, получает письмо на исправленный адрес: письмо на адрес с опечаткой
+     * (если успело уйти) до него не дошло. Ключ ссылки меняется, чтобы ссылка из того письма не подтвердила новый адрес.
+     *
+     * @return bool исправленному адресу нужно письмо подтверждения
      */
-    private function applyHint(Contact $contact, EmailChecker $checker): void
+    private function applyHint(Contact $contact, EmailChecker $checker): bool
     {
         $email = (string) $contact->check_hint;
 
         if (Contact::query()->where('list_id', $contact->list_id)->where('email', $email)->exists()) {
             $contact->delete();
 
-            return;
+            return false;
         }
 
-        $contact->forceFill(['email' => $email, 'check_status' => null, 'check_hint' => null, 'checked_at' => null])->save();
+        $changes = ['email' => $email, 'check_status' => null, 'check_hint' => null, 'checked_at' => null];
+        $pending = $contact->isPending() && $contact->unsubscribed_at === null;
+
+        if ($pending && $email !== $contact->email) {
+            $changes += ['confirmation_sent_at' => null, 'confirmation_token' => Str::random(48)];
+        }
+
+        $contact->forceFill($changes)->save();
         $checker->checkContacts([$contact]);
+
+        return $pending;
+    }
+
+    /**
+     * Письма подтверждения уходят задачей с её порциями и лимитами, после сохранения исправлений.
+     */
+    private function sendConfirmations(int $listId): void
+    {
+        SendSubscriptionConfirmationsJob::dispatch($listId)->onQueue(config('sender.queue'))->afterCommit();
     }
 
     public function destroy(Request $request, int $list, int $contact): JsonResponse
@@ -149,6 +200,9 @@ class ContactController extends Controller
             'name' => $contact->name,
             'data' => $contact->data ?? (object) [],
             'unsubscribed_at' => $contact->unsubscribed_at?->toIso8601String(),
+            'pending' => $contact->isPending(),
+            'confirmation_sent_at' => $contact->confirmation_sent_at?->toIso8601String(),
+            'confirmed_at' => $contact->confirmed_at?->toIso8601String(),
             'check_status' => $contact->check_status,
             'check_hint' => $contact->check_hint,
             'last_opened_at' => $contact->last_opened_at?->toIso8601String(),

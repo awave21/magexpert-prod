@@ -2,6 +2,7 @@
 
 namespace App\Sender\Jobs;
 
+use App\Sender\Mail\SubscriptionConfirmationLetter;
 use App\Sender\Models\Campaign;
 use App\Sender\Models\Message;
 use App\Sender\Services\TemplateRenderer;
@@ -37,12 +38,32 @@ class SendMessageJob implements ShouldQueue
     {
         $message = Message::query()->with(['template', 'campaign'])->findOrFail($this->messageId);
 
-        if (in_array($message->status, [...Message::SENT_STATUSES, Message::STATUS_BOUNCED, Message::STATUS_CANCELLED, Message::STATUS_BLOCKED, Message::STATUS_PENDING], true) || $message->template === null) {
+        if (in_array($message->status, [...Message::SENT_STATUSES, Message::STATUS_BOUNCED, Message::STATUS_CANCELLED, Message::STATUS_BLOCKED, Message::STATUS_PENDING], true)) {
+            return;
+        }
+
+        // письма Sender без шаблона (подтверждение подписки) собираются в коде
+        $system = $message->template === null ? ($message->data['system'] ?? null) : null;
+
+        if ($message->template === null && $system !== SubscriptionConfirmationLetter::KIND) {
             return;
         }
 
         if ($this->stoppedByCampaign($message)) {
             return;
+        }
+
+        $letter = null;
+
+        if ($system === SubscriptionConfirmationLetter::KIND) {
+            $letter = SubscriptionConfirmationLetter::withConfirmUrl($message->data ?? []);
+
+            if ($letter === null) {
+                Message::query()->whereKey($message->id)->whereIn('status', [Message::STATUS_QUEUED, Message::STATUS_FAILED])
+                    ->update(['status' => Message::STATUS_CANCELLED, 'error' => 'Подписчика уже нет в базе', 'updated_at' => now()]);
+
+                return;
+            }
         }
 
         // письмо забирает одна задача: дубль задачи (повтор очереди, восстановление зависших) его не отправит второй раз
@@ -57,7 +78,9 @@ class SendMessageJob implements ShouldQueue
         // любая ошибка после захвата (шаблон, трекинг, Postfix) возвращает письмо в очередь: иначе оно навсегда
         // осталось бы «отправляется», повтор задачи не смог бы его забрать, а failed() не сработал бы
         try {
-            $content = $this->withUnsubscribeLink($message, $renderer->render($message->template, $message->data ?? []));
+            $content = $letter !== null
+                ? SubscriptionConfirmationLetter::render($letter)
+                : $this->withUnsubscribeLink($message, $renderer->render($message->template, $message->data ?? []));
 
             if ($message->data['campaign_test'] ?? false) {
                 $content['subject'] = 'Тест: '.$content['subject'];

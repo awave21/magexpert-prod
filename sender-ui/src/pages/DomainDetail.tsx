@@ -6,6 +6,7 @@ import { api, type DnsAdvice, type DnsAdviceRecord, type Domain, type SenderAddr
 import { BackLink, CopyButton, Modal, Status, ago, useToast } from '../components/ui'
 import { SenderAddresses } from '../components/SenderAddresses'
 import { guideFor } from '../components/dnsGuides'
+import { usePermissions } from '../auth'
 
 const INFO: Record<DnsAdviceRecord['key'], { title: string; text: string }> = {
   verification: { title: 'Подтверждение владения', text: 'Показывает Sender, что домен ваш. Без неё письма с домена не отправляются.' },
@@ -25,6 +26,7 @@ const ACTION: Record<DnsAdviceRecord['action'], { label: string; tone: string }>
 type Tab = 'dns' | 'senders'
 
 export default function DomainDetail() {
+  const { isAdmin } = usePermissions()
   const { id } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
@@ -68,8 +70,8 @@ export default function DomainDetail() {
           <p>Добавлен {ago(d.created_at)}{d.last_checked_at && ` · проверен ${ago(d.last_checked_at)}`}</p>
         </div>
         <div className="row">
-          <button className="btn icon" onClick={() => setConfirm(true)} aria-label="Удалить домен" title="Удалить домен"><Trash2 size={15} /></button>
-          {tab === 'dns' && <button className="btn primary" onClick={() => verify.mutate()} disabled={verify.isPending}><RefreshCw size={15} className={verify.isPending ? 'spin' : ''} />{verify.isPending ? 'Проверяем…' : 'Проверить записи'}</button>}
+          {isAdmin && <button className="btn icon" onClick={() => setConfirm(true)} aria-label="Удалить домен" title="Удалить домен"><Trash2 size={15} /></button>}
+          {isAdmin && tab === 'dns' && <button className="btn primary" onClick={() => verify.mutate()} disabled={verify.isPending}><RefreshCw size={15} className={verify.isPending ? 'spin' : ''} />{verify.isPending ? 'Проверяем…' : 'Проверить записи'}</button>}
         </div>
       </div>
 

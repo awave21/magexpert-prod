@@ -2,13 +2,12 @@
 
 namespace App\Sender\Services;
 
-use App\Sender\Models\Message;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
 /**
- * Прогрев нового IP: письма рассылок всех организаций ограничены по дням графиком из sender.warmup.
- * Служебные письма в лимит не входят. День считается по часовому поясу окна отправки.
+ * Прогрев нового IP: письма рассылок и письма подтверждения подписки всех организаций ограничены по дням
+ * графиком из sender.warmup. Остальные служебные письма в лимит не входят. День считается по часовому поясу окна отправки.
  */
 class Warmup
 {
@@ -45,8 +44,7 @@ class Warmup
 
     public function sentToday(?CarbonInterface $now = null): int
     {
-        return Message::query()
-            ->whereNotNull('campaign_id')
+        return MessageService::bulkMessages()
             ->where('dispatched_at', '>=', $this->schedule->startOfLocalDay($now ?? now()))
             ->count();
     }

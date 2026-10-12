@@ -12,14 +12,14 @@ class ContactList extends SenderModel
 {
     protected $table = 'sender_lists';
 
-    protected $fillable = ['organization_id', 'name', 'description', 'source', 'synced_at'];
+    protected $fillable = ['organization_id', 'name', 'description', 'source', 'synced_at', 'require_confirmation'];
 
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
-        return ['synced_at' => 'datetime'];
+        return ['synced_at' => 'datetime', 'require_confirmation' => 'boolean'];
     }
 
     /**

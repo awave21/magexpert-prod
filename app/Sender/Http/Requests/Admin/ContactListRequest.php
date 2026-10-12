@@ -26,6 +26,8 @@ class ContactListRequest extends FormRequest
                     ->ignore($this->route('list')),
             ],
             'description' => ['nullable', 'string', 'max:500'],
+            // новые адреса без согласия получают письмо подтверждения подписки
+            'require_confirmation' => ['sometimes', 'boolean'],
             // источник задаётся только при создании базы
             'source' => $this->isMethod('POST')
                 ? ['nullable', 'string', Rule::in(array_keys(app(SubscriberSources::class)->available($this->attributes->get('sender_organization'))))]
@@ -50,6 +52,7 @@ class ContactListRequest extends FormRequest
             'name.unique' => 'База с таким названием уже есть',
             'name.max' => 'Название слишком длинное',
             'description.max' => 'Описание слишком длинное',
+            'require_confirmation.boolean' => 'Укажите, нужно ли подтверждение подписки',
             'source.in' => 'Такого источника подписчиков нет',
             'source.prohibited' => 'Источник базы изменить нельзя',
         ];

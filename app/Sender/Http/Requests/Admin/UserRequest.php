@@ -25,7 +25,7 @@ class UserRequest extends FormRequest
             'email' => $creating
                 ? ['required', 'email', 'max:190', Rule::unique(config('sender.connection', 'sender').'.sender_users', 'email')]
                 : ['prohibited'],
-            'role' => [$creating ? 'required' : 'sometimes', Rule::in(User::ROLES)],
+            'role' => [$creating ? 'required' : 'sometimes', Rule::notIn([User::ROLE_OWNER]), Rule::in(User::ASSIGNABLE_ROLES)],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
@@ -47,7 +47,8 @@ class UserRequest extends FormRequest
             'email.required' => 'Укажите email',
             'email.email' => 'Email указан некорректно',
             'email.unique' => 'Пользователь с таким email уже есть',
-            'role.in' => 'Выберите роль: администратор, редактор или просмотр',
+            'role.not_in' => 'Владельца назначить нельзя: владелец сам передаёт права в настройках организации',
+            'role.in' => 'Выберите роль: администратор, редактор, дизайнер или просмотр',
         ];
     }
 }

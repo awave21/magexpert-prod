@@ -10,6 +10,7 @@ use App\Sender\Http\Resources\TemplateResource;
 use App\Sender\Models\Domain;
 use App\Sender\Services\MessageService;
 use App\Sender\Services\TemplateRenderer;
+use App\Sender\Support\HtmlSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -24,9 +25,9 @@ class TemplateController extends Controller
         return TemplateResource::collection($this->organization($request)->templates()->orderBy('name')->get());
     }
 
-    public function store(TemplateRequest $request): JsonResponse
+    public function store(TemplateRequest $request, HtmlSanitizer $sanitizer): JsonResponse
     {
-        $template = $this->organization($request)->templates()->create($request->validated());
+        $template = $this->organization($request)->templates()->create($this->sanitized($request, $sanitizer));
 
         return (new TemplateResource($template))->response()->setStatusCode(201);
     }
@@ -36,12 +37,29 @@ class TemplateController extends Controller
         return new TemplateResource($this->organization($request)->templates()->findOrFail($template));
     }
 
-    public function update(TemplateRequest $request, int $template): TemplateResource
+    public function update(TemplateRequest $request, int $template, HtmlSanitizer $sanitizer): TemplateResource
     {
         $model = $this->organization($request)->templates()->findOrFail($template);
-        $model->update($request->validated());
+        $model->update($this->sanitized($request, $sanitizer));
 
         return new TemplateResource($model);
+    }
+
+    /**
+     * Данные формы без исполняемого HTML: письмо и блоки визуального редактора открываются в админке.
+     *
+     * @return array<string, mixed>
+     */
+    private function sanitized(TemplateRequest $request, HtmlSanitizer $sanitizer): array
+    {
+        $data = $request->validated();
+        $data['body_html'] = $sanitizer->clean((string) $data['body_html']);
+
+        if (isset($data['design']) && is_array($data['design'])) {
+            $data['design'] = $sanitizer->design($data['design']);
+        }
+
+        return $data;
     }
 
     /**

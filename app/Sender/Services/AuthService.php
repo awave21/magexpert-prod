@@ -29,7 +29,7 @@ class AuthService
     }
 
     /**
-     * Создаёт организацию и её первого пользователя, сразу выдаёт токен.
+     * Создаёт организацию и её первого пользователя — владельца, сразу выдаёт токен.
      *
      * @return array{user: User, token: string}
      */
@@ -46,6 +46,7 @@ class AuthService
                 'organization_id' => $organization->id,
                 'name' => trim($name),
                 'email' => Str::lower(trim($email)),
+                'role' => User::ROLE_OWNER,
                 'password' => $password,
                 'is_active' => true,
             ]);
@@ -100,6 +101,14 @@ class AuthService
     public function logout(string $plain): void
     {
         UserToken::query()->where('token_hash', $this->hash($plain))->delete();
+    }
+
+    /**
+     * Закрывает все входы пользователя, кроме текущего токена.
+     */
+    public function revokeOtherTokens(User $user, string $currentPlain): void
+    {
+        $user->tokens()->where('token_hash', '!=', $this->hash($currentPlain))->delete();
     }
 
     private function hash(string $plain): string

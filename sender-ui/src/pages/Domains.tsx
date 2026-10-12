@@ -4,8 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight, Plus } from 'lucide-react'
 import { api, ApiError, type Domain } from '../api'
 import { Empty, Modal, PageHead, Status, ago, fmtDate } from '../components/ui'
+import { usePermissions } from '../auth'
 
 export default function Domains() {
+  const { isAdmin } = usePermissions()
   const nav = useNavigate()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['domains'], queryFn: () => api<{ data: Domain[] }>('/domains') })
@@ -24,10 +26,10 @@ export default function Domains() {
   return (
     <main className="page">
       <PageHead title="Домены" sub="Письма можно отправлять только с подтверждённых доменов"
-        actions={<button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} />Добавить домен</button>} />
+        actions={isAdmin && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} />Добавить домен</button>} />
 
       {q.isSuccess && list.length === 0 ? (
-        <Empty title="Доменов пока нет" text="Добавьте домен, с которого будут уходить письма." action={<button className="btn primary" onClick={() => setAdding(true)}>Добавить домен</button>} />
+        <Empty title="Доменов пока нет" text="Добавьте домен, с которого будут уходить письма." action={isAdmin ? <button className="btn primary" onClick={() => setAdding(true)}>Добавить домен</button> : undefined} />
       ) : (
         <div className="table-wrap">
           <table className="table">
