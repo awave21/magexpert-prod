@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Jobs\SyncUserToSender;
 use App\Models\User;
 use App\Sender\Contracts\SubscriptionClient;
 use App\Sender\Events\RecipientUnsubscribed;
@@ -40,6 +41,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->syncNewsletterConsentWithSender();
+        $this->syncUsersListWithSender();
     }
 
     /**
@@ -53,10 +55,18 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            User::query()
+            $users = User::query()
                 ->whereRaw('lower(email) = ?', [mb_strtolower($event->email)])
-                ->where('newsletter_consent', true)
-                ->update(['newsletter_consent' => false]);
+                ->where('newsletter_consent', true);
+            $userIds = (clone $users)->pluck('id');
+
+            // массовое обновление не вызывает событий модели: согласие не отправляется обратно в Sender
+            $users->update(['newsletter_consent' => false]);
+
+            // база «Пользователи MagExpert» узнаёт об отписке через API; отписку по ссылке это не вызывает повторно
+            if (config('sender.client.users_sync')) {
+                $userIds->each(fn (int $id) => SyncUserToSender::dispatch($id, mb_strtolower($event->email)));
+            }
         });
 
         User::updated(function (User $user): void {
@@ -68,6 +78,36 @@ class AppServiceProvider extends ServiceProvider
                 app(SubscriptionClient::class)->setSubscription($user->email, (bool) $user->newsletter_consent);
             } catch (Throwable $exception) {
                 Log::warning('Sender: не удалось передать согласие на рассылку', ['user_id' => $user->id, 'error' => $exception->getMessage()]);
+            }
+        });
+    }
+
+    /**
+     * База «Пользователи MagExpert» в Sender: регистрация (любая — форма, Яндекс, ВК, админка, API),
+     * изменение адреса, имени, полей профиля или галочки рассылки и удаление пользователя передаются в Sender
+     * через очередь и открытый API. Включается SENDER_USERS_SYNC=true.
+     */
+    private function syncUsersListWithSender(): void
+    {
+        User::created(function (User $user): void {
+            if (config('sender.client.users_sync')) {
+                SyncUserToSender::dispatch($user->id, $user->email);
+            }
+        });
+
+        User::updated(function (User $user): void {
+            if (! config('sender.client.users_sync') || ! $user->wasChanged(SyncUserToSender::trackedFields())) {
+                return;
+            }
+
+            $previousEmail = $user->wasChanged('email') ? $user->getOriginal('email') : null;
+
+            SyncUserToSender::dispatch($user->id, $user->email, filled($previousEmail) ? $previousEmail : null);
+        });
+
+        User::deleted(function (User $user): void {
+            if (config('sender.client.users_sync') && filled($user->email)) {
+                SyncUserToSender::dispatch($user->id, $user->email);
             }
         });
     }

@@ -35,6 +35,13 @@ return [
             'event_registration' => env('SENDER_TEMPLATE_EVENT_REGISTRATION', 'event-registration'),
             'api_registration' => env('SENDER_TEMPLATE_API_REGISTRATION', 'api-registration'),
         ],
+        // база «Пользователи MagExpert» в Sender: сайт держит её в актуальном виде только через открытый API Sender
+        // (SENDER_API_URL + SENDER_API_KEY), как сторонний сервис. Первичная загрузка — php artisan sender:sync-users.
+        'users_list_name' => env('SENDER_USERS_LIST_NAME', 'Пользователи MagExpert'),
+        // ID базы в Sender; пусто — база ищется (или создаётся) по названию один раз, ID запоминается в кеше
+        'users_list_id' => env('SENDER_USERS_LIST_ID'),
+        // передавать ли в базу регистрации, изменения профиля, галочку рассылки и удаления пользователей (через очередь)
+        'users_sync' => (bool) env('SENDER_USERS_SYNC', false),
     ],
     'mail_host' => env('SENDER_MAIL_HOST', 'mail.mag-expert.ru'),
     // сколько дней хранить письма, открытия и клики (указано в политике обработки персональных данных)
