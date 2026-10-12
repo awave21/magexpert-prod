@@ -20,6 +20,7 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->role ?? 'admin',
+            'is_owner' => $this->isOwner(),
             'organization' => $this->organization?->name,
         ];
     }

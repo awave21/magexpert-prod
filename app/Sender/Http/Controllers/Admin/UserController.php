@@ -42,14 +42,17 @@ class UserController extends Controller
         $model = $this->organization($request)->users()->findOrFail($user);
         $data = $request->validated();
 
+        abort_if($model->isOwner(), 403, 'Владельца организации изменить или отключить нельзя');
+
         if ($model->id === $this->user($request)->id && (($data['role'] ?? User::ROLE_ADMIN) !== User::ROLE_ADMIN || ($data['is_active'] ?? true) === false)) {
             abort(422, 'Свою роль и доступ изменить нельзя: попросите другого администратора');
         }
 
         $model->fill($data);
 
-        $admins = $this->organization($request)->users()->where('is_active', true)->where('role', User::ROLE_ADMIN)->whereKeyNot($model->id)->count();
-        abort_if($admins === 0 && (! $model->is_active || $model->role !== User::ROLE_ADMIN), 422, 'В организации должен остаться хотя бы один администратор');
+        // владелец тоже администратор
+        $admins = $this->organization($request)->users()->where('is_active', true)->whereIn('role', User::ADMIN_ROLES)->whereKeyNot($model->id)->count();
+        abort_if($admins === 0 && (! $model->is_active || ! $model->isAdmin()), 422, 'В организации должен остаться хотя бы один администратор');
 
         $model->save();
 
@@ -87,6 +90,7 @@ class UserController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role ?? User::ROLE_ADMIN,
+            'is_owner' => $user->isOwner(),
             'is_active' => (bool) $user->is_active,
             'last_seen_at' => $user->tokens_max_last_used_at ? Carbon::parse($user->tokens_max_last_used_at)->toIso8601String() : null,
             'created_at' => $user->created_at?->toIso8601String(),

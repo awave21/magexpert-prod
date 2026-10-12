@@ -3,6 +3,7 @@
 namespace App\Sender\Models;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Organization extends SenderModel
 {
@@ -61,6 +62,14 @@ class Organization extends SenderModel
     public function users(): HasMany
     {
         return $this->hasMany(User::class, 'organization_id');
+    }
+
+    /**
+     * Владелец организации: у пользователя роль owner, он один.
+     */
+    public function owner(): HasOne
+    {
+        return $this->hasOne(User::class, 'organization_id')->where('role', User::ROLE_OWNER);
     }
 
     public function auditLogs(): HasMany

@@ -54,6 +54,15 @@ class RecordAuditLog
         'webhooks.destroy' => 'Удалил вебхук',
         'users.store' => 'Добавил пользователя',
         'users.update' => 'Изменил доступ пользователя',
+        'profile.password' => 'Сменил свой пароль',
+        'organization.update' => 'Переименовал организацию',
+        'organization.transfer' => 'Передал владение организацией',
+        // действия ИИ-ассистента по ключу MCP: пишутся из app/Sender/Mcp, не маршрутами админки
+        'mcp.templates.store' => 'Создал письмо через ИИ',
+        'mcp.templates.update' => 'Изменил письмо через ИИ',
+        'mcp.templates.test' => 'Отправил тест через ИИ',
+        'mcp.tokens.store' => 'Создал ключ для ИИ-ассистента',
+        'mcp.tokens.destroy' => 'Отозвал ключ для ИИ-ассистента',
     ];
 
     public function handle(Request $request, Closure $next): Response
@@ -100,6 +109,9 @@ class RecordAuditLog
             'suppressions' => $find(Suppression::class, 'suppression', 'email') ?? $request->input('email'),
             'webhooks' => $find(Webhook::class, 'webhook', 'url') ?? $request->input('url'),
             'users' => $find(User::class, 'user', 'email') ?? $request->input('email'),
+            'organization' => $action === 'organization.transfer'
+                ? User::query()->where('organization_id', $user->organization_id)->whereKey((int) $request->input('user_id'))->value('email')
+                : $request->input('name'),
             default => null,
         };
     }
