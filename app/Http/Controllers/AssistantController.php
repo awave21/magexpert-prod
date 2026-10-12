@@ -5,19 +5,18 @@ namespace App\Http\Controllers;
 use App\Http\Requests\AskAssistantRequest;
 use App\Services\Assistant\LibraryAssistant;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
  * ИИ-помощник в личном кабинете: вопрос по документам библиотеки, ответ со ссылками на страницы PDF.
+ * Доступен всем вошедшим пользователям; от перерасхода защищает ограничение частоты запросов на маршруте.
  */
 class AssistantController extends Controller
 {
-    public function index(Request $request, LibraryAssistant $assistant): Response
+    public function index(LibraryAssistant $assistant): Response
     {
         return Inertia::render('Cabinet/Assistant', [
-            'hasAccess' => $request->user()->canUseAssistant(),
             'available' => $assistant->isAvailable(),
         ]);
     }

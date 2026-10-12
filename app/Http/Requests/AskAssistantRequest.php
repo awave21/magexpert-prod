@@ -8,7 +8,7 @@ class AskAssistantRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->canUseAssistant() ?? false;
+        return $this->user() !== null;
     }
 
     /**

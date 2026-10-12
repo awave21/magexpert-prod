@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Event;
 use App\Models\LibraryChunk;
 use App\Models\LibraryIndex;
 use App\Models\MedicalLibrary;
@@ -24,15 +23,7 @@ function axis(int $index): array
 
 function ragUser(): User
 {
-    $user = User::factory()->create();
-    Event::factory()->create()->users()->attach($user->id, [
-        'access_type' => 'paid',
-        'payment_status' => 'completed',
-        'access_granted_at' => now(),
-        'is_active' => true,
-    ]);
-
-    return $user;
+    return User::factory()->create();
 }
 
 function questionPointsTo(int $index): void

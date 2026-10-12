@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, ref } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import {
     ArrowPathIcon,
@@ -9,7 +9,6 @@ import {
     ClipboardDocumentListIcon,
     ExclamationTriangleIcon,
     GlobeAltIcon,
-    LockClosedIcon,
     ShieldExclamationIcon,
     SparklesIcon,
 } from '@heroicons/vue/24/outline';
@@ -17,7 +16,6 @@ import ProfileLayout from '@/Layouts/ProfileLayout.vue';
 import AssistantAnswer from '@/Components/Cabinet/AssistantAnswer.vue';
 
 const props = defineProps({
-    hasAccess: { type: Boolean, required: true },
     available: { type: Boolean, required: true },
 });
 
@@ -35,7 +33,7 @@ const pending = ref(false);
 const scroller = ref(null);
 const input = ref(null);
 
-const canAsk = computed(() => props.hasAccess && props.available);
+const canAsk = computed(() => props.available);
 const trimmed = computed(() => question.value.trim());
 const canSend = computed(() => canAsk.value && !pending.value && trimmed.value.length >= 3 && trimmed.value.length <= MAX_LENGTH);
 
@@ -130,7 +128,7 @@ const onKeydown = (event) => {
                 <span class="cab-eyebrow">Личный кабинет</span>
                 <h1 class="cab-h1 flex flex-wrap items-center gap-3">
                     ИИ-помощник
-                    <span v-if="hasAccess && !available" class="cab-chip-warn">Скоро</span>
+                    <span v-if="!available" class="cab-chip-warn">Скоро</span>
                 </h1>
                 <p class="max-w-[620px] text-[15px] leading-6 text-gray-500 dark:text-gray-400">
                     Отвечает по документам библиотеки MagExpert и показывает, на какой странице какого документа это написано.
@@ -142,25 +140,8 @@ const onKeydown = (event) => {
             </button>
         </header>
 
-        <!-- Нет оплаченного или выданного доступа -->
-        <section v-if="!hasAccess" class="cab-panel flex flex-col items-center gap-5 px-6 py-14 text-center sm:px-10">
-            <span class="flex h-16 w-16 items-center justify-center rounded-full bg-brandblue-soft text-brandblue-dark dark:bg-gray-800 dark:text-[#9db6d6]">
-                <LockClosedIcon class="h-7 w-7" aria-hidden="true" />
-            </span>
-            <div class="flex max-w-[520px] flex-col gap-2">
-                <h2 class="cab-h2">Помощник доступен участникам программ</h2>
-                <p class="text-[15px] leading-6 text-gray-500 dark:text-gray-400">
-                    Он открывается, когда у вас есть оплаченный или выданный доступ к мероприятию MagExpert. Доступы появляются в разделе «Мои доступы».
-                </p>
-            </div>
-            <div class="flex flex-wrap justify-center gap-3">
-                <Link :href="route('events.index')" class="cab-btn">Выбрать мероприятие</Link>
-                <Link :href="route('my-events')" class="cab-btn-ghost">Мои доступы</Link>
-            </div>
-        </section>
-
         <!-- Чат -->
-        <section v-else class="cab-panel flex h-[calc(100dvh-140px)] min-h-[560px] flex-col overflow-hidden lg:h-[calc(100vh-250px)]">
+        <section class="cab-panel flex h-[calc(100dvh-140px)] min-h-[560px] flex-col overflow-hidden lg:h-[calc(100vh-250px)]">
             <div ref="scroller" class="flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8">
                 <!-- Пустое состояние -->
                 <div v-if="!messages.length" class="mx-auto flex min-h-full max-w-[720px] flex-col items-center justify-center gap-7 py-6 text-center">
