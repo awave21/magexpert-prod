@@ -12,6 +12,7 @@ const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'err' | 'neu
   pending: { label: 'Ожидает', tone: 'warn' },
   failed: { label: 'Ошибка', tone: 'err' },
   blocked: { label: 'Заблокировано', tone: 'neutral' },
+  cancelled: { label: 'Отменено', tone: 'neutral' },
 }
 
 export function Status({ value }: { value: string }) {
@@ -141,15 +142,17 @@ export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>
 }
 
 // статус рассылки: черновик, идёт отправка (пока есть письма в очереди) или отправлена
-export function CampaignStatus({ campaign }: { campaign: { status: string; stats: { queued: number; sent: number; failed: number; blocked: number; bounced?: number } | null } }) {
+export function CampaignStatus({ campaign }: { campaign: { status: string; prepared?: boolean; stats: { queued: number; sent: number; failed: number; blocked: number; bounced?: number } | null } }) {
   const s = campaign.stats
   if (campaign.status === 'draft') return <span className="status neutral"><i />Черновик</span>
+  if (campaign.status === 'sending' && campaign.prepared === false) return <span className="status warn"><i />Готовится к запуску</span>
   if (campaign.status === 'scheduled') return <span className="status neutral"><i />Запланирована</span>
   if (campaign.status === 'paused') return <span className="status warn"><i />На паузе</span>
   if (campaign.status === 'cancelled') return <span className="status err"><i />Отменена</span>
   if (campaign.status === 'sending' || (s?.queued ?? 0) > 0) return <span className="status warn"><i />Отправляется</span>
-  const missed = (s?.failed ?? 0) + (s?.blocked ?? 0) + (s?.bounced ?? 0)
-  if (missed > 0 && (s?.sent ?? 0) === 0) return <span className="status err"><i />Не отправлена</span>
-  if (missed > 0) return <span className="status warn"><i />Отправлена с ошибками</span>
+  // заблокированные (отписка, плохой адрес) — не ошибка отправки, но если не ушло ни одного письма, рассылка не отправлена
+  const errors = (s?.failed ?? 0) + (s?.bounced ?? 0)
+  if (errors + (s?.blocked ?? 0) > 0 && (s?.sent ?? 0) === 0) return <span className="status err"><i />Не отправлена</span>
+  if (errors > 0) return <span className="status warn"><i />Отправлена с ошибками</span>
   return <span className="status ok"><i />Отправлена</span>
 }

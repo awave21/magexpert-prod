@@ -2,6 +2,7 @@
 
 namespace App\Sender\Services;
 
+use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Jobs\SendCampaignJob;
 use App\Sender\Jobs\SendMessageJob;
 use App\Sender\Models\Campaign;
@@ -9,15 +10,18 @@ use App\Sender\Models\Contact;
 use App\Sender\Models\Domain;
 use App\Sender\Models\Message;
 use App\Sender\Models\MessageEvent;
+use App\Sender\Models\Suppression;
 use App\Sender\Support\SenderUi;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Жизнь рассылки: запуск → подготовка писем (pending) → пачки в очередь по расписанию → завершение.
+ * Жизнь рассылки: запуск → проверка адресов → подготовка писем (pending) → пачки в очередь по расписанию → завершение.
  * Пачки ставит в очередь sender:campaigns-tick раз в минуту; пауза и отмена останавливают ещё не ушедшие письма.
+ * Перед каждой пачкой письма сверяются с базой: отписавшийся после подготовки письмо не получит.
  */
 class CampaignService
 {
@@ -37,10 +41,11 @@ class CampaignService
         private readonly CampaignSchedule $schedule,
         private readonly SubscriberSources $sources,
         private readonly Warmup $warmup,
+        private readonly EmailChecker $checker,
     ) {}
 
     /**
-     * Запускает рассылку: письма готовятся фоновой задачей, а уходят сразу или по расписанию.
+     * Запускает рассылку: адреса проверяются и письма готовятся фоновой задачей, а уходят сразу или по расписанию.
      */
     public function start(Campaign $campaign): Campaign
     {
@@ -79,6 +84,7 @@ class CampaignService
         $campaign->forceFill([
             'status' => $scheduled ? Campaign::STATUS_SCHEDULED : Campaign::STATUS_SENDING,
             'recipients_count' => $recipients,
+            'rejected_count' => 0,
             'started_at' => now(),
             'next_batch_at' => $scheduled ? $campaign->scheduled_at : now(),
         ])->save();
@@ -86,6 +92,65 @@ class CampaignService
         SendCampaignJob::dispatch($campaign->id)->onQueue(config('sender.queue'));
 
         return $campaign;
+    }
+
+    /**
+     * Проверяет ещё не проверенные адреса рассылки перед подготовкой писем: не больше CheckContactsJob::PER_JOB адресов
+     * и CheckContactsJob::MAX_SECONDS секунд за раз. Адрес с опечаткой, одноразовый или без почтового сервера письмо не получит:
+     * его письмо сразу блокируется с причиной, чтобы адрес был виден в отчёте рассылки.
+     * Проход один: адрес, по которому DNS не ответил, остаётся непроверенным и письмо получает.
+     *
+     * @return int|null id последнего проверенного подписчика, если остались ещё; null — проверка закончена
+     */
+    public function checkAddresses(Campaign $campaign, int $afterContactId = 0): ?int
+    {
+        $campaign->loadMissing(['organization', 'template.senderAddress', 'list']);
+
+        if ($campaign->list === null) {
+            return null;
+        }
+
+        // база из приложения обновляется перед проверкой, в фоне: письмо получат те, кто согласен на рассылку сейчас
+        if ($afterContactId === 0 && $campaign->list->isSynced()) {
+            $this->sources->sync($campaign->list);
+        }
+
+        $started = microtime(true);
+        $checked = 0;
+        $rejected = [];
+        $next = null;
+
+        $contacts = $campaign->list->contacts()->deliverable()->inSegment($campaign->segment)
+            ->whereNull('checked_at')
+            ->where('id', '>', $afterContactId)
+            ->lazyById(100);
+
+        foreach ($contacts as $contact) {
+            $this->checker->checkContacts([$contact]);
+            $checked++;
+
+            if (in_array($contact->check_status, EmailChecker::UNDELIVERABLE, true)) {
+                $reason = EmailChecker::rejectionReason($contact->check_status, $contact->check_hint);
+                $rejected[$reason][$contact->email] = array_merge($contact->data ?? [], $this->contactVariables($contact));
+            }
+
+            if ($checked >= CheckContactsJob::PER_JOB || microtime(true) - $started >= CheckContactsJob::MAX_SECONDS) {
+                $next = (int) $contact->id;
+                break;
+            }
+        }
+
+        if ($rejected !== []) {
+            if ($campaign->template !== null) {
+                foreach ($rejected as $reason => $recipients) {
+                    $this->messages->prepareCampaignMessages($campaign, $recipients, $reason);
+                }
+            }
+
+            $campaign->increment('rejected_count', array_sum(array_map('count', $rejected)));
+        }
+
+        return $next;
     }
 
     /**
@@ -102,11 +167,6 @@ class CampaignService
             $campaign->forceFill(['status' => Campaign::STATUS_SENT, 'finished_at' => now()])->save();
 
             return null;
-        }
-
-        // база из приложения обновляется в начале подготовки, в фоне: письмо получат те, кто согласен на рассылку сейчас
-        if ($afterContactId === 0 && $campaign->list->isSynced()) {
-            $this->sources->sync($campaign->list);
         }
 
         $contacts = $campaign->list->contacts()->deliverable()->inSegment($campaign->segment)
@@ -198,7 +258,7 @@ class CampaignService
             return 0;
         }
 
-        $ids = (clone $pending)->orderBy('id')->limit($limit)->pluck('id')->all();
+        $ids = $this->withoutDropped($campaign, (clone $pending)->orderBy('id')->limit($limit)->pluck('to_email', 'id'));
 
         // письмо, которое успели отменить между выборкой и отправкой, задача отправки пропустит сама
         foreach (array_chunk($ids, 1000) as $chunk) {
@@ -471,6 +531,54 @@ class CampaignService
         }
 
         return min($limits);
+    }
+
+    /**
+     * Письма готовятся заранее, а уходят иногда через дни. Кто с тех пор отписался, пожаловался, получил отказ,
+     * выбыл из базы или не прошёл проверку адреса, письмо не получит: оно блокируется с причиной.
+     *
+     * @param  Collection<int, string>  $batch  id письма => адрес
+     * @return list<int> id писем, которые можно отправлять
+     */
+    private function withoutDropped(Campaign $campaign, Collection $batch): array
+    {
+        $campaign->loadMissing('list');
+
+        if ($campaign->list === null || $batch->isEmpty()) {
+            return $batch->keys()->all();
+        }
+
+        $emails = $batch->unique()->values()->all();
+        $deliverable = $campaign->list->contacts()->deliverable()->whereIn('email', $emails)->pluck('email')->flip();
+        $dropped = $batch->reject(fn (string $email): bool => isset($deliverable[$email]));
+
+        if ($dropped->isEmpty()) {
+            return $batch->keys()->all();
+        }
+
+        $suppressed = Suppression::query()->where('organization_id', $campaign->organization_id)
+            ->whereIn('email', $dropped->unique()->values()->all())->pluck('reason', 'email');
+        $contacts = $campaign->list->contacts()->whereIn('email', $dropped->unique()->values()->all())->get()->keyBy('email');
+
+        $dropped
+            ->groupBy(fn (string $email): string => $this->dropReason($suppressed[$email] ?? null, $contacts[$email] ?? null), true)
+            ->each(fn (Collection $messages, string $reason) => Message::query()
+                ->whereIn('id', $messages->keys()->all())
+                ->where('status', Message::STATUS_PENDING)
+                ->update(['status' => Message::STATUS_BLOCKED, 'error' => $reason]));
+
+        return $batch->diffKeys($dropped)->keys()->all();
+    }
+
+    private function dropReason(?string $suppression, ?Contact $contact): string
+    {
+        return match (true) {
+            $suppression === Suppression::REASON_UNSUBSCRIBE, $contact?->unsubscribed_at !== null => 'Получатель отписался от рассылок',
+            $suppression !== null => 'Адрес получателя в списке блокировок',
+            $contact === null => 'Подписчика больше нет в базе рассылки',
+            in_array($contact->check_status, EmailChecker::UNDELIVERABLE, true) => EmailChecker::rejectionReason($contact->check_status, $contact->check_hint),
+            default => 'Подписка не подтверждена',
+        };
     }
 
     private function dispatchedToday(Campaign $campaign, CarbonInterface $now): int

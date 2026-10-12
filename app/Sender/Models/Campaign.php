@@ -2,6 +2,8 @@
 
 namespace App\Sender\Models;
 
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -53,6 +55,7 @@ class Campaign extends SenderModel
         'scheduled_at',
         'status',
         'recipients_count',
+        'rejected_count',
         'started_at',
         'prepared_at',
         'next_batch_at',
@@ -68,6 +71,7 @@ class Campaign extends SenderModel
     {
         return [
             'recipients_count' => 'integer',
+            'rejected_count' => 'integer',
             'track' => 'boolean',
             'batch_size' => 'integer',
             'batch_interval' => 'integer',
@@ -82,6 +86,19 @@ class Campaign extends SenderModel
             'cancelled_at' => 'datetime',
             'finished_at' => 'datetime',
         ];
+    }
+
+    /**
+     * В базу время пишется без пояса: «2026-11-15T07:00:00Z» из браузера приводится к поясу приложения,
+     * иначе старт сдвинется на разницу поясов и рассылка уйдёт раньше.
+     */
+    protected function scheduledAt(): Attribute
+    {
+        return Attribute::make(
+            set: fn (mixed $value): ?string => blank($value)
+                ? null
+                : CarbonImmutable::parse($value)->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s'),
+        );
     }
 
     public function isDraft(): bool

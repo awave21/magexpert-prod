@@ -127,6 +127,7 @@ class CampaignController extends Controller
             'template' => $campaign->template ? ['id' => $campaign->template->id, 'name' => $campaign->template->name] : null,
             'list' => $campaign->list ? ['id' => $campaign->list->id, 'name' => $campaign->list->name] : null,
             'recipients_count' => $campaign->recipients_count,
+            'rejected_count' => (int) $campaign->rejected_count,
             'track' => (bool) ($campaign->track ?? true),
             'send_mode' => $campaign->send_mode ?? Campaign::MODE_NOW,
             'batch_size' => $campaign->batch_size,

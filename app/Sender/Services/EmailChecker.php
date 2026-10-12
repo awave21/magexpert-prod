@@ -119,6 +119,21 @@ class EmailChecker
     }
 
     /**
+     * Почему письмо на адрес не отправляется: для журнала и отчёта рассылки.
+     */
+    public static function rejectionReason(?string $status, ?string $hint = null): string
+    {
+        $why = match ($status) {
+            self::STATUS_TYPO => 'опечатка в домене'.($hint ? ", возможно, {$hint}" : ''),
+            self::STATUS_DISPOSABLE => 'одноразовый ящик',
+            self::STATUS_NO_MX => 'у домена нет почтового сервера',
+            default => 'неверный формат адреса',
+        };
+
+        return 'Адрес не прошёл проверку: '.$why;
+    }
+
+    /**
      * Проверяет адреса подписчиков и сохраняет результат.
      *
      * @param  iterable<Contact>  $contacts

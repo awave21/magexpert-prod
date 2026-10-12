@@ -186,6 +186,7 @@ button { font: inherit; color: inherit; }
 .table tr.selected td { background: var(--accent-soft); }
 .table tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--accent); padding-left: 12px; }
 .table td.r, .table th.r { text-align: right; padding-right: 0; }
+.table td.r + td:not(.r), .table th.r + th:not(.r) { padding-left: 16px; }
 .table-wrap { overflow-x: auto; }
 .sub { font-size: 12px; color: var(--muted); }
 
