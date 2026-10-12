@@ -26,6 +26,7 @@ import Team from './pages/Team'
 import Settings from './pages/Settings'
 import AuditLog from './pages/AuditLog'
 import SettingsOrganization from './pages/SettingsOrganization'
+import Help from './pages/Help'
 import { RequireRole } from './components/SettingsParts'
 // редактор блоков тяжёлый (TipTap), грузится только когда его открывают
 const BlockEditor = lazy(() => import('./pages/BlockEditor'))
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="api" element={<ApiDocs />} />
         <Route path="api-keys" element={<ApiKeys />} />
         <Route path="blocked" element={<Blocked />} />
+        <Route path="help" element={<Help />} />
         <Route path="settings" element={<Settings />}>
           <Route index element={<Navigate to="profile" replace />} />
           <Route path="profile" element={<Profile />} />

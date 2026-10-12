@@ -31,7 +31,7 @@ export default function Campaigns() {
 
   return (
     <main className="page">
-      <PageHead title="Рассылки" sub="Письмо из раздела «Контент» по базе из раздела «Подписчики»"
+      <PageHead title="Рассылки" sub="Письмо из раздела «Контент» по базе из раздела «Подписчики»" guide="first-campaign"
         actions={canEdit && <button className="btn primary" onClick={create}><Plus size={16} />Новая рассылка</button>} />
 
       {warmup && (

@@ -42,7 +42,7 @@ export default function Templates() {
 
   return (
     <main className="page">
-      <PageHead title={title} sub={current ? 'Письма проекта' : 'Письма для рассылок по базам и для отправки из приложения через API'}
+      <PageHead title={title} sub={current ? 'Письма проекта' : 'Письма для рассылок по базам и для отправки из приложения через API'} guide="email-editor"
         actions={canEditContent && <>
           {current && <button className="btn" onClick={() => { setError(null); setEditing({ id: current.id, name: current.name }) }}><Pencil size={15} />Переименовать</button>}
           {current && <button className="btn danger" onClick={() => setRemoving(current)}><Trash2 size={15} />Удалить папку</button>}

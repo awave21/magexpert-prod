@@ -8,7 +8,7 @@ import { FolderNav, useSubnavHidden } from './FolderNav'
 import { SubscribersNav } from './SubscribersNav'
 
 const TITLES: Record<string, string> = {
-  '/': 'Обзор', '/campaigns': 'Рассылки', '/subscribers': 'Подписчики', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Контент', '/variables': 'Переменные', '/api': 'API', '/api-keys': 'API-ключи', '/blocked': 'Блокировки', '/team': 'Команда', '/profile': 'Профиль', '/settings': 'Настройки',
+  '/': 'Обзор', '/campaigns': 'Рассылки', '/subscribers': 'Подписчики', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Контент', '/variables': 'Переменные', '/api': 'API', '/api-keys': 'API-ключи', '/blocked': 'Блокировки', '/team': 'Команда', '/profile': 'Профиль', '/settings': 'Настройки', '/help': 'Видеоинструкции',
 }
 
 // разделы со второй колонкой
@@ -149,7 +149,7 @@ export function Layout() {
             <div className="menu help-menu" role="menu">
               <button type="button" role="menuitem" onClick={() => { setHelpMenu(false); setOpen(false); navigate('/domains') }}><Globe size={16} />Как подключить домен</button>
               <button type="button" role="menuitem" onClick={() => { setHelpMenu(false); setOpen(false); navigate('/api') }}><Code2 size={16} />Документация API</button>
-              <button type="button" role="menuitem" disabled><PlayCircle size={16} /><span className="grow">Видеоинструкции</span><span className="soon">скоро</span></button>
+              <button type="button" role="menuitem" onClick={() => { setHelpMenu(false); setOpen(false); navigate('/help') }}><PlayCircle size={16} />Видеоинструкции</button>
             </div>
           )}
         </div>

@@ -45,7 +45,7 @@ export default function Team() {
 
   return (
     <div>
-      <SettingsHead title="Команда" sub="Кто работает в Sender и с какими правами"
+      <SettingsHead title="Команда" sub="Кто работает в Sender и с какими правами" guide="team-and-api"
         actions={isAdmin && <button className="btn primary" onClick={() => { setForm({ name: '', email: '', role: 'editor' }); setErrors({}); setAdding(true) }}><Plus size={16} />Добавить</button>} />
 
       <div className="table-wrap">

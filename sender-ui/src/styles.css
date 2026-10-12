@@ -337,6 +337,10 @@ button { font: inherit; color: inherit; }
 .page-head { margin-bottom: 32px; }
 .page-head h1 { font-size: 28px; letter-spacing: -0.03em; }
 .page-head p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+/* ссылка на видеоинструкцию раздела, в строке под заголовком */
+.guide-link { display: inline-flex; align-items: center; gap: 5px; margin-left: 12px; font-size: 13px; color: var(--accent-ink); white-space: nowrap; vertical-align: baseline; }
+.guide-link svg { align-self: center; }
+.guide-link-time { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
 
 /* поля */
 .field label, .label { font-size: 13px; color: var(--ink-2); }
@@ -926,7 +930,6 @@ button { font: inherit; color: inherit; }
 .help-menu { position: fixed; top: auto; bottom: 14px; right: auto; left: calc(var(--sidebar-w) + 8px); min-width: 240px; z-index: 35; }
 .help-menu button:disabled { color: var(--muted); cursor: default; background: transparent; }
 .help-menu .grow { flex: 1; }
-.help-menu .soon { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--fill); color: var(--muted); }
 @media (max-width: 900px) { .help-menu { left: 16px; right: 16px; bottom: 64px; } }
 
 /* телефон: поиск иконкой, круглые кнопки колонок скрыты */

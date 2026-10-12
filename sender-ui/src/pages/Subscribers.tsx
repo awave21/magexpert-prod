@@ -18,7 +18,7 @@ export default function Subscribers() {
 
   return (
     <main className="page">
-      <PageHead title="Подписчики" sub={lists.length ? `${n(total)} подписчиков в ${lists.length} ${lists.length === 1 ? 'базе' : 'базах'}` : 'Базы адресов, по которым идут рассылки'}
+      <PageHead title="Подписчики" sub={lists.length ? `${n(total)} подписчиков в ${lists.length} ${lists.length === 1 ? 'базе' : 'базах'}` : 'Базы адресов, по которым идут рассылки'} guide="subscriber-lists"
         actions={canEdit && <button className="btn primary" onClick={open}><Plus size={16} />Новая база</button>} />
 
       {q.isSuccess && lists.length === 0 ? (
