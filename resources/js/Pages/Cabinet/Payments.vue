@@ -82,7 +82,7 @@ const pending = computed(() => props.payments.find((payment) => payment.status =
                 <div v-else class="cab-panel flex flex-col items-center gap-3 p-9 text-center">
                     <span class="font-display text-[22px] font-medium">Платежей пока нет</span>
                     <span class="text-sm text-gray-500">Здесь появятся оплаченные мероприятия. Бесплатные — в разделе «Мероприятия».</span>
-                    <Link :href="route('events.index')" class="cab-btn">Открыть каталог</Link>
+                    <Link :href="route('events.index', { filter: 'all' })" class="cab-btn">Открыть каталог</Link>
                 </div>
             </div>
 

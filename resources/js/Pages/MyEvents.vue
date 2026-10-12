@@ -97,7 +97,7 @@ const shown = computed(() => groups.value[tab.value].filter((event) => {
         <div v-else class="cab-panel flex flex-col items-center gap-3 p-9 text-center">
             <span class="font-display text-[22px] font-medium">Здесь пока ничего нет</span>
             <span class="text-sm text-gray-500">Выберите мероприятие в каталоге — после записи или оплаты оно появится здесь.</span>
-            <Link :href="route('events.index')" class="cab-btn">Открыть каталог</Link>
+            <Link :href="route('events.index', { filter: 'all' })" class="cab-btn">Открыть каталог</Link>
         </div>
     </ProfileLayout>
 </template>
