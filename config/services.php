@@ -58,4 +58,11 @@ return [
         'secret' => env('DADATA_SECRET'),
     ],
 
+    // ИИ-помощник в кабинете: rag — поиск по документам библиотеки; demo — тестовые ответы (в продакшене не включается)
+    'assistant' => [
+        'driver' => env('ASSISTANT_DRIVER'),
+        // фрагменты с косинусной близостью к вопросу ниже порога в поиск по смыслу не попадают
+        'min_similarity' => (float) env('ASSISTANT_MIN_SIMILARITY', 0.25),
+    ],
+
 ];

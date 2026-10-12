@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
-import { ArrowLeftIcon, BookOpenIcon, CalendarDaysIcon, ChevronLeftIcon, Cog6ToothIcon, EnvelopeIcon, KeyIcon, PaperAirplaneIcon, PhoneIcon, SignalIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, BookOpenIcon, CalendarDaysIcon, ChevronLeftIcon, Cog6ToothIcon, EnvelopeIcon, KeyIcon, PaperAirplaneIcon, PhoneIcon, SignalIcon, SparklesIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 import MainLogo from '@/Components/main-logo.vue';
 import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CookieConsent from '@/Components/CookieConsent.vue';
@@ -16,6 +16,7 @@ const nav = [
     { label: 'Главная', route: 'dashboard', active: ['dashboard'], icon: Squares2X2Icon },
     { label: 'Мои доступы', route: 'my-events', active: ['my-events', 'my-events.*'], icon: KeyIcon },
     { label: 'Библиотека', route: 'documents.index', active: ['documents.*'], icon: BookOpenIcon },
+    { label: 'ИИ-помощник', route: 'cabinet.assistant', active: ['cabinet.assistant'], icon: SparklesIcon },
 ];
 
 const crumbs = {
@@ -26,6 +27,7 @@ const crumbs = {
     'cabinet.security': 'Вход и безопасность',
     'cabinet.notifications': 'Уведомления',
     'cabinet.payments': 'Платежи',
+    'cabinet.assistant': 'ИИ-помощник',
     certificates: 'Сертификаты',
 };
 

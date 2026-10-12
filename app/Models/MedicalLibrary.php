@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Jobs\IndexLibraryDocument;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 
 class MedicalLibrary extends Model
@@ -45,6 +47,20 @@ class MedicalLibrary extends Model
     ];
 
     /**
+     * Новый или заменённый PDF сразу попадает в поиск ИИ-помощника (когда помощник работает по документам).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (MedicalLibrary $document): void {
+            $fileChanged = $document->wasRecentlyCreated || $document->wasChanged('file_path');
+
+            if ($fileChanged && $document->file_path && config('services.assistant.driver') === 'rag') {
+                IndexLibraryDocument::dispatch($document->id);
+            }
+        });
+    }
+
+    /**
      * Получить полный URL к файлу.
      *
      * @return string|null
@@ -63,4 +79,22 @@ class MedicalLibrary extends Model
     {
         return $this->image_path ? Storage::url($this->image_path) : null;
     }
-} 
+
+    /**
+     * Фрагменты документа в поисковом индексе ИИ-помощника.
+     *
+     * @return HasMany<LibraryChunk, $this>
+     */
+    public function libraryChunks(): HasMany
+    {
+        return $this->hasMany(LibraryChunk::class);
+    }
+
+    /**
+     * @return HasOne<LibraryIndex, $this>
+     */
+    public function libraryIndex(): HasOne
+    {
+        return $this->hasOne(LibraryIndex::class);
+    }
+}

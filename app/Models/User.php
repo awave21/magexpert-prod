@@ -340,6 +340,16 @@ class User extends Authenticatable
     }
 
     /**
+     * ИИ-помощник доступен сотрудникам и тем, у кого есть оплаченный или выданный доступ к мероприятию.
+     * Бесплатная регистрация на мероприятие доступа к помощнику не даёт.
+     */
+    public function canUseAssistant(): bool
+    {
+        return $this->hasAnyRole(['admin', 'editor', 'manager'])
+            || $this->accessibleEvents()->wherePivotIn('access_type', ['paid', 'promotional', 'admin', 'invited'])->exists();
+    }
+
+    /**
      * Получить тип доступа к мероприятию.
      */
     public function getEventAccessType(Event $event): ?string

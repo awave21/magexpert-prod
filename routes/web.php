@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\PartnerController;
 use App\Http\Controllers\Admin\SpeakerController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\CabinetController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DaDataController;
@@ -124,6 +125,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile/notifications', [CabinetController::class, 'notifications'])->name('cabinet.notifications');
     Route::patch('/profile/notifications', [CabinetController::class, 'updateNotifications'])->name('cabinet.notifications.update');
     Route::get('/payments', [CabinetController::class, 'payments'])->name('cabinet.payments');
+
+    // ИИ-помощник по документам библиотеки
+    Route::get('/cabinet/assistant', [AssistantController::class, 'index'])->name('cabinet.assistant');
+    Route::post('/cabinet/assistant/ask', [AssistantController::class, 'ask'])->middleware('throttle:20,1')->name('cabinet.assistant.ask');
 
     // Колокольчик: сообщения команды пользователю
     Route::get('/cabinet/messages', [UserNotificationController::class, 'index'])->name('cabinet.messages');

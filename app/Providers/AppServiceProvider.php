@@ -8,6 +8,10 @@ use App\Sender\Client\HttpContactSyncClient;
 use App\Sender\Contracts\SubscriptionClient;
 use App\Sender\Events\RecipientUnsubscribed;
 use App\Sender\Services\SubscriberSources;
+use App\Services\Assistant\DemoLibraryAssistant;
+use App\Services\Assistant\LibraryAssistant;
+use App\Services\Assistant\RagLibraryAssistant;
+use App\Services\Assistant\UnavailableLibraryAssistant;
 use App\Services\NewsletterSubscribers;
 use App\Services\VkIdProvider;
 use Illuminate\Support\Facades\Event;
@@ -28,6 +32,13 @@ class AppServiceProvider extends ServiceProvider
     {
         // база «Пользователи сайта» в Sender
         $this->app->tag([NewsletterSubscribers::class], SubscriberSources::TAG);
+
+        // ИИ-помощник кабинета: rag — поиск по документам библиотеки, demo — тестовые ответы (не в продакшене)
+        $this->app->bind(LibraryAssistant::class, fn (): LibraryAssistant => match (true) {
+            config('services.assistant.driver') === 'rag' => new RagLibraryAssistant,
+            config('services.assistant.driver') === 'demo' && ! $this->app->isProduction() => new DemoLibraryAssistant,
+            default => new UnavailableLibraryAssistant,
+        });
     }
 
     /**
