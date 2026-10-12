@@ -25,7 +25,7 @@ export default function Domains() {
   const list = q.data?.data ?? []
   return (
     <main className="page">
-      <PageHead title="Домены" sub="Письма можно отправлять только с подтверждённых доменов"
+      <PageHead title="Домены" sub="Письма можно отправлять только с подтверждённых доменов" guide="connect-domain"
         actions={isAdmin && <button className="btn primary" onClick={() => setAdding(true)}><Plus size={16} />Добавить домен</button>} />
 
       {q.isSuccess && list.length === 0 ? (

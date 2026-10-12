@@ -1,0 +1,27 @@
+/* видеоинструкции */
+.help-player { max-width: 1040px; scroll-margin-top: 72px; }
+.help-player video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; background: #000; box-shadow: 0 0 0 1px var(--line); }
+.help-now { padding: 16px 2px 0; }
+.help-now h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.help-now p { color: var(--ink-2); margin-top: 4px; max-width: 640px; }
+
+.help-list { list-style: none; margin: 36px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; max-width: 1040px; }
+.help-item { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 8px 8px 12px; border: 0; border-radius: 14px; background: transparent; text-align: left; cursor: pointer; transition: background .14s; }
+.help-item:hover { background: var(--surface); }
+.help-item.active { background: var(--accent-soft); }
+.help-thumb { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: var(--fill); box-shadow: 0 0 0 1px var(--line); }
+.help-item.active .help-thumb { box-shadow: 0 0 0 2px var(--accent); }
+.help-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.help-time { position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(0, 0, 0, .72); color: #fff; font-family: var(--mono); font-size: 11.5px; }
+.help-item-text { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; }
+.help-num { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.help-item b { font-weight: 500; color: var(--ink); line-height: 1.35; }
+.help-item.active b, .help-item.active .help-num { color: var(--accent-ink); }
+
+@media (max-width: 600px) {
+  .help-list { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .help-item { flex-direction: row; align-items: center; gap: 12px; padding: 6px; }
+  .help-thumb { width: 128px; flex: none; }
+  .help-player video { border-radius: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .help-item { transition: none; } }

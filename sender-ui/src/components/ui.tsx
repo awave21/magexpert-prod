@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, Eye, EyeOff } from 'lucide-react'
+import { GuideLink } from '../help/GuideLink'
 
 const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'err' | 'neutral' }> = {
   delivered: { label: 'Доставлено', tone: 'ok' },
@@ -92,12 +93,12 @@ export function BackLink({ to, children }: { to: string; children: ReactNode }) 
   return <Link to={to} className="back"><ArrowLeft size={15} />{children}</Link>
 }
 
-export function PageHead({ title, sub, actions }: { title: string; sub?: string; actions?: ReactNode }) {
+export function PageHead({ title, sub, actions, guide }: { title: string; sub?: string; actions?: ReactNode; guide?: string }) {
   return (
     <div className="page-head">
       <div>
         <h1>{title}</h1>
-        {sub && <p>{sub}</p>}
+        {(sub || guide) && <p>{sub}{guide && <GuideLink slug={guide} />}</p>}
       </div>
       {actions && <div className="row">{actions}</div>}
     </div>

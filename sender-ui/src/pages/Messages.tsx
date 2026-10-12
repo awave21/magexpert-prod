@@ -60,7 +60,7 @@ export default function Messages() {
 
   return (
     <main className="page">
-      <PageHead title="Журнал сообщений" sub="Каждое письмо и что с ним произошло" />
+      <PageHead title="Журнал сообщений" sub="Каждое письмо и что с ним произошло" guide="reports-and-log" />
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
         <div className="tabs" role="tablist" style={{ flex: 1 }}>
           {TABS.map(([v, l]) => (
