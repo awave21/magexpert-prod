@@ -239,6 +239,7 @@ class PaymentService
                 'is_active' => true,
             ]);
 
+            $user->assumeNewsletterConsent();
             SyncUserToSender::dispatchEventTag($user, $event->id);
 
             Log::info('Предоставлен доступ к мероприятию после оплаты', [

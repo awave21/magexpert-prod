@@ -436,3 +436,23 @@ it('keeps a sender address and reports a warning when the confirmation email fai
         ->assertStatus(503)
         ->assertJsonPath('message', fn (string $m): bool => str_contains($m, 'Письмо отправить не удалось'));
 });
+
+it('creates a template without an alias and gives it a draft id', function (): void {
+    $first = $this->withToken($this->token)->postJson(adminApi().'/templates', [
+        'name' => 'Без алиаса', 'subject' => 'Тема', 'body_html' => '<p>Текст</p>',
+    ])->assertCreated();
+
+    $id = $first->json('data.id');
+    expect($first->json('data.slug'))->toBe('draft-'.$id);
+
+    $second = $this->withToken($this->token)->postJson(adminApi().'/templates', [
+        'name' => 'Ещё одно', 'slug' => '', 'subject' => 'Тема', 'body_html' => '<p>Текст</p>',
+    ])->assertCreated();
+
+    expect($second->json('data.slug'))->toBe('draft-'.$second->json('data.id'));
+
+    // пустой алиас при сохранении не затирает прежний
+    $this->withToken($this->token)->putJson(adminApi()."/templates/{$id}", [
+        'name' => 'Переименовано', 'slug' => null, 'subject' => 'Тема', 'body_html' => '<p>Текст</p>',
+    ])->assertOk()->assertJsonPath('data.slug', 'draft-'.$id)->assertJsonPath('data.name', 'Переименовано');
+});

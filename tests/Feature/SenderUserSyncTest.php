@@ -465,3 +465,37 @@ it('не ставит тег мероприятия, когда синхрони
 
     Queue::assertNotPushed(SyncUserToSender::class);
 });
+
+it('ставит согласие на рассылку при регистрации на мероприятие и сразу передаёт его в Sender', function () {
+    Queue::fake();
+    $user = userWithProfile(['newsletter_consent' => false]);
+    resetQueue();
+    fakeSenderApi();
+
+    expect($user->assumeNewsletterConsent())->toBeTrue();
+    SyncUserToSender::dispatchEventTag($user, 63);
+
+    expect($user->fresh()->newsletter_consent)->toBeTrue()
+        ->and($user->fresh()->newsletter_withdrawn_at)->toBeNull();
+
+    runPushedSyncJobs();
+
+    Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/lists/7/contacts'
+        && $request['subscribed'] === true
+        && ($request->data()['tags'] ?? null) === ['event-63']);
+});
+
+it('не возвращает согласие тому, кто сам его отозвал', function () {
+    Queue::fake();
+    $user = userWithProfile(['newsletter_consent' => true]);
+
+    $user->update(['newsletter_consent' => false]);
+
+    expect($user->fresh()->newsletter_withdrawn_at)->not->toBeNull()
+        ->and($user->fresh()->assumeNewsletterConsent())->toBeFalse()
+        ->and($user->fresh()->newsletter_consent)->toBeFalse();
+
+    // осознанно включил снова: отметка об отзыве снимается
+    $user->update(['newsletter_consent' => true]);
+    expect($user->fresh()->newsletter_withdrawn_at)->toBeNull();
+});

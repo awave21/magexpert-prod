@@ -22,7 +22,7 @@ class TemplateRequest extends FormRequest
 
         return [
             'slug' => [
-                'required',
+                'nullable',
                 'string',
                 'max:100',
                 'alpha_dash',
@@ -57,7 +57,6 @@ class TemplateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'slug.required' => 'Укажите идентификатор шаблона',
             'slug.alpha_dash' => 'Идентификатор может содержать только латиницу, цифры, дефис и подчёркивание',
             'slug.unique' => 'Шаблон с таким идентификатором уже есть',
             'name.required' => 'Укажите название',

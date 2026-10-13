@@ -74,7 +74,7 @@ class AppServiceProvider extends ServiceProvider
             $userIds = (clone $users)->pluck('id');
 
             // массовое обновление не вызывает событий модели: согласие не отправляется обратно в Sender
-            $users->update(['newsletter_consent' => false]);
+            $users->update(['newsletter_consent' => false, 'newsletter_withdrawn_at' => now()]);
 
             // база «Пользователи MagExpert» узнаёт об отписке через API; отписку по ссылке это не вызывает повторно
             if ($this->usersSyncEnabled()) {
@@ -85,6 +85,15 @@ class AppServiceProvider extends ServiceProvider
         User::updated(function (User $user): void {
             if (! $user->wasChanged('newsletter_consent') || blank($user->email)) {
                 return;
+            }
+
+            // человек сам снял согласие: запоминаем, чтобы регистрация на мероприятие его не вернула
+            // запросом, а не save(): иначе у модели сбросится wasChanged() для остальных обработчиков
+            $withdrawnAt = $user->newsletter_consent ? null : now();
+
+            if ($user->newsletter_consent ? $user->newsletter_withdrawn_at !== null : true) {
+                User::query()->whereKey($user->getKey())->toBase()->update(['newsletter_withdrawn_at' => $withdrawnAt]);
+                $user->setAttribute('newsletter_withdrawn_at', $withdrawnAt)->syncOriginalAttribute('newsletter_withdrawn_at');
             }
 
             try {

@@ -57,6 +57,23 @@ class User extends Authenticatable
     ];
 
     /**
+     * Регистрация на мероприятие подразумевает согласие на рассылку: если его не было, оно ставится само
+     * и сразу уходит в Sender. Тем, кто сам отозвал согласие (кабинет, отписка по ссылке), оно не возвращается.
+     *
+     * @return bool поставлено ли согласие сейчас
+     */
+    public function assumeNewsletterConsent(): bool
+    {
+        if ($this->newsletter_consent || $this->newsletter_withdrawn_at !== null || blank($this->email)) {
+            return false;
+        }
+
+        $this->forceFill(['newsletter_consent' => true])->save();
+
+        return true;
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -67,6 +84,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'newsletter_consent' => 'boolean',
+            'newsletter_withdrawn_at' => 'datetime',
             'site_notifications' => 'boolean',
             'password' => 'hashed',
         ];

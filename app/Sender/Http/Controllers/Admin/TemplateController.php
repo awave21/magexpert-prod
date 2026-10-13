@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 
 class TemplateController extends Controller
 {
@@ -27,7 +28,21 @@ class TemplateController extends Controller
 
     public function store(TemplateRequest $request, HtmlSanitizer $sanitizer): JsonResponse
     {
-        $template = $this->organization($request)->templates()->create($this->sanitized($request, $sanitizer));
+        $data = $this->sanitized($request, $sanitizer);
+        $slugGiven = filled($data['slug'] ?? null);
+
+        // алиас для API необязателен: пока его не задали, письмо доступно по draft-<ID>
+        $data['slug'] = $slugGiven ? $data['slug'] : 'draft-'.Str::lower(Str::random(12));
+        $organization = $this->organization($request);
+        $template = $organization->templates()->create($data);
+
+        if (! $slugGiven) {
+            $draft = 'draft-'.$template->id;
+
+            if (! $organization->templates()->where('slug', $draft)->exists()) {
+                $template->update(['slug' => $draft]);
+            }
+        }
 
         return (new TemplateResource($template))->response()->setStatusCode(201);
     }
@@ -40,7 +55,14 @@ class TemplateController extends Controller
     public function update(TemplateRequest $request, int $template, HtmlSanitizer $sanitizer): TemplateResource
     {
         $model = $this->organization($request)->templates()->findOrFail($template);
-        $model->update($this->sanitized($request, $sanitizer));
+        $data = $this->sanitized($request, $sanitizer);
+
+        // пустой алиас не затирает прежний
+        if (blank($data['slug'] ?? null)) {
+            unset($data['slug']);
+        }
+
+        $model->update($data);
 
         return new TemplateResource($model);
     }

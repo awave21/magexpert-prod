@@ -25,7 +25,7 @@ const render = (src: string, data: Record<string, string>, escape = true) => {
   return out.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, k: string) => (escape ? esc(data[k] ?? '') : (data[k] ?? '')))
 }
 
-const payload = (f: Form) => ({ ...f, body_text: f.body_text || null, reply_to: f.reply_to || null, preheader: f.preheader || null })
+const payload = (f: Form) => ({ ...f, slug: f.slug.trim() || null, body_text: f.body_text || null, reply_to: f.reply_to || null, preheader: f.preheader || null })
 
 const FRAME_CSS = 'body{font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#1C1F27;margin:0;padding:28px 24px;background:#fff;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#3B51D3}'
 
@@ -97,15 +97,15 @@ export default function TemplateEditor() {
 
 
   const save = useMutation({
-    mutationFn: () => api<{ data: Template }>(isNew ? '/templates' : `/templates/${id}`, { method: isNew ? 'POST' : 'PUT', body: payload(form) }),
-    onSuccess: (r) => {
+    mutationFn: (_openEditor?: boolean) => api<{ data: Template }>(isNew ? '/templates' : `/templates/${id}`, { method: isNew ? 'POST' : 'PUT', body: payload(form) }),
+    onSuccess: (r, openEditor) => {
       setErrors({})
       setSaved(form)
       qc.invalidateQueries({ queryKey: ['templates'] })
       qc.invalidateQueries({ queryKey: ['template-folders'] })
       qc.setQueryData(['template', String(r.data.id)], r)
       toast('Письмо сохранено')
-      if (isNew) nav(`/templates/${r.data.id}`, { replace: true })
+      if (isNew) nav(openEditor ? `/templates/${r.data.id}/blocks` : `/templates/${r.data.id}`, { replace: true })
     },
     onError: (e) => { if (e instanceof ApiError) { setErrors(e.errors); toast(e.message, true) } },
   })
@@ -130,7 +130,7 @@ export default function TemplateEditor() {
     onError: (e) => toast(e instanceof ApiError ? (e.errors.to?.[0] ?? e.message) : 'Не удалось отправить', true),
   })
 
-  const submit = useCallback((e?: FormEvent) => { e?.preventDefault(); if (!save.isPending) save.mutate() }, [save])
+  const submit = useCallback((e?: FormEvent) => { e?.preventDefault(); if (!save.isPending) save.mutate(false) }, [save])
 
   // Cmd/Ctrl+S сохраняет
   useEffect(() => {
@@ -160,13 +160,13 @@ export default function TemplateEditor() {
             <div className="tpl-meta">
               {!isNew && <span className="chip mono id-chip" title="ID письма: его передаёт приложение при отправке">ID {id}<CopyButton text={String(id)} label="Скопировать ID шаблона" /></span>}
               <span className={`save-state${dirty ? ' dirty' : ''}`}>
-                {dirty ? <><i />Есть несохранённые изменения</> : isNew ? 'Ещё не сохранён' : <><Check size={13} />Сохранено {ago(q.data?.data.updated_at ?? null)}</>}
+                {dirty ? <><i />Есть несохранённые изменения</> : isNew ? 'Название и тема, остальное — в редакторе' : <><Check size={13} />Сохранено {ago(q.data?.data.updated_at ?? null)}</>}
               </span>
             </div>
           </div>
           {canEditContent && <div className="row">
             {!isNew && <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>}
-            <button className="btn primary" disabled={save.isPending || (!dirty && !isNew)} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>
+            {!isNew && <button className="btn primary" disabled={save.isPending || !dirty} title="Cmd+S">{save.isPending ? 'Сохраняем…' : 'Сохранить'}</button>}
             {!isNew && (
               <div className="menu-wrap">
                 <button type="button" className="btn icon ghost" aria-label="Ещё" aria-expanded={menu} onClick={() => setMenu((m) => !m)}><MoreHorizontal size={18} /></button>
@@ -181,10 +181,15 @@ export default function TemplateEditor() {
           </div>}
         </div>
 
-        <div className="tpl-grid">
+        <div className={`tpl-grid${isNew ? ' tpl-new' : ''}`}>
           {/* левая колонка: содержимое */}
           <div className="tpl-edit">
             <section className="tpl-section">
+              <div className="field">
+                <label htmlFor="name">Название письма</label>
+                <input id="name" className={`input${err('name') ? ' err' : ''}`} value={form.name} onChange={set('name')} placeholder="Регистрация на мероприятие" autoFocus={isNew} />
+                {err('name') ? <div className="hint err">{err('name')}</div> : <div className="hint">Только для вас: по названию письмо находится в списке.</div>}
+              </div>
               <div className="field">
                 <label htmlFor="subject">Тема письма</label>
                 <input id="subject" className={`input${err('subject') ? ' err' : ''}`} value={form.subject} onChange={set('subject')} placeholder="Вы зарегистрированы: {{ event_title }}" />
@@ -192,92 +197,172 @@ export default function TemplateEditor() {
               </div>
             </section>
 
-            <section className="tpl-section">
-              <div className="tpl-sub"><h2>Письмо</h2></div>
-              {isNew ? (
-                <div className="hint">Сохраните письмо, затем соберите письмо в редакторе.</div>
-              ) : (
-                <div className="tpl-open">
-                  <div className="tpl-open-head">
-                    <span className="tpl-open-ic"><Blocks size={22} /></span>
-                    <div>
-                      <b>{isBlocks ? 'Собрано из блоков' : 'Написано кодом'}</b>
-                      <span>{isBlocks ? 'Текст, картинки, кнопки и стили' : 'Перенесите в блоки, чтобы править без кода'}</span>
+            {isNew ? null : (
+              <section className="tpl-section">
+                <div className="tpl-sub"><h2>Письмо</h2></div>
+                {isNew ? (
+                  <div className="tpl-open">
+                    <div className="tpl-open-head">
+                      <span className="tpl-open-ic"><Blocks size={22} /></span>
+                      <div>
+                        <b>Соберите письмо в редакторе</b>
+                        <span>Укажите название и тему, письмо сохранится, и откроется редактор</span>
+                      </div>
+                    </div>
+                    <button type="button" className="btn primary lg tpl-open-btn" disabled={save.isPending} onClick={() => save.mutate(true)}><PencilRuler size={17} />{save.isPending ? 'Создаём…' : 'Создать и открыть редактор'}</button>
+                  </div>
+                ) : (
+                  <div className="tpl-open">
+                    <div className="tpl-open-head">
+                      <span className="tpl-open-ic"><Blocks size={22} /></span>
+                      <div>
+                        <b>{isBlocks ? 'Собрано из блоков' : 'Написано кодом'}</b>
+                        <span>{isBlocks ? 'Текст, картинки, кнопки и стили' : 'Перенесите в блоки, чтобы править без кода'}</span>
+                      </div>
+                    </div>
+                    <Link to={`/templates/${id}/blocks`} className="btn primary lg tpl-open-btn"><PencilRuler size={17} />{isBlocks ? 'Открыть редактор' : 'Собрать из блоков'}</Link>
+                  </div>
+                )}
+                {err('body_html') && <div className="hint err">{err('body_html')}</div>}
+              </section>
+            )}
+
+            {isNew ? (
+              <details className="tpl-more">
+                <summary>Дополнительно: алиас для API, отправитель, прехедер</summary>
+                <div className="tpl-more-body">
+                <section className="tpl-section">
+                  <div className="tpl-sub"><h2>Отправка</h2></div>
+                  <div className="tpl-settings">
+                    <div className="field span2">
+                      <label htmlFor="sender">Отправитель</label>
+                      <select id="sender" className={`select${err('sender_address_id') ? ' err' : ''}`} value={form.sender_address_id ?? ''}
+                        onChange={(e) => setForm((f) => ({ ...f, sender_address_id: e.target.value ? Number(e.target.value) : null }))}>
+                        <option value="">{addresses.length ? 'Выберите адрес' : 'Адресов пока нет'}</option>
+                        {addresses.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.email}{!x.confirmed ? ' (ждёт подтверждения)' : !x.verified ? ' (домен не подтверждён)' : ''}</option>)}
+                      </select>
+                      <div className={`hint${err('sender_address_id') ? ' err' : sender && (!sender.verified || !sender.confirmed) ? ' warn-text' : ''}`}>
+                        {err('sender_address_id') ?? (sender && !sender.confirmed
+                          ? `Адрес не подтверждён: откройте письмо со ссылкой в ящике ${sender.email}. До этого письма по шаблону не уходят.`
+                          : sender && !sender.verified
+                          ? 'Домен этого адреса не подтверждён: письма не уйдут, пока не внесены DNS-записи.'
+                          : <>Адреса и имена отправителей задаются в разделе <Link to="/domains">«Домены»</Link>.</>)}
+                      </div>
+                    </div>
+                    <div className="field span2">
+                      <label htmlFor="reply-to">Ответы приходят на</label>
+                      <input id="reply-to" type="email" className={`input mono${err('reply_to') ? ' err' : ''}`} value={form.reply_to} onChange={set('reply_to')} placeholder={sender?.email ?? 'support@mag-expert.ru'} />
+                      <div className={`hint${err('reply_to') ? ' err' : ''}`}>{err('reply_to') ?? 'Если пусто, ответ уйдёт на адрес отправителя'}</div>
+                    </div>
+                    <div className="field span2">
+                      <label htmlFor="preheader">Прехедер</label>
+                      <input id="preheader" className={`input${err('preheader') ? ' err' : ''}`} value={form.preheader} onChange={set('preheader')} placeholder="Ссылка на трансляцию придёт за час до начала" maxLength={255} />
+                      <div className={`hint${err('preheader') ? ' err' : ''}`}>{err('preheader') ?? 'Строка после темы в списке писем. Если пусто, почта покажет начало текста.'}</div>
                     </div>
                   </div>
-                  <Link to={`/templates/${id}/blocks`} className="btn primary lg tpl-open-btn"><PencilRuler size={17} />{isBlocks ? 'Открыть редактор' : 'Собрать из блоков'}</Link>
+                </section>
+    
+                <section className="tpl-section">
+                  <div className="tpl-sub"><h2>Настройки</h2></div>
+                  <div className="tpl-settings">
+                    {!isNew && <div className="field">
+                      <label htmlFor="folder">Папка</label>
+                      <select id="folder" className="select" value={form.folder_id ?? ''} onChange={(e) => setForm((f) => ({ ...f, folder_id: e.target.value ? Number(e.target.value) : null }))}>
+                        <option value="">Без папки</option>
+                        {(fq.data?.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </select>
+                    </div>}
+                    <div className="field span2">
+                      <label htmlFor="slug">Алиас для API</label>
+                      <div className="row" style={{ flexWrap: 'nowrap', gap: 8 }}>
+                        <input id="slug" className={`input mono${err('slug') ? ' err' : ''}`} value={form.slug} onChange={set('slug')} readOnly={slugLocked} placeholder={isNew ? 'Необязательно: создастся draft-ID' : 'event-registration'} />
+                        {!isNew && (
+                          <button type="button" className="btn icon" onClick={() => setSlugLocked((l) => !l)} aria-label={slugLocked ? 'Разрешить изменение ключа' : 'Запретить изменение ключа'} title={slugLocked ? 'Изменить ключ' : 'Закрыть изменение'}>
+                            {slugLocked ? <Lock size={15} /> : <Unlock size={15} />}
+                          </button>
+                        )}
+                      </div>
+                      <div className={`hint${err('slug') ? ' err' : !slugLocked && !isNew ? ' warn-text' : ''}`}>
+                        {err('slug') ?? (!slugLocked && !isNew ? 'Приложение отправляет письма по этому ключу. После изменения поменяйте его и в коде сайта, иначе письма перестанут уходить.' : (isNew ? 'Необязательно. Если не указать, создастся draft-ID письма; позже его можно заменить на понятный ключ. Латиница, цифры и дефис.' : 'Латиница, цифры и дефис. По ключу приложение выбирает шаблон.'))}
+                      </div>
+                    </div>
+                  </div>
+                </section>
                 </div>
-              )}
-              {err('body_html') && <div className="hint err">{err('body_html')}</div>}
-            </section>
+              </details>
+            ) : (
+              <>
+              <section className="tpl-section">
+                <div className="tpl-sub"><h2>Отправка</h2></div>
+                <div className="tpl-settings">
+                  <div className="field span2">
+                    <label htmlFor="sender">Отправитель</label>
+                    <select id="sender" className={`select${err('sender_address_id') ? ' err' : ''}`} value={form.sender_address_id ?? ''}
+                      onChange={(e) => setForm((f) => ({ ...f, sender_address_id: e.target.value ? Number(e.target.value) : null }))}>
+                      <option value="">{addresses.length ? 'Выберите адрес' : 'Адресов пока нет'}</option>
+                      {addresses.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.email}{!x.confirmed ? ' (ждёт подтверждения)' : !x.verified ? ' (домен не подтверждён)' : ''}</option>)}
+                    </select>
+                    <div className={`hint${err('sender_address_id') ? ' err' : sender && (!sender.verified || !sender.confirmed) ? ' warn-text' : ''}`}>
+                      {err('sender_address_id') ?? (sender && !sender.confirmed
+                        ? `Адрес не подтверждён: откройте письмо со ссылкой в ящике ${sender.email}. До этого письма по шаблону не уходят.`
+                        : sender && !sender.verified
+                        ? 'Домен этого адреса не подтверждён: письма не уйдут, пока не внесены DNS-записи.'
+                        : <>Адреса и имена отправителей задаются в разделе <Link to="/domains">«Домены»</Link>.</>)}
+                    </div>
+                  </div>
+                  <div className="field span2">
+                    <label htmlFor="reply-to">Ответы приходят на</label>
+                    <input id="reply-to" type="email" className={`input mono${err('reply_to') ? ' err' : ''}`} value={form.reply_to} onChange={set('reply_to')} placeholder={sender?.email ?? 'support@mag-expert.ru'} />
+                    <div className={`hint${err('reply_to') ? ' err' : ''}`}>{err('reply_to') ?? 'Если пусто, ответ уйдёт на адрес отправителя'}</div>
+                  </div>
+                  <div className="field span2">
+                    <label htmlFor="preheader">Прехедер</label>
+                    <input id="preheader" className={`input${err('preheader') ? ' err' : ''}`} value={form.preheader} onChange={set('preheader')} placeholder="Ссылка на трансляцию придёт за час до начала" maxLength={255} />
+                    <div className={`hint${err('preheader') ? ' err' : ''}`}>{err('preheader') ?? 'Строка после темы в списке писем. Если пусто, почта покажет начало текста.'}</div>
+                  </div>
+                </div>
+              </section>
+  
+              <section className="tpl-section">
+                <div className="tpl-sub"><h2>Настройки</h2></div>
+                <div className="tpl-settings">
+                  {!isNew && <div className="field">
+                    <label htmlFor="folder">Папка</label>
+                    <select id="folder" className="select" value={form.folder_id ?? ''} onChange={(e) => setForm((f) => ({ ...f, folder_id: e.target.value ? Number(e.target.value) : null }))}>
+                      <option value="">Без папки</option>
+                      {(fq.data?.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </select>
+                  </div>}
+                  <div className="field span2">
+                    <label htmlFor="slug">Алиас для API</label>
+                    <div className="row" style={{ flexWrap: 'nowrap', gap: 8 }}>
+                      <input id="slug" className={`input mono${err('slug') ? ' err' : ''}`} value={form.slug} onChange={set('slug')} readOnly={slugLocked} placeholder={isNew ? 'Необязательно: создастся draft-ID' : 'event-registration'} />
+                      {!isNew && (
+                        <button type="button" className="btn icon" onClick={() => setSlugLocked((l) => !l)} aria-label={slugLocked ? 'Разрешить изменение ключа' : 'Запретить изменение ключа'} title={slugLocked ? 'Изменить ключ' : 'Закрыть изменение'}>
+                          {slugLocked ? <Lock size={15} /> : <Unlock size={15} />}
+                        </button>
+                      )}
+                    </div>
+                    <div className={`hint${err('slug') ? ' err' : !slugLocked && !isNew ? ' warn-text' : ''}`}>
+                      {err('slug') ?? (!slugLocked && !isNew ? 'Приложение отправляет письма по этому ключу. После изменения поменяйте его и в коде сайта, иначе письма перестанут уходить.' : (isNew ? 'Необязательно. Если не указать, создастся draft-ID письма; позже его можно заменить на понятный ключ. Латиница, цифры и дефис.' : 'Латиница, цифры и дефис. По ключу приложение выбирает шаблон.'))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+              </>
+            )}
 
-            <section className="tpl-section">
-              <div className="tpl-sub"><h2>Отправка</h2></div>
-              <div className="tpl-settings">
-                <div className="field span2">
-                  <label htmlFor="sender">Отправитель</label>
-                  <select id="sender" className={`select${err('sender_address_id') ? ' err' : ''}`} value={form.sender_address_id ?? ''}
-                    onChange={(e) => setForm((f) => ({ ...f, sender_address_id: e.target.value ? Number(e.target.value) : null }))}>
-                    <option value="">{addresses.length ? 'Выберите адрес' : 'Адресов пока нет'}</option>
-                    {addresses.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.email}{!x.confirmed ? ' (ждёт подтверждения)' : !x.verified ? ' (домен не подтверждён)' : ''}</option>)}
-                  </select>
-                  <div className={`hint${err('sender_address_id') ? ' err' : sender && (!sender.verified || !sender.confirmed) ? ' warn-text' : ''}`}>
-                    {err('sender_address_id') ?? (sender && !sender.confirmed
-                      ? `Адрес не подтверждён: откройте письмо со ссылкой в ящике ${sender.email}. До этого письма по шаблону не уходят.`
-                      : sender && !sender.verified
-                      ? 'Домен этого адреса не подтверждён: письма не уйдут, пока не внесены DNS-записи.'
-                      : <>Адреса и имена отправителей задаются в разделе <Link to="/domains">«Домены»</Link>.</>)}
-                  </div>
-                </div>
-                <div className="field span2">
-                  <label htmlFor="reply-to">Ответы приходят на</label>
-                  <input id="reply-to" type="email" className={`input mono${err('reply_to') ? ' err' : ''}`} value={form.reply_to} onChange={set('reply_to')} placeholder={sender?.email ?? 'support@mag-expert.ru'} />
-                  <div className={`hint${err('reply_to') ? ' err' : ''}`}>{err('reply_to') ?? 'Если пусто, ответ уйдёт на адрес отправителя'}</div>
-                </div>
-                <div className="field span2">
-                  <label htmlFor="preheader">Прехедер</label>
-                  <input id="preheader" className={`input${err('preheader') ? ' err' : ''}`} value={form.preheader} onChange={set('preheader')} placeholder="Ссылка на трансляцию придёт за час до начала" maxLength={255} />
-                  <div className={`hint${err('preheader') ? ' err' : ''}`}>{err('preheader') ?? 'Строка после темы в списке писем. Если пусто, почта покажет начало текста.'}</div>
-                </div>
+            {isNew && canEditContent && (
+              <div className="tpl-create">
+                <button type="button" className="btn primary lg" disabled={save.isPending} onClick={() => save.mutate(true)}><PencilRuler size={17} />{save.isPending ? 'Создаём…' : 'Создать и открыть редактор'}</button>
+                <button type="button" className="btn" disabled={save.isPending} onClick={() => save.mutate(false)}>Создать без редактора</button>
               </div>
-            </section>
-
-            <section className="tpl-section">
-              <div className="tpl-sub"><h2>Настройки</h2></div>
-              <div className="tpl-settings">
-                <div className="field">
-                  <label htmlFor="name">Название</label>
-                  <input id="name" className={`input${err('name') ? ' err' : ''}`} value={form.name} onChange={set('name')} placeholder="Регистрация на мероприятие" />
-                  {err('name') && <div className="hint err">{err('name')}</div>}
-                </div>
-                <div className="field">
-                  <label htmlFor="folder">Папка</label>
-                  <select id="folder" className="select" value={form.folder_id ?? ''} onChange={(e) => setForm((f) => ({ ...f, folder_id: e.target.value ? Number(e.target.value) : null }))}>
-                    <option value="">Без папки</option>
-                    {(fq.data?.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </select>
-                </div>
-                <div className="field span2">
-                  <label htmlFor="slug">Алиас для API</label>
-                  <div className="row" style={{ flexWrap: 'nowrap', gap: 8 }}>
-                    <input id="slug" className={`input mono${err('slug') ? ' err' : ''}`} value={form.slug} onChange={set('slug')} readOnly={slugLocked} placeholder="event-registration" />
-                    {!isNew && (
-                      <button type="button" className="btn icon" onClick={() => setSlugLocked((l) => !l)} aria-label={slugLocked ? 'Разрешить изменение ключа' : 'Запретить изменение ключа'} title={slugLocked ? 'Изменить ключ' : 'Закрыть изменение'}>
-                        {slugLocked ? <Lock size={15} /> : <Unlock size={15} />}
-                      </button>
-                    )}
-                  </div>
-                  <div className={`hint${err('slug') ? ' err' : !slugLocked && !isNew ? ' warn-text' : ''}`}>
-                    {err('slug') ?? (!slugLocked && !isNew ? 'Приложение отправляет письма по этому ключу. После изменения поменяйте его и в коде сайта, иначе письма перестанут уходить.' : 'Латиница, цифры и дефис. По ключу приложение выбирает шаблон.')}
-                  </div>
-                </div>
-              </div>
-            </section>
+            )}
 
           </div>
 
           {/* правая колонка: живой предпросмотр */}
-          <aside className="tpl-preview" aria-label="Предпросмотр">
+          {!isNew && <aside className="tpl-preview" aria-label="Предпросмотр">
             <div className="tpl-bar">
               <span className="label">Как увидит получатель</span>
               <div className="seg" role="tablist" aria-label="Устройство">
@@ -297,7 +382,7 @@ export default function TemplateEditor() {
               <iframe className="inbox-frame" title="Предпросмотр письма" sandbox="allow-same-origin" srcDoc={previewHtml} />
             </div>
             <div className="hint">Обновляется сразу, без сохранения. Значения переменных подставлены для примера: при отправке их передаёт приложение.</div>
-          </aside>
+          </aside>}
         </div>
       </form>
 

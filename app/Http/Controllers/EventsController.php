@@ -328,6 +328,7 @@ class EventsController extends Controller
                     ],
                 ]);
 
+                $user->assumeNewsletterConsent();
                 SyncUserToSender::dispatchEventTag($user, $event->id);
 
                 try {
@@ -433,6 +434,7 @@ class EventsController extends Controller
                 ]);
             }
 
+            $user->assumeNewsletterConsent();
             SyncUserToSender::dispatchEventTag($user, $event->id);
 
             try {
