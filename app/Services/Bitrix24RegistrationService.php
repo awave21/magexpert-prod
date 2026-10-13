@@ -24,7 +24,7 @@ class Bitrix24RegistrationService
         try {
             // 1) Контакт
             $contact = $this->b24->findContact($user->email, $user->phone);
-            if (!$contact) {
+            if (! $contact) {
                 $contactFields = $this->buildContactFields($user, $payload);
                 $contactId = $this->b24->addContact($contactFields);
             } else {
@@ -34,10 +34,10 @@ class Bitrix24RegistrationService
             // 2) Сделка (опционально: если требуется по бизнес-логике)
             $dealId = null;
             $deals = $this->b24->listDealsByContact($contactId);
-            if (!empty($deals)) {
+            if (! empty($deals)) {
                 $dealId = (int) $deals[0]['ID'];
                 // При необходимости — обновление сделки (минимально)
-                if (!empty($payload['deal_update_fields'])) {
+                if (! empty($payload['deal_update_fields'])) {
                     $this->b24->updateDeal($dealId, $payload['deal_update_fields']);
                 }
             } else {
@@ -57,17 +57,17 @@ class Bitrix24RegistrationService
                 if ($dealId) {
                     $filter['parentId2'] = $dealId;
                 }
-                if (!empty($eventItemFields['title'])) {
+                if (! empty($eventItemFields['title'])) {
                     $filter['title'] = $eventItemFields['title'];
                 }
 
                 $existingItems = $this->b24->listEventItems($filter);
-                if (!empty($existingItems)) {
+                if (! empty($existingItems)) {
                     // Уже существует — пропускаем создание
                     $itemId = (int) ($existingItems[0]['id'] ?? $existingItems[0]['ID'] ?? 0);
                     // Если нашли — обновим статус, если требуется
                     $statusKey = $this->normalizeUfKey(config('bitrix24.event_uf_fields.status'));
-                    if ($statusKey && !empty($eventItemFields[$statusKey])) {
+                    if ($statusKey && ! empty($eventItemFields[$statusKey])) {
                         $this->b24->updateEventItem($itemId, [
                             $statusKey => $eventItemFields[$statusKey],
                         ]);
@@ -120,17 +120,19 @@ class Bitrix24RegistrationService
             'UTM_CONTENT' => $payload['utm_content'] ?? null,
             'UTM_TERM' => $payload['utm_term'] ?? null,
             $uf['city'] ?? 'UF_CRM_ITS_DICT_CITY' => $user->city ?: ($payload['city'] ?? null),
+            $uf['specialization'] ?? 'UF_CRM_1642077639' => $user->specialization ?: ($payload['specialization'] ?? null),
+            $uf['post'] ?? 'UF_CRM_POST' => $user->position ?: null,
             'PHONE' => [],
             'EMAIL' => [],
         ];
 
-        if (!empty($user->phone) || !empty($payload['phone'])) {
+        if (! empty($user->phone) || ! empty($payload['phone'])) {
             $fields['PHONE'][] = [
                 'VALUE' => $user->phone ?: $payload['phone'],
                 'VALUE_TYPE' => 'MOBILE',
             ];
         }
-        if (!empty($user->email)) {
+        if (! empty($user->email)) {
             $fields['EMAIL'][] = [
                 'VALUE' => $user->email,
                 'VALUE_TYPE' => 'WORK',
@@ -168,6 +170,7 @@ class Bitrix24RegistrationService
             $uf['specialization'] ?? 'UF_CRM_1642077639' => $payload['specialization'] ?? null,
             $uf['format'] ?? 'UF_CRM_1719829830428' => $payload['format'] ?? $event->format,
         ];
+
         return $fields;
     }
 
@@ -188,7 +191,7 @@ class Bitrix24RegistrationService
         if ($dealId) {
             $fields['parentId2'] = $dealId;
         }
-        if (!empty($dateKey) && !empty($event->start_date)) {
+        if (! empty($dateKey) && ! empty($event->start_date)) {
             // Формат: ISO 8601 с часовым поясом (Europe/Moscow), пример: 2025-08-21T10:00:00+03:00
             $dateStr = is_string($event->start_date) ? $event->start_date : $event->start_date->format('Y-m-d');
             $time = $event->start_time ?: '00:00:00';
@@ -196,10 +199,10 @@ class Bitrix24RegistrationService
                 $time .= ':00';
             }
             $tz = config('app.timezone', 'Europe/Moscow');
-            $dt = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $dateStr . ' ' . $time, $tz);
+            $dt = \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $dateStr.' '.$time, $tz);
             $fields[$dateKey] = $dt->toIso8601String();
         }
-        if (!empty($formatKey) && !empty($event->format)) {
+        if (! empty($formatKey) && ! empty($event->format)) {
             // Отправляем формат по-русски если возможно
             $formatRu = match (strtolower((string) $event->format)) {
                 'online' => 'Онлайн',
@@ -209,17 +212,18 @@ class Bitrix24RegistrationService
             };
             $fields[$formatKey] = $formatRu;
         }
-        if (!empty($speakersKey)) {
+        if (! empty($speakersKey)) {
             // Строка со списком спикеров
             $speakers = $event->speakers->pluck('full_name')->filter()->implode(', ');
-            if (!empty($speakers)) {
+            if (! empty($speakers)) {
                 $fields[$speakersKey] = $speakers;
             }
         }
         // Статус оплаты в смарт-процессе, если поле задано: «Ожидает оплаты» при регистрации
-        if (!empty($statusKey)) {
+        if (! empty($statusKey)) {
             $fields[$statusKey] = $payload['event_status'] ?? 'Ожидает оплаты';
         }
+
         return $fields;
     }
 
@@ -229,7 +233,7 @@ class Bitrix24RegistrationService
      */
     private function normalizeUfKey(?string $code): ?string
     {
-        if (!$code) {
+        if (! $code) {
             return null;
         }
         if (str_contains($code, '_')) {
@@ -239,8 +243,10 @@ class Bitrix24RegistrationService
             foreach ($parts as $p) {
                 $camel .= ucfirst($p);
             }
+
             return $camel;
         }
+
         return $code;
     }
 
@@ -253,6 +259,7 @@ class Bitrix24RegistrationService
     {
         $stages = (array) config('bitrix24.deal_stages', []);
         $stageId = $stages[$key] ?? null;
+
         return $this->b24->moveDealToStage($dealId, $stageId);
     }
 
@@ -262,7 +269,7 @@ class Bitrix24RegistrationService
     public function moveFirstDealStageForUser(User $user, string $key): bool
     {
         $contact = $this->b24->findContact($user->email, $user->phone);
-        if (!$contact) {
+        if (! $contact) {
             return false;
         }
         $contactId = (int) $contact['ID'];
@@ -271,8 +278,7 @@ class Bitrix24RegistrationService
             return false;
         }
         $dealId = (int) $deals[0]['ID'];
+
         return $this->moveDealStageByKey($dealId, $key);
     }
 }
-
-

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Jobs\SyncUserToBitrix24;
 use App\Jobs\SyncUserToSender;
 use App\Models\User;
 use App\Sender\Client\HttpContactSyncClient;
@@ -114,6 +115,15 @@ class AppServiceProvider extends ServiceProvider
         User::created(function (User $user): void {
             if ($this->usersSyncEnabled()) {
                 SyncUserToSender::dispatch($user->id, $user->email);
+            }
+        });
+
+        // изменения профиля уходят и в Bitrix24: туда, где контакт уже есть
+        User::updated(function (User $user): void {
+            if (SyncUserToBitrix24::enabled() && $user->wasChanged(SyncUserToBitrix24::trackedFields()) && SyncUserToSender::syncable($user)) {
+                $previousEmail = $user->wasChanged('email') ? $user->getOriginal('email') : null;
+
+                SyncUserToBitrix24::dispatch($user->id, filled($previousEmail) ? $previousEmail : null);
             }
         });
 

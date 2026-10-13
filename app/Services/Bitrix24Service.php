@@ -8,15 +8,25 @@ use Illuminate\Support\Facades\Log;
 class Bitrix24Service
 {
     protected string $webhookUrl;
+
     protected int $dealCategoryId;
+
     protected string $dealTypeId;
+
     protected int $eventEntityTypeId;
+
     protected int $assignedById;
+
     protected array $ufCodes;
+
     protected array $eventUfFields;
+
     protected array $httpConfig;
+
     protected bool $eventUnique;
+
     protected string $logChannel;
+
     protected array $dealStages;
 
     public function __construct()
@@ -39,7 +49,7 @@ class Bitrix24Service
      */
     protected function post(string $method, array $payload): array
     {
-        $url = $this->webhookUrl . '/' . ltrim($method, '/');
+        $url = $this->webhookUrl.'/'.ltrim($method, '/');
 
         // Логируем исходящий запрос в Bitrix24
         Log::channel($this->logChannel)->info('Bitrix24 → POST', [
@@ -50,9 +60,9 @@ class Bitrix24Service
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
         ])->timeout($this->httpConfig['timeout'] ?? 15)
-          ->connectTimeout($this->httpConfig['connect_timeout'] ?? 5)
-          ->retry($this->httpConfig['retry_times'] ?? 3, $this->httpConfig['retry_sleep_ms'] ?? 250)
-          ->post($url, $payload);
+            ->connectTimeout($this->httpConfig['connect_timeout'] ?? 5)
+            ->retry($this->httpConfig['retry_times'] ?? 3, $this->httpConfig['retry_sleep_ms'] ?? 250)
+            ->post($url, $payload);
 
         // Логируем ответ Bitrix24 (статус и тело)
         $responseBody = null;
@@ -68,13 +78,13 @@ class Bitrix24Service
             'response' => $responseBody,
         ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             Log::channel($this->logChannel)->error('Bitrix24: Ошибка HTTP', [
                 'method' => $method,
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
-            throw new \RuntimeException('Bitrix24: HTTP ' . $response->status());
+            throw new \RuntimeException('Bitrix24: HTTP '.$response->status());
         }
 
         $data = $response->json();
@@ -84,7 +94,7 @@ class Bitrix24Service
                 'method' => $method,
                 'error' => $data,
             ]);
-            throw new \RuntimeException('Bitrix24 API error: ' . ($data['error_description'] ?? $data['error']));
+            throw new \RuntimeException('Bitrix24 API error: '.($data['error_description'] ?? $data['error']));
         }
 
         return $data;
@@ -96,8 +106,12 @@ class Bitrix24Service
     public function findContact(?string $email = null, ?string $phone = null): ?array
     {
         $filter = [];
-        if ($email) { $filter['EMAIL'] = $email; }
-        if ($phone) { $filter['PHONE'] = $phone; }
+        if ($email) {
+            $filter['EMAIL'] = $email;
+        }
+        if ($phone) {
+            $filter['PHONE'] = $phone;
+        }
 
         $payload = [
             'filter' => $filter,
@@ -106,14 +120,32 @@ class Bitrix24Service
 
         $data = $this->post('crm.contact.list.json', $payload);
         $items = $data['result'] ?? [];
-        return !empty($items) ? $items[0] : null;
+
+        return ! empty($items) ? $items[0] : null;
     }
 
     /** Создать контакт. */
     public function addContact(array $fields): int
     {
         $data = $this->post('crm.contact.add.json', ['fields' => $fields]);
+
         return (int) ($data['result'] ?? 0);
+    }
+
+    /** Контакт целиком (с телефонами и email вместе с их ID). */
+    public function getContact(int $contactId): ?array
+    {
+        $data = $this->post('crm.contact.get.json', ['id' => $contactId]);
+
+        return is_array($data['result'] ?? null) ? $data['result'] : null;
+    }
+
+    /** Обновить поля контакта. */
+    public function updateContact(int $contactId, array $fields): bool
+    {
+        $data = $this->post('crm.contact.update.json', ['id' => $contactId, 'fields' => $fields]);
+
+        return (bool) ($data['result'] ?? false);
     }
 
     // ==================== Сделки ====================
@@ -130,6 +162,7 @@ class Bitrix24Service
             'select' => ['ID', 'TITLE', 'CATEGORY_ID', 'STAGE_ID', 'ASSIGNED_BY_ID'],
         ];
         $data = $this->post('crm.deal.list.json', $payload);
+
         return $data['result'] ?? [];
     }
 
@@ -140,6 +173,7 @@ class Bitrix24Service
             'fields' => $fields,
             'params' => array_merge(['REGISTER_SONET_EVENT' => 'N'], $params),
         ]);
+
         return (int) ($data['result'] ?? 0);
     }
 
@@ -150,15 +184,17 @@ class Bitrix24Service
             'id' => $dealId,
             'fields' => $fields,
         ]);
+
         return (bool) ($data['result'] ?? false);
     }
 
     /** Обновить стадию сделки, безопасно игнорируя пустые значения. */
     public function moveDealToStage(int $dealId, ?string $stageId): bool
     {
-        if (!$stageId) {
+        if (! $stageId) {
             return false;
         }
+
         return $this->updateDeal($dealId, ['STAGE_ID' => $stageId]);
     }
 
@@ -171,6 +207,7 @@ class Bitrix24Service
             'entityTypeId' => $this->eventEntityTypeId,
             'fields' => $fields,
         ]);
+
         return (int) ($data['result']['item']['id'] ?? $data['result'] ?? 0);
     }
 
@@ -182,6 +219,7 @@ class Bitrix24Service
             'filter' => $filter,
             'select' => $select,
         ]);
+
         return $data['result']['items'] ?? ($data['result'] ?? []);
     }
 
@@ -193,8 +231,7 @@ class Bitrix24Service
             'id' => $itemId,
             'fields' => $fields,
         ]);
+
         return (bool) ($data['result'] ?? false);
     }
 }
-
-
