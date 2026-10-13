@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Jobs\SyncUserToSender;
 use App\Models\User;
 use App\Sender\Contracts\SubscriberSource;
 use Illuminate\Support\Facades\DB;
@@ -10,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Пользователи сайта, включившие «Письма о мероприятиях»: источник базы подписчиков в Sender.
  * Специальность, город, организация и должность доступны в письме как переменные,
- * а мероприятия, к которым есть доступ, — тегами event-<id> для отбора в рассылке.
+ * а теги мероприятий, к которым есть доступ (их задаёт администратор в форме мероприятия), — для отбора в рассылке.
  */
 class NewsletterSubscribers implements SubscriberSource
 {
@@ -64,7 +63,7 @@ class NewsletterSubscribers implements SubscriberSource
     }
 
     /**
-     * Теги мероприятий (event-<id>), к которым у пользователей есть действующий доступ: регистрация, оплата, выдача в админке.
+     * Теги мероприятий, к которым у пользователей есть действующий доступ (регистрация, оплата, выдача в админке).
      *
      * @param  list<int>  $userIds
      * @return array<int, list<string>>
@@ -79,18 +78,17 @@ class NewsletterSubscribers implements SubscriberSource
 
         DB::table('event_user')
             ->join('events', 'events.id', '=', 'event_user.event_id')
+            ->whereNotNull('events.tags')
             ->whereIn('event_user.user_id', $userIds)
             ->where('event_user.is_active', true)
             ->whereIn('event_user.payment_status', ['completed', 'free', 'unpaid'])
             ->where(fn ($query) => $query->whereNull('event_user.access_expires_at')->orWhere('event_user.access_expires_at', '>', now()))
             ->orderBy('event_user.event_id')
-            ->get(['event_user.user_id', 'event_user.event_id', 'events.title', 'events.topic', 'events.start_date', 'events.start_time', 'events.is_on_demand', 'events.tags'])
+            ->get(['event_user.user_id', 'events.tags'])
             ->each(function (object $row) use (&$tags): void {
-                $tag = SyncUserToSender::eventTagFrom((int) $row->event_id, $row->title, $row->topic, $row->is_on_demand ? null : $row->start_date, $row->start_time);
-
                 $custom = is_string($row->tags) ? (array) json_decode($row->tags, true) : [];
 
-                foreach ([$tag, ...$custom] as $value) {
+                foreach ($custom as $value) {
                     $tags[(int) $row->user_id][] = $value;
                 }
             });

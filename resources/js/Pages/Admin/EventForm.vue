@@ -165,7 +165,7 @@
                 <div v-if="form.registration_enabled">
                     <label for="ev-tags" :class="label">Теги для рассылок</label>
                     <input id="ev-tags" v-model="form.tags_text" :class="input" placeholder="Например: гинекология, школа, 2026" />
-                    <p :class="hint">Через запятую. Контакт в Sender получит их при регистрации, дополнительно к автоматическому тегу «дата время тема». По тегам отбираются получатели рассылки.</p>
+                    <p :class="hint">Через запятую. Контакт в Sender получит эти теги при регистрации на мероприятие, по ним отбираются получатели рассылки. Теги не зависят от даты и времени: меняются только здесь.</p>
                     <p v-if="form.errors.tags || form.errors['tags.0']" :class="error">{{ form.errors.tags || form.errors['tags.0'] }}</p>
                 </div>
                 <div v-if="form.registration_enabled">

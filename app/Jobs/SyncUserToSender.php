@@ -13,7 +13,6 @@ use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -146,53 +145,20 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
     }
 
     /**
-     * Тег мероприятия в Sender: «<дата начала Y-m-d> <время H:i> <тема>», например
-     * «2026-10-16 12:00 Медицина климактерия в клинических примерах». Без времени — дата и тема, без даты (по запросу) —
-     * только тема. Если дату, время или тему поменяют, новые регистрации пойдут под новым тегом.
-     */
-    public static function eventTag(Event $event): string
-    {
-        return self::eventTagFrom($event->id, $event->title, $event->topic, $event->is_on_demand ? null : $event->start_date, $event->start_time);
-    }
-
-    /**
-     * Теги мероприятия для контакта: автоматический «дата время тема» и теги, заданные вручную в форме мероприятия.
+     * Теги мероприятия для контакта: только те, что администратор задал в форме мероприятия.
+     * Теги не зависят ни от даты, ни от времени, ни от темы: сменить их можно только вручную.
      *
      * @return list<string>
      */
     public static function eventTags(Event $event): array
     {
-        return Contact::normalizeTags([self::eventTag($event), ...(array) $event->tags]);
+        return Contact::normalizeTags((array) $event->tags);
     }
 
     /**
-     * Тема — events.topic, иначе events.title (у мероприятий одного цикла название одинаковое, различается тема).
-     * Символы вне допустимого набора тега заменяются пробелом, длина ограничена по границе слова.
-     */
-    public static function eventTagFrom(int $eventId, ?string $title, ?string $topic, mixed $startDate, mixed $startTime = null): string
-    {
-        $clean = fn (?string $text): string => trim((string) preg_replace('~\s+~u', ' ', (string) preg_replace('~[^\p{L}\p{N} _.:,()/+-]+~u', ' ', (string) $text)));
-
-        $label = $clean($topic) !== '' ? $clean($topic) : $clean($title);
-        $date = filled($startDate) ? Carbon::parse($startDate)->format('Y-m-d') : '';
-        $time = $date !== '' && preg_match('~^(\d{1,2}):(\d{2})~', (string) $startTime, $match) ? sprintf('%02d:%s', $match[1], $match[2]) : '';
-        $tag = implode(' ', array_filter([$date, $time, $label], fn (string $part): bool => $part !== ''));
-
-        if (mb_strlen($tag) > Contact::TAG_MAX_LENGTH) {
-            $cut = mb_substr($tag, 0, Contact::TAG_MAX_LENGTH);
-            $space = mb_strrpos($cut, ' ');
-            $tag = $space !== false && $space > 10 ? mb_substr($cut, 0, $space) : $cut;
-        }
-
-        $tag = trim((string) preg_replace('~^[^\p{L}\p{N}]+|[\s,.:\-/+]+$~u', '', $tag));
-
-        return $tag !== '' ? $tag : 'event-'.$eventId;
-    }
-
-    /**
-     * Передаёт в Sender тег мероприятия пользователя, которому выдан доступ (регистрация, оплата, выдача в админке).
-     * Тег ставится независимо от согласия: без согласия контакт остаётся отписанным и рассылок не получает.
-     * Письмо с подтверждением подписки не отправляется.
+     * Передаёт в Sender теги мероприятия пользователю, которому выдан доступ (регистрация, оплата, выдача в админке).
+     * Теги ставятся независимо от согласия: без согласия контакт остаётся отписанным и рассылок не получает.
+     * Письмо с подтверждением подписки не отправляется. У мероприятия без тегов ничего не передаётся.
      */
     public static function dispatchEventTag(User $user, Event $event): void
     {
@@ -200,7 +166,13 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
             return;
         }
 
-        self::dispatch($user->id, $user->email, null, self::eventTags($event));
+        $tags = self::eventTags($event);
+
+        if ($tags === []) {
+            return;
+        }
+
+        self::dispatch($user->id, $user->email, null, $tags);
     }
 
     /**
