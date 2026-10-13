@@ -360,7 +360,7 @@ class EventsController extends Controller
                 'middle_name' => 'nullable|string|max:255',
                 'email' => 'required|email|max:255',
                 'phone' => 'required|string|max:20',
-                'city' => 'required|string|max:255',
+                'city' => 'nullable|string|max:255',
                 'specialization' => 'nullable|string|max:255',
                 'privacy_consent' => 'required|accepted',
                 'oferta_consent' => 'required|accepted',

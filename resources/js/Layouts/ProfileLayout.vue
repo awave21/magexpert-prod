@@ -31,6 +31,7 @@ const crumbs = {
     certificates: 'Сертификаты',
 };
 
+const profileMissing = computed(() => page.props.auth.user?.profile_missing ?? []);
 const isStaff = computed(() => (page.props.auth.user?.roles ?? []).some((role) => ['admin', 'editor', 'manager'].includes(role.name)));
 
 const isActive = (item) => item.active.some((name) => route().current(name));
@@ -236,6 +237,18 @@ watch(() => page.props.flash?.error, (error) => {
                     </span>
                     <MessagesBell />
                     <UserMenu />
+                </div>
+
+                <!-- до полного доступа: что осталось сделать -->
+                <div
+                    v-if="profileMissing.length"
+                    role="status"
+                    class="flex flex-wrap items-center gap-3 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100"
+                >
+                    <span class="min-w-0 flex-[1_1_240px] text-[15px] leading-6">
+                        <b>Откройте все разделы:</b> {{ profileMissing.join(', ') }}.
+                    </span>
+                    <Link :href="route('profile.edit')" class="cab-btn !min-h-10 !px-4 !text-[13px]">Заполнить профиль</Link>
                 </div>
 
                 <slot />

@@ -146,6 +146,30 @@ class User extends Authenticatable
     }
 
     /**
+     * Чего не хватает до полного доступа к кабинету: подтверждённый email, город и специализация.
+     *
+     * @return list<string> действия в повелительном наклонении, пустой список — всё заполнено
+     */
+    public function missingProfileRequirements(): array
+    {
+        $missing = [];
+
+        if (! $this->hasVerifiedEmail()) {
+            $missing[] = 'подтвердите email';
+        }
+
+        if (blank($this->city)) {
+            $missing[] = 'укажите город';
+        }
+
+        if (blank($this->specialization)) {
+            $missing[] = 'укажите специализацию';
+        }
+
+        return $missing;
+    }
+
+    /**
      * Проверяет, имеет ли пользователь указанную роль.
      */
     public function hasRole(string $role): bool

@@ -5,7 +5,6 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/Form/TextInput.vue';
 import PhoneInput from '@/Components/Form/PhoneInput.vue';
-import CityAutocomplete from '@/Components/CityAutocomplete.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import { UserPlusIcon } from '@heroicons/vue/24/outline';
@@ -17,8 +16,6 @@ const form = useForm({
     middle_name: '',
     email: '',
     phone: '',
-    specialization: '',
-    city: '',
     password: '',
     password_confirmation: '',
     privacy_consent: false,
@@ -141,34 +138,6 @@ const submit = () => {
                                     class="mt-1 block w-full"
                                 />
                                 <InputError class="mt-1" :message="form.errors.phone" />
-                            </div>
-
-                            <div class="grid grid-cols-1 gap-4">
-                                <!-- Направление деятельности / специализация -->
-                                <div>
-                                    <InputLabel for="specialization" value="Направление деятельности / специализация" />
-                                    <TextInput
-                                        id="specialization"
-                                        type="text"
-                                        class="mt-1 block w-full"
-                                        v-model="form.specialization"
-                                        autocomplete="organization"
-                                    />
-                                    <InputError class="mt-1" :message="form.errors.specialization" />
-                                </div>
-
-                                
-                            </div>
-
-                            <!-- Город -->
-                            <div>
-                                <CityAutocomplete
-                                    id="city"
-                                    label="Город"
-                                    v-model="form.city"
-                                    :error="form.errors.city"
-                                    placeholder="Введите город"
-                                />
                             </div>
 
                             <!-- Пароль -->

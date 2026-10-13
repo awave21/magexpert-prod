@@ -15,7 +15,6 @@ import {
     ArrowRightIcon,
     ArrowLeftIcon,
 } from "@heroicons/vue/24/outline";
-import CityAutocomplete from "./CityAutocomplete.vue";
 import TextInput from "./Form/TextInput.vue";
 import PhoneInput from "./Form/PhoneInput.vue";
 import SocialLoginButtons from "./SocialLoginButtons.vue";
@@ -121,8 +120,6 @@ const registrationForm = useForm({
     middle_name: "",
     email: "",
     phone: "",
-    city: "",
-    specialization: "",
     event_id: props.event.id,
     privacy_consent: false,
     oferta_consent: false,
@@ -641,28 +638,6 @@ const progressPercent = computed(() => {
                                         placeholder="(999) 123-45-67"
                                     />
 
-                                    <CityAutocomplete
-                                        id="city"
-                                        label="Город *"
-                                        v-model="registrationForm.city"
-                                        :required="true"
-                                        :error="registrationForm.errors.city"
-                                        placeholder="Введите город"
-                                    />
-
-                                    <TextInput
-                                        id="specialization"
-                                        label="Направление деятельности / специализация"
-                                        v-model="
-                                            registrationForm.specialization
-                                        "
-                                        type="text"
-                                        :error="
-                                            registrationForm.errors
-                                                .specialization
-                                        "
-                                        placeholder="Введите специализацию (необязательно)"
-                                    />
                                     <!-- Чекбоксы согласия -->
                                     <div
                                         class="space-y-3 border-t pt-4 border-gray-200 dark:border-gray-700"
@@ -890,6 +865,14 @@ const progressPercent = computed(() => {
                                                 ? "Мы получили вашу заявку на участие. С вами свяжется менеджер."
                                                 : "Вы успешно зарегистрированы на мероприятие. Подробности будут отправлены на ваш email."
                                         }}
+                                    </p>
+                                    <p
+                                        v-if="!props.event.is_on_demand"
+                                        class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-left text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200"
+                                    >
+                                        Мы создали для вас личный кабинет. Подтвердите email и укажите город и специализацию в
+                                        <a href="/dashboard" class="font-semibold underline">личном кабинете</a>:
+                                        без этого часть разделов будет недоступна.
                                     </p>
                                 </div>
 

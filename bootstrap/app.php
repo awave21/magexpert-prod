@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Регистрируем middleware для проверки ролей
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
+            'profile.complete' => \App\Http\Middleware\EnsureProfileComplete::class,
             'verify.paykeeper.webhook' => \App\Http\Middleware\VerifyPayKeeperWebhook::class,
         ]);
     })

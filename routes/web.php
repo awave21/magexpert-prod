@@ -87,7 +87,7 @@ Route::prefix('payment')->name('payment.')->group(function () {
 
 // Маршрут для просмотра мероприятий в личном кабинете (требует авторизации)
 Route::get('/my-events/{event:slug}', [EventsController::class, 'view'])
-    ->middleware(['auth'])
+    ->middleware(['auth', 'profile.complete'])
     ->name('my-events.view');
 Route::post('/my-events/{event:slug}/progress', [VideoProgressController::class, 'store'])
     ->middleware(['auth', 'throttle:120,1'])
@@ -128,8 +128,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/payments', [CabinetController::class, 'payments'])->name('cabinet.payments');
 
     // ИИ-помощник по документам библиотеки
-    Route::get('/cabinet/assistant', [AssistantController::class, 'index'])->name('cabinet.assistant');
-    Route::post('/cabinet/assistant/ask', [AssistantController::class, 'ask'])->middleware('throttle:20,1')->name('cabinet.assistant.ask');
+    Route::get('/cabinet/assistant', [AssistantController::class, 'index'])->middleware('profile.complete')->name('cabinet.assistant');
+    Route::post('/cabinet/assistant/ask', [AssistantController::class, 'ask'])->middleware(['profile.complete', 'throttle:20,1'])->name('cabinet.assistant.ask');
 
     // Колокольчик: сообщения команды пользователю
     Route::get('/cabinet/messages', [UserNotificationController::class, 'index'])->name('cabinet.messages');

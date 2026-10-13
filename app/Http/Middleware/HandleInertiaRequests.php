@@ -52,6 +52,7 @@ class HandleInertiaRequests extends Middleware
                     'company' => $request->user()->company,
                     'position' => $request->user()->position,
                     'city' => $request->user()->city,
+                    'profile_missing' => $request->user()->hasAnyRole(['admin', 'editor', 'manager']) ? [] : $request->user()->missingProfileRequirements(),
                     'permissions' => $request->user()->permissions ?? [],
                     'roles' => $request->user()->roles()->get(),
                     'stats' => $this->getUserStats($request->user()),
