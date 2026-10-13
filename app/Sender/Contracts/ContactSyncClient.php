@@ -23,15 +23,16 @@ interface ContactSyncClient
      * Добавляет или обновляет контакт в базе. Возвращает статус контакта: subscribed, pending или unsubscribed.
      *
      * @param  array<string, scalar|null>  $data  дополнительные поля контакта (переменные письма)
+     * @param  list<string>  $tags  теги: добавляются к уже сохранённым, ничего не затирают и подписку не меняют
      *
      * @throws SenderApiException
      */
-    public function upsertContact(int $listId, string $email, ?string $name, array $data, bool $subscribed): string;
+    public function upsertContact(int $listId, string $email, ?string $name, array $data, bool $subscribed, array $tags = []): string;
 
     /**
      * Пакетно добавляет или обновляет до 1000 контактов.
      *
-     * @param  list<array{email: string, name?: string|null, data?: array<string, scalar|null>, subscribed?: bool}>  $contacts
+     * @param  list<array{email: string, name?: string|null, data?: array<string, scalar|null>, subscribed?: bool, tags?: list<string>}>  $contacts
      * @return array{created: int, updated: int, subscribed: int, pending: int, unsubscribed: int, invalid: list<array{index: int, email: string|null, errors: mixed}>}
      *
      * @throws SenderApiException

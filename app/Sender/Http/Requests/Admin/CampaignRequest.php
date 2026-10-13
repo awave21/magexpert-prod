@@ -49,6 +49,8 @@ class CampaignRequest extends FormRequest
             'segment.field' => ['nullable', 'required_with:segment.values', 'regex:/^[a-z0-9_]{1,64}$/'],
             'segment.values' => ['nullable', 'required_with:segment.field', 'array', 'min:1', 'max:50'],
             'segment.values.*' => ['string', 'max:200'],
+            'segment.tags' => ['nullable', 'array', 'max:20'],
+            'segment.tags.*' => ['string', 'regex:'.\App\Sender\Models\Contact::TAG_PATTERN],
         ];
     }
 
@@ -85,6 +87,7 @@ class CampaignRequest extends FormRequest
             'segment.active_days.min' => 'Период активности не меньше дня',
             'segment.field.required_with' => 'Выберите поле',
             'segment.field.regex' => 'Такого поля нет',
+            'segment.tags.*.regex' => 'Такого тега нет',
             'segment.values.required_with' => 'Выберите хотя бы одно значение',
             'segment.values.min' => 'Выберите хотя бы одно значение',
         ];

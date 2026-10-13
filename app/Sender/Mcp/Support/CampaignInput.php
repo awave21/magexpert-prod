@@ -22,7 +22,7 @@ class CampaignInput
     /**
      * Пустые условия сегмента отбрасываются; ничего не осталось — вся база (null).
      *
-     * @return array{active_days?: int, field?: string, values?: list<string>}|null
+     * @return array{active_days?: int, field?: string, values?: list<string>, tags?: list<string>}|null
      */
     public static function segment(mixed $segment): ?array
     {
@@ -31,12 +31,28 @@ class CampaignInput
         }
 
         $clean = array_filter(
-            Arr::only($segment, ['active_days', 'field', 'values']),
+            Arr::only($segment, ['active_days', 'field', 'values', 'tags']),
             fn (mixed $value): bool => $value !== null && $value !== '' && $value !== [],
         );
 
         if (array_key_exists('field', $clean) !== array_key_exists('values', $clean)) {
             throw new ToolException('Для отбора по полю нужны и field, и values (поля и значения — list_fields)');
+        }
+
+        if (array_key_exists('tags', $clean)) {
+            $tags = \App\Sender\Models\Contact::normalizeTags((array) $clean['tags']);
+
+            foreach ($tags as $tag) {
+                if (! preg_match(\App\Sender\Models\Contact::TAG_PATTERN, $tag)) {
+                    throw new ToolException('Тег «'.$tag.'»: латиница в нижнем регистре, цифры и . _ : -, до 64 символов');
+                }
+            }
+
+            if ($tags === []) {
+                unset($clean['tags']);
+            } else {
+                $clean['tags'] = $tags;
+            }
         }
 
         return $clean === [] ? null : $clean;

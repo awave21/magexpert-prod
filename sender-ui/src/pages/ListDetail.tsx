@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Pencil, Plus, RefreshCw, Search, Send, Trash2, Upload, Wand2, X } from 'lucide-react'
-import { api, ApiError, upload, type CheckStatus, type Contact, type ContactList, type ImportResult, type Paged } from '../api'
+import { api, ApiError, upload, type CheckStatus, type Contact, type ContactList, type ImportResult, type ListTag, type Paged } from '../api'
 import { BackLink, Empty, Modal, PageHead, ago, fmtDate, useToast } from '../components/ui'
 import { ColumnMapping, ConsentCheckbox, ImportSource, useImportDraft } from '../components/ImportMapping'
 import { usePermissions } from '../auth'
@@ -43,10 +43,13 @@ export default function ListDetail() {
   const [qs, setQs] = useState('')
   const [status, setStatus] = useState<StatusFilter>('')
   const [check, setCheck] = useState<CheckFilter>('')
+  const [tag, setTag] = useState('')
+  const tagsQ = useQuery({ queryKey: ['list-tags', id], queryFn: () => api<{ data: ListTag[] }>(`/lists/${id}/tags`), enabled: Boolean(id) })
+  const listTags = tagsQ.data?.data ?? []
   const [page, setPage] = useState(1)
   const cq = useQuery({
-    queryKey: ['contacts', id, qs, status, check, page],
-    queryFn: () => api<Paged<Contact>>(`/lists/${id}/contacts?${new URLSearchParams({ ...(qs && { q: qs }), ...(status && { status }), ...(check && { check }), page: String(page) })}`),
+    queryKey: ['contacts', id, qs, status, check, tag, page],
+    queryFn: () => api<Paged<Contact>>(`/lists/${id}/contacts?${new URLSearchParams({ ...(qs && { q: qs }), ...(status && { status }), ...(check && { check }), ...(tag && { tag }), page: String(page) })}`),
     placeholderData: keepPreviousData,
     refetchInterval: checking ? 2500 : false,
   })
@@ -176,20 +179,31 @@ export default function ListDetail() {
         </form>
       </div>
 
+      {listTags.length > 0 && (
+        <div className="row" style={{ marginBottom: 16 }}>
+          <label htmlFor="f-tag" className="muted">Тег</label>
+          <select id="f-tag" className="select sm" value={tag} onChange={(e) => { setTag(e.target.value); setPage(1) }}>
+            <option value="">Все</option>
+            {listTags.map((t) => <option key={t.tag} value={t.tag}>{t.tag} · {n(t.count)}</option>)}
+          </select>
+        </div>
+      )}
+
       {cq.isSuccess && contacts.length === 0 ? (
-        qs || status || check ? <Empty title="Ничего не найдено" /> : (
+        qs || status || check || tag ? <Empty title="Ничего не найдено" /> : (
           <Empty title="В базе пока нет адресов" text={canEdit ? 'Загрузите файл CSV из Excel или вставьте адреса списком в блоке выше.' : undefined} />
         )
       ) : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Email</th><th>Имя</th>{columns.map((c) => <th key={c} className="mono" style={{ textTransform: 'none' }}>{c}</th>)}<th>Подписка</th><th>Проверка</th><th>Последнее открытие</th><th>Добавлен</th><th /></tr></thead>
+            <thead><tr><th>Email</th><th>Имя</th>{columns.map((c) => <th key={c} className="mono" style={{ textTransform: 'none' }}>{c}</th>)}<th>Теги</th><th>Подписка</th><th>Проверка</th><th>Последнее открытие</th><th>Добавлен</th><th /></tr></thead>
             <tbody>
               {contacts.map((c) => (
                 <tr key={c.id}>
                   <td className="mono">{c.email}</td>
                   <td>{c.name ?? <span className="muted">—</span>}</td>
                   {columns.map((k) => <td key={k} className="muted">{c.data?.[k] ?? '—'}</td>)}
+                  <td className="muted">{c.tags && c.tags.length > 0 ? c.tags.join(', ') : '—'}</td>
                   <td>{c.unsubscribed_at ? <span className="status neutral"><i />Отписался</span> : c.pending ? <span className="status warn" title={c.confirmation_sent_at ? `Письмо для подтверждения отправлено ${fmtDate(c.confirmation_sent_at)}` : 'Письмо для подтверждения скоро уйдёт'}><i />Ждёт подтверждения</span> : <span className="status ok"><i />Подписан</span>}</td>
                   <td>
                     {(() => {

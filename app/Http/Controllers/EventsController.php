@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SyncUserToSender;
 use App\Models\Category;
 use App\Models\Event;
 use App\Models\Speaker;
@@ -327,6 +328,8 @@ class EventsController extends Controller
                     ],
                 ]);
 
+                SyncUserToSender::dispatchEventTag($user, $event->id);
+
                 try {
                     app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, '', false);
                 } catch (\Throwable $e) {
@@ -429,6 +432,8 @@ class EventsController extends Controller
                     ],
                 ]);
             }
+
+            SyncUserToSender::dispatchEventTag($user, $event->id);
 
             try {
                 app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, $generatedPassword, $isNewUser);

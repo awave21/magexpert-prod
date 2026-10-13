@@ -16,6 +16,22 @@ class ListFields
     public const VALUES = 30;
 
     /**
+     * Теги подписчиков базы и сколько подписчиков с каждым, самые частые первыми.
+     *
+     * @return list<array{tag: string, count: int}>
+     */
+    public function tags(ContactList $list, int $limit = 200): array
+    {
+        $rows = Contact::query()->getConnection()->select(
+            'select t.tag, count(*) as total from sender_contacts c, jsonb_array_elements_text(c.tags) as t(tag) '
+            .'where c.list_id = ? and c.tags is not null group by t.tag order by total desc, t.tag limit '.(int) $limit,
+            [$list->id],
+        );
+
+        return array_map(fn (object $row): array => ['tag' => (string) $row->tag, 'count' => (int) $row->total], $rows);
+    }
+
+    /**
      * @return list<array{key: string, values: list<array{value: string, count: int}>}>
      */
     public function of(ContactList $list): array

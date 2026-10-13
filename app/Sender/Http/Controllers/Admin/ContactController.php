@@ -36,6 +36,12 @@ class ContactController extends Controller
             });
         }
 
+        $tag = mb_strtolower(trim((string) $request->input('tag')));
+
+        if ($tag !== '' && preg_match(Contact::TAG_PATTERN, $tag)) {
+            $query->whereJsonContains('tags', $tag);
+        }
+
         if ($request->input('status') === 'unsubscribed') {
             $query->whereNotNull('unsubscribed_at');
         } elseif ($request->input('status') === 'subscribed') {
@@ -199,6 +205,7 @@ class ContactController extends Controller
             'email' => $contact->email,
             'name' => $contact->name,
             'data' => $contact->data ?? (object) [],
+            'tags' => $contact->tags ?? [],
             'unsubscribed_at' => $contact->unsubscribed_at?->toIso8601String(),
             'pending' => $contact->isPending(),
             'confirmation_sent_at' => $contact->confirmation_sent_at?->toIso8601String(),

@@ -481,3 +481,64 @@ it('caps the import preview at 200 columns and stays fast on very wide files', f
         ->assertJsonPath('data.columns.1.role', 'name')
         ->assertJsonPath('data.columns.1.samples', ['Анна']);
 });
+
+it('adds tags to existing ones without overwriting and keeps the subscription', function (): void {
+    $this->withToken($this->key)->putJson(contactsUrl($this->list), ['email' => 'anna@example.com', 'tags' => ['Event-63', 'event-63', ' vip ']])
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'subscribed');
+
+    $this->withToken($this->key)->putJson(contactsUrl($this->list), ['email' => 'anna@example.com', 'tags' => ['event-70', 'event-63']])
+        ->assertOk()
+        ->assertJsonPath('data.status', 'subscribed');
+
+    // запрос без тегов ничего не стирает
+    $this->withToken($this->key)->putJson(contactsUrl($this->list), ['email' => 'anna@example.com', 'name' => 'Анна'])->assertOk();
+
+    expect(Contact::query()->first()->tags)->toBe(['event-63', 'vip', 'event-70']);
+
+    $this->withToken($this->key)->getJson(contactsUrl($this->list, '/anna@example.com'))
+        ->assertOk()->assertJsonPath('data.tags', ['event-63', 'vip', 'event-70']);
+});
+
+it('does not send a confirmation letter when only tags are passed', function (): void {
+    $this->withToken($this->key)->putJson(contactsUrl($this->list), ['email' => 'anna@example.com', 'tags' => ['event-63'], 'subscribed' => true])
+        ->assertCreated()->assertJsonPath('data.status', 'subscribed');
+
+    Queue::assertNotPushed(SendSubscriptionConfirmationsJob::class);
+    expect(Contact::query()->first()->confirmation_token)->toBeNull();
+});
+
+it('stores tags of an unsubscribed contact without making it deliverable', function (): void {
+    $this->withToken($this->key)->putJson(contactsUrl($this->list), ['email' => 'anna@example.com', 'tags' => ['event-63'], 'subscribed' => false])
+        ->assertCreated()->assertJsonPath('data.status', 'unsubscribed');
+
+    $contact = Contact::query()->first();
+
+    expect($contact->tags)->toBe(['event-63'])
+        ->and($this->list->contacts()->deliverable()->inSegment(['tags' => ['event-63']])->count())->toBe(0);
+});
+
+it('validates tags', function (): void {
+    $this->withToken($this->key)->putJson(contactsUrl($this->list), ['email' => 'anna@example.com', 'tags' => ['bad tag!']])
+        ->assertUnprocessable()->assertJsonValidationErrors('tags.0');
+    $this->withToken($this->key)->putJson(contactsUrl($this->list), ['email' => 'anna@example.com', 'tags' => 'event-63'])
+        ->assertUnprocessable()->assertJsonValidationErrors('tags');
+    $this->withToken($this->key)->putJson(contactsUrl($this->list), ['email' => 'anna@example.com', 'tags' => array_map(fn (int $i): string => 't'.$i, range(1, 21))])
+        ->assertUnprocessable()->assertJsonValidationErrors('tags');
+});
+
+it('accepts tags in a batch and selects contacts by any of the tags', function (): void {
+    $this->withToken($this->key)->postJson(contactsUrl($this->list, '/batch'), ['contacts' => [
+        ['email' => 'a@example.com', 'tags' => ['event-1']],
+        ['email' => 'b@example.com', 'tags' => ['event-2', 'event-1']],
+        ['email' => 'c@example.com', 'tags' => ['event-3']],
+        ['email' => 'd@example.com'],
+    ]])->assertOk()->assertJsonPath('data.created', 4);
+
+    $emails = fn (?array $segment): array => $this->list->contacts()->inSegment($segment)->orderBy('email')->pluck('email')->all();
+
+    expect($emails(['tags' => ['event-1']]))->toBe(['a@example.com', 'b@example.com'])
+        ->and($emails(['tags' => ['event-2', 'event-3']]))->toBe(['b@example.com', 'c@example.com'])
+        ->and($emails(['tags' => []]))->toHaveCount(4)
+        ->and($emails(null))->toHaveCount(4);
+});

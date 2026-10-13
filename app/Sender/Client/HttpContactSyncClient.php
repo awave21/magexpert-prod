@@ -48,13 +48,14 @@ class HttpContactSyncClient implements ContactSyncClient
         return (int) $response->json('data.id');
     }
 
-    public function upsertContact(int $listId, string $email, ?string $name, array $data, bool $subscribed): string
+    public function upsertContact(int $listId, string $email, ?string $name, array $data, bool $subscribed, array $tags = []): string
     {
         $response = $this->send('put', "/lists/{$listId}/contacts", [
             'email' => mb_strtolower($email),
             'name' => $name,
             'data' => $data,
             'subscribed' => $subscribed,
+            ...($tags === [] ? [] : ['tags' => array_values($tags)]),
         ]);
 
         return (string) $response->json('data.status');

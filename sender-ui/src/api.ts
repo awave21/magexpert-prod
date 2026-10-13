@@ -50,7 +50,8 @@ export type Role = 'owner' | 'admin' | 'editor' | 'designer' | 'viewer'
 export type User = { id: number; name: string; email: string; role: Role; is_owner?: boolean; organization: string | null; password_set?: boolean }
 export type TeamMember = { id: number; name: string; email: string; role: Role; is_owner?: boolean; is_active: boolean; last_seen_at: string | null; created_at: string }
 export type AuditEntry = { id: number; action: string; subject: string | null; user: string; ip: string | null; created_at: string }
-export type Segment = { active_days?: number | null; field?: string | null; values?: string[] | null }
+export type Segment = { active_days?: number | null; field?: string | null; values?: string[] | null; tags?: string[] | null }
+export type ListTag = { tag: string; count: number }
 export type ListField = { key: string; values: { value: string; count: number }[] }
 export type Warmup = { day: number; days: number; limit: number; sent: number; remaining: number }
 export type DnsRecord = { key: 'verification' | 'dkim' | 'spf' | 'dmarc'; type: string; host: string; value: string; required: boolean }
@@ -91,7 +92,7 @@ export type ContactList = {
   checks: Record<CheckStatus | 'unchecked', number>; created_at: string; updated_at: string; pending_count?: number; require_confirmation?: boolean
 }
 export type ListSource = { key: string; label: string }
-export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; unsubscribed_at: string | null; last_opened_at: string | null; check_status: CheckStatus | null; check_hint: string | null; created_at: string; pending?: boolean; confirmation_sent_at?: string | null; confirmed_at?: string | null }
+export type Contact = { id: number; email: string; name: string | null; data: Record<string, string>; tags?: string[]; unsubscribed_at: string | null; last_opened_at: string | null; check_status: CheckStatus | null; check_hint: string | null; created_at: string; pending?: boolean; confirmation_sent_at?: string | null; confirmed_at?: string | null }
 export type ImportPreview = {
   rows: number; header: boolean
   columns: { index: number; header: string; samples: string[]; role: 'email' | 'name' | 'field'; key: string }[]

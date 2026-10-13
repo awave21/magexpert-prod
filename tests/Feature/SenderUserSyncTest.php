@@ -436,3 +436,32 @@ it('не ставит задачи без адреса и ключа API и од
         ->and($warnings[0]->context)->toBe([])
         ->and($warnings[0]->message)->not->toContain('@');
 });
+
+it('передаёт тег мероприятия вместе с контактом и не затирает подписку', function () {
+    Queue::fake();
+    $user = userWithProfile(['newsletter_consent' => false]);
+    resetQueue();
+    fakeSenderApi();
+
+    SyncUserToSender::dispatchEventTag($user, 63);
+
+    Queue::assertPushed(SyncUserToSender::class, fn (SyncUserToSender $job) => $job->tags === ['event-63']);
+
+    runPushedSyncJobs();
+
+    Http::assertSent(fn (Request $request) => $request->method() === 'PUT'
+        && $request->url() === SENDER_API.'/lists/7/contacts'
+        && $request['tags'] === ['event-63']
+        && $request['subscribed'] === false);
+});
+
+it('не ставит тег мероприятия, когда синхронизация выключена', function () {
+    config(['sender.client.users_sync' => false]);
+    Queue::fake();
+    $user = userWithProfile();
+    resetQueue();
+
+    SyncUserToSender::dispatchEventTag($user, 63);
+
+    Queue::assertNotPushed(SyncUserToSender::class);
+});

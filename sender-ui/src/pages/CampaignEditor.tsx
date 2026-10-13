@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Clock, Eye, MousePointerClick, Pause, Play, Search, Send, Trash2, X } from 'lucide-react'
-import { api, ApiError, type Campaign, type Contact, type ContactList, type ListField, type Message, type Paged, type Segment, type SenderAddress, type Template } from '../api'
+import { api, ApiError, type Campaign, type Contact, type ContactList, type ListField, type ListTag, type Message, type Paged, type Segment, type SenderAddress, type Template } from '../api'
 import { BackLink, CampaignStatus, Modal, Status, fmtDate, useToast } from '../components/ui'
 import { usePermissions } from '../auth'
 import { WEEKDAYS, estimateFinish, fmtWhen, nextOpening, perHour, type Schedule } from '../schedule'
@@ -66,6 +66,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
   const [activeDays, setActiveDays] = useState(String(campaign?.segment?.active_days ?? 90))
   const [field, setField] = useState(campaign?.segment?.field ?? '')
   const [values, setValues] = useState<string[]>(campaign?.segment?.values ?? [])
+  const [tags, setTags] = useState<string[]>(campaign?.segment?.tags ?? [])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [openedAt] = useState(() => Date.now())
 
@@ -96,8 +97,8 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
     enabled: templateId !== '',
   })
 
-  const segment: Segment | null = activeOn || (field && values.length)
-    ? { active_days: activeOn ? Number(activeDays) || null : null, field: field && values.length ? field : null, values: field && values.length ? values : null }
+  const segment: Segment | null = activeOn || (field && values.length) || tags.length
+    ? { active_days: activeOn ? Number(activeDays) || null : null, field: field && values.length ? field : null, values: field && values.length ? values : null, tags: tags.length ? tags : null }
     : null
   const fq = useQuery({
     queryKey: ['list-fields', listId],
@@ -105,6 +106,12 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
     enabled: listId !== '',
   })
   const fields = fq.data?.data ?? []
+  const listTagsQ = useQuery({
+    queryKey: ['list-tags', listId],
+    queryFn: () => api<{ data: ListTag[] }>(`/lists/${listId}/tags`),
+    enabled: listId !== '',
+  })
+  const listTags = listTagsQ.data?.data ?? []
   const countQ = useQuery({
     queryKey: ['segment-count', listId, JSON.stringify(segment)],
     queryFn: () => api<{ data: { count: number } }>(`/lists/${listId}/count`, { method: 'POST', body: { segment } }),
@@ -294,6 +301,17 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
                             ))}
                           </div>
                         )}
+                      </>
+                    )}
+                    {listTags.length > 0 && (
+                      <>
+                        <div className="schedule-row"><span>С тегом (любым из выбранных)</span></div>
+                        <div className="segment-values" role="group" aria-label="Теги подписчиков">
+                          {listTags.map((t) => (
+                            <button key={t.tag} type="button" className={`day${tags.includes(t.tag) ? ' on' : ''}`} aria-pressed={tags.includes(t.tag)}
+                              onClick={() => setTags(tags.includes(t.tag) ? tags.filter((x) => x !== t.tag) : [...tags, t.tag])}>{t.tag} · {n(t.count)}</button>
+                          ))}
+                        </div>
                       </>
                     )}
                     {segment && <div className="muted">{countQ.isFetching ? 'Считаем…' : `Подходят ${n(recipients)} из ${n(list.deliverable_count)}`}</div>}

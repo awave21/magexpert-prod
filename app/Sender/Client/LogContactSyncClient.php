@@ -19,7 +19,7 @@ class LogContactSyncClient implements ContactSyncClient
         return 0;
     }
 
-    public function upsertContact(int $listId, string $email, ?string $name, array $data, bool $subscribed): string
+    public function upsertContact(int $listId, string $email, ?string $name, array $data, bool $subscribed, array $tags = []): string
     {
         Log::info('Sender (заглушка): контакт', ['list_id' => $listId, 'subscribed' => $subscribed]);
 

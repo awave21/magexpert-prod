@@ -14,6 +14,9 @@ use Throwable;
  */
 class SenderMailService
 {
+    /** Сколько спикеров передаётся в письмо отдельными переменными speaker_1_*, speaker_2_* … */
+    public const MAX_SPEAKER_VARIABLES = 6;
+
     public function __construct(private readonly SenderClient $client) {}
 
     public function sendEventRegistrationEmail(Event $event, User $user, string $password = '', bool $isNewUser = false): bool
@@ -21,6 +24,9 @@ class SenderMailService
         $event->loadMissing('speakers');
 
         $userName = trim($user->first_name.' '.$user->last_name);
+
+        $speakers = $event->speakers->values();
+        $isUpcoming = ! $event->is_archived;
 
         return $this->send($this->template('event_registration'), $user->email, array_filter([
             'user_name' => $userName,
@@ -35,6 +41,11 @@ class SenderMailService
             'event_format' => $this->translateFormat($event->format),
             'event_location' => $event->location,
             'price' => $event->getFormattedPrice(),
+            'event_image' => $this->absoluteUrl($event->image),
+            'event_description' => $event->short_description ? trim(strip_tags((string) $event->short_description)) : null,
+            'event_datetime' => $isUpcoming ? $this->formatDateTime($event->start_date, $event->start_time) : null,
+            'speakers_count' => $speakers->count(),
+            ...$this->speakerVariables($speakers),
             'start_date' => $event->is_archived ? null : $this->formatDate($event->start_date),
             'start_time' => $event->is_archived ? null : $this->formatTime($event->start_time),
             'end_date' => $event->is_archived ? null : $this->formatDate($event->end_date),
@@ -138,6 +149,57 @@ class SenderMailService
         }
 
         return $accepted;
+    }
+
+    /**
+     * Спикеры плоскими переменными speaker_N_name, speaker_N_position, speaker_N_company, speaker_N_photo:
+     * шаблон в Sender сам решает, какие показывать ({{#if speaker_1_name}}…{{/if}}).
+     *
+     * @param  iterable<int, \App\Models\Speaker>  $speakers
+     * @return array<string, string|null>
+     */
+    private function speakerVariables(iterable $speakers): array
+    {
+        $variables = [];
+        $number = 0;
+
+        foreach ($speakers as $speaker) {
+            if (++$number > self::MAX_SPEAKER_VARIABLES) {
+                break;
+            }
+
+            $variables["speaker_{$number}_name"] = $speaker->full_name;
+            $variables["speaker_{$number}_position"] = $speaker->position;
+            $variables["speaker_{$number}_company"] = $speaker->company;
+            $variables["speaker_{$number}_photo"] = $this->absoluteUrl($speaker->photo);
+        }
+
+        return $variables;
+    }
+
+    /**
+     * Картинки на сайте хранятся как /storage/…: в письме нужен полный адрес.
+     */
+    private function absoluteUrl(?string $path): ?string
+    {
+        if (blank($path)) {
+            return null;
+        }
+
+        return preg_match('~^https?://~i', $path) ? $path : url($path);
+    }
+
+    private function formatDateTime(mixed $date, mixed $time): ?string
+    {
+        $date = $this->formatDate($date);
+
+        if ($date === null) {
+            return null;
+        }
+
+        $time = $this->formatTime($time);
+
+        return $time === null ? $date : $date.', '.$time;
     }
 
     private function formatDate(mixed $date): ?string

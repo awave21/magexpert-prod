@@ -64,6 +64,7 @@ class DataPresenter
             'email' => $contact->email,
             'name' => $contact->name,
             'data' => $contact->data ?: (object) [],
+            'tags' => $contact->tags ?? [],
             'status' => ContactUpsertService::status($contact),
             'check_status' => $contact->check_status,
             'last_opened_at' => $contact->last_opened_at?->toIso8601String(),

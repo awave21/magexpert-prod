@@ -67,6 +67,7 @@ class SubscriberSources
                 'email' => $email,
                 'name' => filled($subscriber['name']) ? trim((string) $subscriber['name']) : null,
                 'data' => json_encode(array_filter($subscriber['data'], 'filled'), JSON_UNESCAPED_UNICODE),
+                'tags' => ($tags = Contact::normalizeTags($subscriber['tags'] ?? [])) === [] ? null : json_encode($tags),
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
@@ -105,7 +106,7 @@ class SubscriberSources
     private function upsert(array $rows): void
     {
         if ($rows !== []) {
-            Contact::query()->upsert($rows, ['list_id', 'email'], ['name', 'data', 'updated_at']);
+            Contact::query()->upsert($rows, ['list_id', 'email'], ['name', 'data', 'tags', 'updated_at']);
         }
     }
 }

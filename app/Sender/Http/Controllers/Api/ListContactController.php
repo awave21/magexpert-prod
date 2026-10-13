@@ -70,6 +70,7 @@ class ListContactController extends Controller
             'email' => $contact->email,
             'name' => $contact->name,
             'data' => $contact->data ?: (object) [],
+            'tags' => $contact->tags ?? [],
             'status' => ContactUpsertService::status($contact),
             'created_at' => $contact->created_at?->toIso8601String(),
             'updated_at' => $contact->updated_at?->toIso8601String(),

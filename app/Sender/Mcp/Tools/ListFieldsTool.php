@@ -23,7 +23,7 @@ class ListFieldsTool implements Tool
     public function description(): string
     {
         return 'Дополнительные поля подписчиков базы (data) и их частые значения с количеством — из них собирается сегмент (field + values) '
-            .'для count_segment и рассылки. Lists contact fields and frequent values of a list.';
+            .'для count_segment и рассылки; tags — теги подписчиков с количеством (сегмент tags). Lists contact fields and frequent values of a list.';
     }
 
     public function schema(): array
@@ -45,6 +45,6 @@ class ListFieldsTool implements Tool
     {
         $list = $ctx->list($args['list']);
 
-        return ['list' => ['id' => $list->id, 'name' => $list->name], 'fields' => $this->fields->of($list)];
+        return ['list' => ['id' => $list->id, 'name' => $list->name], 'fields' => $this->fields->of($list), 'tags' => $this->fields->tags($list)];
     }
 }

@@ -2,12 +2,13 @@
 
 namespace App\Sender\Http\Requests\Api;
 
+use App\Sender\Models\Contact;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Validator;
 
 /**
- * Подписчик базы из внешней системы: адрес, имя, переменные для писем и согласие на рассылку.
+ * Подписчик базы из внешней системы: адрес, имя, переменные для писем, теги и согласие на рассылку.
  * Те же правила проверяют каждую строку пакетной загрузки.
  */
 class UpsertContactRequest extends FormRequest
@@ -15,6 +16,8 @@ class UpsertContactRequest extends FormRequest
     public const MAX_FIELDS = 50;
 
     public const MAX_VALUE_LENGTH = 1000;
+
+    public const MAX_TAGS_PER_REQUEST = 20;
 
     public function authorize(): bool
     {
@@ -59,6 +62,10 @@ class UpsertContactRequest extends FormRequest
             $input['name'] = $name === '' ? null : $name;
         }
 
+        if (is_array($input['tags'] ?? null)) {
+            $input['tags'] = Contact::normalizeTags($input['tags']);
+        }
+
         return $input;
     }
 
@@ -86,6 +93,8 @@ class UpsertContactRequest extends FormRequest
                     $fail('Значение переменной слишком длинное: не больше '.self::MAX_VALUE_LENGTH.' символов');
                 }
             }],
+            'tags' => ['sometimes', 'nullable', 'array', 'max:'.self::MAX_TAGS_PER_REQUEST],
+            'tags.*' => ['string', 'regex:'.Contact::TAG_PATTERN],
             'subscribed' => ['sometimes', 'boolean'],
         ];
     }
@@ -104,6 +113,10 @@ class UpsertContactRequest extends FormRequest
             'name.max' => 'Имя слишком длинное: не больше 250 символов',
             'data.array' => 'Переменные передаются объектом {"ключ": "значение"}',
             'data.max' => 'Не больше '.self::MAX_FIELDS.' переменных у подписчика',
+            'tags.array' => 'Теги передаются списком ["event-63", …]',
+            'tags.max' => 'Не больше '.self::MAX_TAGS_PER_REQUEST.' тегов за один запрос',
+            'tags.*.string' => 'Тег — строка',
+            'tags.*.regex' => 'Тег: латиница в нижнем регистре, цифры и . _ : -, начинается с буквы или цифры, до 64 символов',
             'subscribed.boolean' => 'subscribed — true или false',
         ];
     }

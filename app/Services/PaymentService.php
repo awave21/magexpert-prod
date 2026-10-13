@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SyncUserToSender;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\User;
@@ -237,6 +238,8 @@ class PaymentService
                 'access_granted_at' => now(),
                 'is_active' => true,
             ]);
+
+            SyncUserToSender::dispatchEventTag($user, $event->id);
 
             Log::info('Предоставлен доступ к мероприятию после оплаты', [
                 'event_id' => $event->id,

@@ -114,3 +114,42 @@ it('uses the template id or alias from the config', function (): void {
 
     expect($this->client->calls[0]['template'])->toBe('42');
 });
+
+it('passes the event image, schedule and speakers as separate variables', function (): void {
+    $event = Event::make([
+        'title' => 'Конференция',
+        'slug' => 'conf',
+        'format' => 'offline',
+        'location' => 'Москва, ул. Примерная, 1',
+        'image' => '/storage/events/cover.webp',
+        'short_description' => '<p>Практика</p>',
+        'is_archived' => false,
+        'is_paid' => false,
+        'show_price' => false,
+        'start_date' => '2026-11-15',
+        'start_time' => '10:00:00',
+    ]);
+    $event->setRelation('speakers', collect([
+        new \App\Models\Speaker(['first_name' => 'Иван', 'last_name' => 'Иванов', 'position' => 'Профессор', 'company' => 'Клиника', 'photo' => '/storage/speakers/1.webp']),
+        new \App\Models\Speaker(['first_name' => 'Пётр', 'last_name' => 'Сидоров', 'photo' => 'https://cdn.example.com/p.webp']),
+    ]));
+
+    $user = User::make(['first_name' => 'Анна', 'email' => 'anna@example.com']);
+
+    expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue();
+
+    $data = $this->client->calls[0]['data'];
+
+    expect($data)->toMatchArray([
+        'event_image' => url('/storage/events/cover.webp'),
+        'event_description' => 'Практика',
+        'event_location' => 'Москва, ул. Примерная, 1',
+        'event_datetime' => '15.11.2026, 10:00',
+        'speakers_count' => 2,
+        'speaker_1_position' => 'Профессор',
+        'speaker_1_company' => 'Клиника',
+        'speaker_1_photo' => url('/storage/speakers/1.webp'),
+        'speaker_2_photo' => 'https://cdn.example.com/p.webp',
+    ])->and($data['speaker_1_name'])->toContain('Иванов')
+        ->and($data)->not->toHaveKeys(['speaker_2_position', 'speaker_3_name']);
+});

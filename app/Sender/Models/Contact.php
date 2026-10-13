@@ -11,9 +11,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Contact extends SenderModel
 {
+    public const TAG_PATTERN = '/^[a-z0-9][a-z0-9_.:-]{0,63}$/';
+
+    public const MAX_TAGS = 100;
+
     protected $table = 'sender_contacts';
 
-    protected $fillable = ['organization_id', 'list_id', 'email', 'name', 'data', 'unsubscribed_at', 'check_status', 'check_hint', 'checked_at', 'last_opened_at',
+    protected $fillable = ['organization_id', 'list_id', 'email', 'name', 'data', 'tags', 'unsubscribed_at', 'check_status', 'check_hint', 'checked_at', 'last_opened_at',
         'confirmation_token', 'confirmation_sent_at', 'confirmed_at'];
 
     protected $hidden = ['confirmation_token'];
@@ -25,12 +29,32 @@ class Contact extends SenderModel
     {
         return [
             'data' => 'array',
+            'tags' => 'array',
             'unsubscribed_at' => 'datetime',
             'checked_at' => 'datetime',
             'last_opened_at' => 'datetime',
             'confirmation_sent_at' => 'datetime',
             'confirmed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Теги в нижнем регистре без пустых и повторов.
+     *
+     * @param  array<mixed>  $tags
+     * @return list<string>
+     */
+    public static function normalizeTags(array $tags): array
+    {
+        $clean = [];
+
+        foreach ($tags as $tag) {
+            if (is_string($tag) && ($tag = mb_strtolower(trim($tag))) !== '') {
+                $clean[$tag] = true;
+            }
+        }
+
+        return array_map('strval', array_keys($clean));
     }
 
     public function list(): BelongsTo
@@ -71,7 +95,9 @@ class Contact extends SenderModel
      * Часть базы: открывали письма за последние active_days дней и (или) поле field из загруженных колонок
      * равно одному из values. Пустой сегмент — вся база.
      *
-     * @param  array{active_days?: int|null, field?: string|null, values?: list<string>|null}|null  $segment
+     * Теги: подписчик имеет хотя бы один из перечисленных. Условия складываются.
+     *
+     * @param  array{active_days?: int|null, field?: string|null, values?: list<string>|null, tags?: list<string>|null}|null  $segment
      */
     public function scopeInSegment(Builder $query, ?array $segment): void
     {
@@ -83,6 +109,16 @@ class Contact extends SenderModel
 
         if (preg_match('~^[a-z0-9_]{1,64}$~', $field) && ! empty($segment['values'])) {
             $query->whereIn('data->'.$field, array_values($segment['values']));
+        }
+
+        $tags = array_values(array_filter((array) ($segment['tags'] ?? []), fn (mixed $tag): bool => is_string($tag) && $tag !== ''));
+
+        if ($tags !== []) {
+            $query->where(function (Builder $q) use ($tags): void {
+                foreach ($tags as $tag) {
+                    $q->orWhereJsonContains('tags', $tag);
+                }
+            });
         }
     }
 

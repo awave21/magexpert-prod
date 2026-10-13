@@ -49,11 +49,12 @@ class Schemas
         return [
             'type' => ['object', 'null'],
             'description' => 'Сегмент — часть базы. active_days: открывали письма за последние N дней; field + values: '
-                .'дополнительное поле подписчика равно одному из значений (поля и значения — list_fields). Условия складываются. Пусто или null — вся база.',
+                .'дополнительное поле подписчика равно одному из значений (поля и значения — list_fields); tags: у подписчика есть хотя бы один из тегов (теги — list_fields, ключ tags). Условия складываются. Пусто или null — вся база.',
             'properties' => [
                 'active_days' => ['type' => ['integer', 'null'], 'minimum' => 1, 'maximum' => 3650],
                 'field' => ['type' => ['string', 'null'], 'pattern' => '^[a-z0-9_]{1,64}$'],
                 'values' => ['type' => ['array', 'null'], 'items' => ['type' => 'string', 'maxLength' => 200], 'maxItems' => 50],
+                'tags' => ['type' => ['array', 'null'], 'items' => ['type' => 'string', 'maxLength' => 64], 'maxItems' => 20],
             ],
             'additionalProperties' => false,
         ];

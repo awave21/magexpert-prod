@@ -60,6 +60,14 @@ class ContactListController extends Controller
     }
 
     /**
+     * Теги подписчиков базы и количество подписчиков с каждым: из них собирается отбор по тегу.
+     */
+    public function tags(Request $request, int $list, ListFields $fields): JsonResponse
+    {
+        return response()->json(['data' => $fields->tags($this->organization($request)->lists()->findOrFail($list))]);
+    }
+
+    /**
      * Сколько подписчиков базы получит рассылку с таким условием отбора.
      */
     public function count(SegmentRequest $request, int $list): JsonResponse

@@ -132,6 +132,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::post('lists/{list}/fix-typos', [ContactController::class, 'fixAll'])->name('contacts.fix-all');
             Route::post('lists/{list}/check', [ContactListController::class, 'check'])->middleware('throttle:10,1')->name('lists.check');
             Route::get('lists/{list}/fields', [ContactListController::class, 'fields'])->name('lists.fields');
+            Route::get('lists/{list}/tags', [ContactListController::class, 'tags'])->name('lists.tags');
             Route::post('lists/{list}/count', [ContactListController::class, 'count'])->name('lists.count');
             Route::post('lists/{list}/sync', [ContactListController::class, 'sync'])->middleware('throttle:10,1')->name('lists.sync');
 

@@ -21,6 +21,7 @@ use Illuminate\Support\Str;
  * он так и не подтвердил, снова ждёт подтверждения, но второе письмо ему не уходит никогда.
  * Блок-лист организации (отказы, жалобы, отписка) не трогается: такие адреса по-прежнему ничего не получают.
  * Имя и переменные объединяются с уже сохранёнными, как при загрузке файла; null в переменной удаляет её.
+ * Теги только добавляются к уже сохранённым и никогда не затирают их; тег не влияет ни на подписку, ни на подтверждение.
  */
 class ContactUpsertService
 {
@@ -56,7 +57,7 @@ class ContactUpsertService
     }
 
     /**
-     * @param  array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool}  $row  проверенная строка
+     * @param  array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool, tags?: list<string>|null}  $row  проверенная строка
      * @return array{email: string, status: string, created: bool}
      */
     public function upsert(ContactList $list, array $row): array
@@ -67,7 +68,7 @@ class ContactUpsertService
     }
 
     /**
-     * @param  list<array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool}>  $rows  проверенные строки
+     * @param  list<array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool, tags?: list<string>|null}>  $rows  проверенные строки
      * @return array{created: int, updated: int, subscribed: int, pending: int, unsubscribed: int}
      */
     public function batch(ContactList $list, array $rows): array
@@ -106,7 +107,7 @@ class ContactUpsertService
     /**
      * Строки применяются по порядку: повтор адреса в пакете продолжает изменения предыдущей строки.
      *
-     * @param  list<array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool}>  $rows
+     * @param  list<array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool, tags?: list<string>|null}>  $rows
      * @return array{contacts: array<string, array{email: string, status: string, created: bool}>}
      */
     private function apply(ContactList $list, array $rows): array
@@ -120,7 +121,7 @@ class ContactUpsertService
     }
 
     /**
-     * @param  list<array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool}>  $rows
+     * @param  list<array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool, tags?: list<string>|null}>  $rows
      * @return array{contacts: array<string, array{email: string, status: string, created: bool}>}
      */
     private function transaction(ContactList $list, array $rows): array
@@ -162,6 +163,7 @@ class ContactUpsertService
                             'email' => $email,
                             'name' => $contact->name,
                             'data' => empty($contact->data) ? null : json_encode($contact->data, JSON_UNESCAPED_UNICODE),
+                            'tags' => empty($contact->tags) ? null : json_encode($contact->tags),
                             'unsubscribed_at' => $contact->unsubscribed_at,
                             'confirmation_token' => $contact->confirmation_token,
                             'created_at' => $now,
@@ -201,7 +203,7 @@ class ContactUpsertService
     /**
      * Применяет строку к подписчику в памяти.
      *
-     * @param  array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool}  $row
+     * @param  array{email: string, name?: string|null, data?: array<string, mixed>|null, subscribed?: bool, tags?: list<string>|null}  $row
      * @return bool нужно ли отправить подписчику письмо подтверждения подписки
      */
     private function applyRow(ContactList $list, Contact $contact, array $row, bool $isNew): bool
@@ -212,6 +214,10 @@ class ContactUpsertService
 
         if (is_array($row['data'] ?? null)) {
             $contact->data = $this->mergeData($contact->data ?? [], $row['data']) ?: null;
+        }
+
+        if (! empty($row['tags'])) {
+            $contact->tags = array_slice(Contact::normalizeTags([...($contact->tags ?? []), ...$row['tags']]), 0, Contact::MAX_TAGS);
         }
 
         $requireConfirmation = (bool) $list->require_confirmation && ! $list->isSynced();

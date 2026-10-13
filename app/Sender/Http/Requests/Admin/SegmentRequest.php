@@ -2,6 +2,7 @@
 
 namespace App\Sender\Http\Requests\Admin;
 
+use App\Sender\Models\Contact;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SegmentRequest extends FormRequest
@@ -22,6 +23,8 @@ class SegmentRequest extends FormRequest
             'segment.field' => ['nullable', 'regex:/^[a-z0-9_]{1,64}$/'],
             'segment.values' => ['nullable', 'array', 'max:50'],
             'segment.values.*' => ['string', 'max:200'],
+            'segment.tags' => ['nullable', 'array', 'max:20'],
+            'segment.tags.*' => ['string', 'regex:'.Contact::TAG_PATTERN],
         ];
     }
 }

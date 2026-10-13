@@ -26,7 +26,9 @@ interface SubscriberSource
     /**
      * Подписчики: email, имя и дополнительные поля, доступные в письме как переменные.
      *
-     * @return iterable<array{email: string, name: string|null, data: array<string, string>}>
+     * Необязательное tags — теги подписчика: в синхронизируемой базе они повторяют источник.
+     *
+     * @return iterable<array{email: string, name: string|null, data: array<string, string>, tags?: list<string>}>
      */
     public function subscribers(): iterable;
 }

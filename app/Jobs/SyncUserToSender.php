@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\User;
+use App\Sender\Client\HttpContactSyncClient;
 use App\Sender\Client\SenderApiException;
 use App\Sender\Contracts\ContactSyncClient;
 use Illuminate\Bus\Queueable;
@@ -37,11 +38,13 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
     /**
      * @param  string|null  $email  адрес на момент постановки задачи: по нему удаляется контакт, если пользователя уже нет
      * @param  string|null  $previousEmail  прежний адрес, если адрес сменился: его контакт удаляется из базы
+     * @param  list<string>  $tags  теги, которые нужно добавить контакту (например, event-63): к уже стоящим они добавляются
      */
     public function __construct(
         public int $userId,
         public ?string $email = null,
         public ?string $previousEmail = null,
+        public array $tags = [],
     ) {
         $this->afterCommit();
     }
@@ -56,7 +59,7 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
 
     public function uniqueId(): string
     {
-        return $this->userId.($this->previousEmail !== null ? ':'.mb_strtolower($this->previousEmail) : '');
+        return $this->userId.($this->previousEmail !== null ? ':'.mb_strtolower($this->previousEmail) : '').($this->tags !== [] ? ':'.implode(',', $this->tags) : '');
     }
 
     public function handle(ContactSyncClient $client): void
@@ -123,7 +126,7 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
             }
 
             $payload = self::payload($user);
-            $client->upsertContact($listId, $payload['email'], $payload['name'], $payload['data'], $payload['subscribed']);
+            $client->upsertContact($listId, $payload['email'], $payload['name'], $payload['data'], $payload['subscribed'], $this->tags);
         } catch (SenderApiException $exception) {
             if ($exception->retryable || $exception->status === 404) {
                 throw $exception;
@@ -137,6 +140,28 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
 
             $this->fail($exception);
         }
+    }
+
+    /**
+     * Тег мероприятия в Sender: event-<id> (не меняется при смене адреса страницы).
+     */
+    public static function eventTag(int $eventId): string
+    {
+        return 'event-'.$eventId;
+    }
+
+    /**
+     * Передаёт в Sender тег мероприятия пользователя, которому выдан доступ (регистрация, оплата, выдача в админке).
+     * Тег ставится независимо от согласия: без согласия контакт остаётся отписанным и рассылок не получает.
+     * Письмо с подтверждением подписки не отправляется.
+     */
+    public static function dispatchEventTag(User $user, int $eventId): void
+    {
+        if (! config('sender.client.users_sync') || ! HttpContactSyncClient::configured() || ! self::syncable($user)) {
+            return;
+        }
+
+        self::dispatch($user->id, $user->email, null, [self::eventTag($eventId)]);
     }
 
     /**

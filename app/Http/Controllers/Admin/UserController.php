@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncUserToSender;
 use App\Models\Event;
 use App\Models\Role;
 use App\Models\User;
@@ -512,6 +513,10 @@ class UserController extends Controller
         // Добавляем доступ
         $user->events()->attach($validated['event_id'], $pivotData);
 
+        if ($pivotData['is_active'] && in_array($pivotData['payment_status'], ['free', 'completed'], true)) {
+            SyncUserToSender::dispatchEventTag($user, (int) $validated['event_id']);
+        }
+
         return back()->with('success', 'Доступ к событию успешно добавлен');
     }
 
@@ -557,6 +562,10 @@ class UserController extends Controller
 
         // Обновляем доступ
         $user->events()->updateExistingPivot($event->id, $pivotData);
+
+        if ($pivotData['is_active'] && in_array($pivotData['payment_status'], ['free', 'completed'], true)) {
+            SyncUserToSender::dispatchEventTag($user, $event->id);
+        }
 
         return back()->with('success', 'Доступ к событию успешно обновлен');
     }
