@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useState, type DragEvent, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Editor } from '@tiptap/react'
 import {
@@ -124,6 +124,17 @@ export default function BlockEditor() {
     setSavedJson('')
     setReady(true)
   }
+
+  // со страницы письма: ?start=empty — пустое письмо, ?start=wrap — своим кодом в одном блоке
+  const [searchParams] = useSearchParams()
+  const autoStart = searchParams.get('start')
+  const [autoStarted, setAutoStarted] = useState(false)
+  useEffect(() => {
+    if (autoStarted || ready || !template || (autoStart !== 'empty' && autoStart !== 'wrap')) return
+    setAutoStarted(true)
+    start(autoStart)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template, ready, autoStart, autoStarted])
 
   // макет поверх текущего письма: стили и логотип сохраняются, отменить можно через Cmd+Z
   const [presetsOpen, setPresetsOpen] = useState(false)

@@ -9,6 +9,7 @@ import Domains from './pages/Domains'
 import DomainDetail from './pages/DomainDetail'
 import Templates from './pages/Templates'
 import TemplateEditor from './pages/TemplateEditor'
+import NewTemplate from './pages/NewTemplate'
 import Messages from './pages/Messages'
 import ApiKeys from './pages/ApiKeys'
 import Blocked from './pages/Blocked'
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="domains" element={<Domains />} />
         <Route path="domains/:id" element={<DomainDetail />} />
         <Route path="templates" element={<Templates />} />
+        <Route path="templates/new" element={<NewTemplate />} />
         <Route path="templates/:id" element={<TemplateEditor />} />
         <Route path="variables" element={<VariablesPage />} />
         <Route path="api" element={<ApiDocs />} />

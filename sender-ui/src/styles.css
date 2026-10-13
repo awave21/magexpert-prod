@@ -1087,3 +1087,31 @@ button { font: inherit; color: inherit; }
 .tpl-more[open] > summary::before { transform: rotate(90deg); }
 .tpl-more-body { display: flex; flex-direction: column; gap: 24px; padding: 4px 16px 18px; }
 .tpl-create { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+/* страница письма: способы собрать письмо и данные письма */
+.tpl-sub { display: flex; align-items: center; gap: 10px; }
+.tpl-ways { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tpl-way { display: flex; flex-direction: column; gap: 6px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); color: inherit; text-decoration: none; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.tpl-way:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(28, 31, 39, .06); }
+.tpl-way.busy { opacity: .6; pointer-events: none; }
+.tpl-way b { font-size: 15px; font-weight: 600; }
+.tpl-way > span:last-of-type { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+.tpl-way-ic { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.tpl-side { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.tpl-card { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); }
+.tpl-card-title { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tpl-add { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; font-size: 14px; color: var(--accent); cursor: pointer; }
+.tpl-add:hover { text-decoration: underline; }
+@media (max-width: 600px) { .tpl-ways { grid-template-columns: minmax(0, 1fr); } }
+
+.tpl-steps { display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 14px; background: var(--accent-soft); }
+.tpl-steps ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.tpl-steps li { display: flex; gap: 12px; align-items: flex-start; color: var(--ink-2); font-size: 14px; }
+.tpl-steps li > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.tpl-steps li em { font-style: normal; font-size: 13px; color: var(--ink-2); }
+.tpl-steps li.now { color: var(--ink); }
+.tpl-steps li.done b { font-weight: 500; text-decoration: none; }
+.tpl-step-n { width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; background: var(--bg); color: var(--muted); }
+.tpl-steps li.now .tpl-step-n { background: var(--accent); color: #fff; }
+.tpl-steps li.done .tpl-step-n { background: var(--ok); color: #fff; }
+.tpl-steps .btn { align-self: flex-start; }
