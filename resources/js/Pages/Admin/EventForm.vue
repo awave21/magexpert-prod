@@ -89,10 +89,17 @@
                         <p v-if="form.errors.end_time" :class="error">{{ form.errors.end_time }}</p>
                     </div>
                 </div>
-                <div v-if="form.format !== 'online'">
-                    <label for="ev-loc" :class="label">Место проведения</label>
-                    <input id="ev-loc" v-model="form.location" :class="input" placeholder="Москва, ул. Рабочая, 93" />
-                    <p v-if="form.errors.location" :class="error">{{ form.errors.location }}</p>
+                <div v-if="form.format !== 'online'" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div class="sm:col-span-2">
+                        <label for="ev-loc" :class="label">Место проведения</label>
+                        <input id="ev-loc" v-model="form.location" :class="input" placeholder="Москва, ул. Рабочая, 93" />
+                        <p v-if="form.errors.location" :class="error">{{ form.errors.location }}</p>
+                    </div>
+                    <div>
+                        <label for="ev-city" :class="label">Город</label>
+                        <input id="ev-city" v-model="form.city" :class="input" placeholder="Москва" />
+                        <p v-if="form.errors.city" :class="error">{{ form.errors.city }}</p>
+                    </div>
                 </div>
             </section>
 
@@ -155,6 +162,12 @@
                     <input v-model="form.registration_enabled" type="checkbox" :class="checkbox" />
                     <span>Открыта регистрация</span>
                 </label>
+                <div v-if="form.registration_enabled">
+                    <label for="ev-letter" :class="label">Письмо о регистрации</label>
+                    <input id="ev-letter" v-model="form.letter_draft_id" :class="input" placeholder="Стандартное письмо" />
+                    <p :class="hint">ID или алиас (draft-12) шаблона из Sender. Если пусто или такого шаблона нет, уйдёт стандартное письмо.</p>
+                    <p v-if="form.errors.letter_draft_id" :class="error">{{ form.errors.letter_draft_id }}</p>
+                </div>
                 <div v-if="form.registration_enabled" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label for="ev-max" :class="label">Мест</label>
@@ -301,6 +314,8 @@ const blank = {
     full_description: "",
     topic: "",
     location: "",
+    city: "",
+    letter_draft_id: "",
     external_url: "",
     price: "",
     is_paid: false,
@@ -431,6 +446,8 @@ function fill(event) {
         full_description: event.full_description || "",
         topic: event.topic || "",
         location: event.location || "",
+        city: event.city || "",
+        letter_draft_id: event.letter_draft_id || "",
         external_url: event.external_url || "",
         price: event.price ? String(Math.round(Number(event.price))) : "",
         is_paid: !!event.is_paid,
@@ -512,6 +529,8 @@ function submitForm() {
         end_date: data.is_on_demand ? null : data.end_date || null,
         end_time: data.is_on_demand ? null : data.end_time || null,
         location: data.location || null,
+        city: data.city || null,
+        letter_draft_id: data.letter_draft_id || null,
         external_url: data.external_url || null,
         format: data.format || null,
         price: data.is_paid && data.price !== "" ? data.price : null,

@@ -32,6 +32,8 @@ class Event extends Model
         'full_description',
         'topic',
         'location',
+        'city', // город: переменная event_city в письме о регистрации
+        'letter_draft_id', // ID или алиас шаблона письма о регистрации в Sender; пусто — стандартное письмо
         'external_url',
         'price',
         'is_paid', // Платное мероприятие (независимо от цены)

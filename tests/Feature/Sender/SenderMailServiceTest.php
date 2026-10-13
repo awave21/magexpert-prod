@@ -12,11 +12,14 @@ beforeEach(function (): void {
 
         public string $status = 'queued';
 
+        /** @var list<string> */
+        public array $rejected = [];
+
         public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
         {
             $this->calls[] = compact('template', 'to', 'from', 'fromName', 'data');
 
-            return ['id' => 'abc', 'status' => $this->status, 'error' => null];
+            return ['id' => 'abc', 'status' => in_array($template, $this->rejected, true) ? 'failed' : $this->status, 'error' => null];
         }
     };
 
@@ -152,4 +155,49 @@ it('passes the event image, schedule and speakers as separate variables', functi
         'speaker_2_photo' => 'https://cdn.example.com/p.webp',
     ])->and($data['speaker_1_name'])->toContain('Иванов')
         ->and($data)->not->toHaveKeys(['speaker_2_position', 'speaker_3_name']);
+});
+
+it('passes the city and speaker regalia and leaves empty fields out', function (): void {
+    $event = Event::make([
+        'title' => 'Школа', 'slug' => 'school', 'format' => 'offline', 'city' => 'Казань',
+        'is_archived' => false, 'is_paid' => false, 'show_price' => false,
+    ]);
+    $event->setRelation('speakers', collect([
+        new \App\Models\Speaker(['first_name' => 'Иван', 'last_name' => 'Иванов', 'regalia' => 'Д.м.н., профессор']),
+    ]));
+
+    $this->service->sendEventRegistrationEmail($event, User::make(['first_name' => 'Анна', 'email' => 'anna@example.com']));
+
+    $data = $this->client->calls[0]['data'];
+
+    expect($data['event_city'])->toBe('Казань')
+        ->and($data['speaker_1_regalia'])->toBe('Д.м.н., профессор')
+        ->and($data['speakers'])->toContain('Д.м.н., профессор')
+        ->and($data)->not->toHaveKeys(['event_image', 'event_location', 'speaker_1_photo', 'speaker_1_position', 'speaker_2_name']);
+});
+
+it('sends the event letter by its own template id or alias and falls back to the standard one', function (): void {
+    $event = Event::make([
+        'title' => 'Школа', 'slug' => 'school', 'format' => 'online', 'is_archived' => false, 'is_paid' => false, 'show_price' => false,
+        'letter_draft_id' => 'draft-12',
+    ]);
+    $event->setRelation('speakers', collect());
+    $user = User::make(['first_name' => 'Анна', 'email' => 'anna@example.com']);
+
+    expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue()
+        ->and(array_column($this->client->calls, 'template'))->toBe(['draft-12']);
+
+    // такого шаблона в Sender нет: письмо не теряется, уходит стандартное
+    $this->client->calls = [];
+    $this->client->rejected = ['draft-12'];
+
+    expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue()
+        ->and(array_column($this->client->calls, 'template'))->toBe(['draft-12', 'event-registration']);
+
+    // без своего шаблона — сразу стандартное
+    $this->client->calls = [];
+    $event->letter_draft_id = null;
+
+    expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue()
+        ->and(array_column($this->client->calls, 'template'))->toBe(['event-registration']);
 });

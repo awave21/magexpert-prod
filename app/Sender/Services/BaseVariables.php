@@ -31,6 +31,8 @@ class BaseVariables
             ['key' => 'speaker_1_position', 'label' => 'Спикер 1: должность', 'description' => 'Так же speaker_2_position …', 'sample' => 'Профессор'],
             ['key' => 'speaker_1_company', 'label' => 'Спикер 1: организация', 'description' => 'Так же speaker_2_company …', 'sample' => 'Компания «Пример»'],
             ['key' => 'speaker_1_photo', 'label' => 'Спикер 1: фото', 'description' => 'Полный адрес фото; так же speaker_2_photo …', 'sample' => 'https://example.com/storage/speakers/example.webp'],
+            ['key' => 'event_city', 'label' => 'Город', 'description' => 'Город проведения; пусто, если не указан', 'sample' => 'Москва'],
+            ['key' => 'speaker_1_regalia', 'label' => 'Спикер 1: регалии', 'description' => 'Звания и регалии; так же speaker_2_regalia …', 'sample' => 'Д.м.н., профессор'],
             ['key' => 'price', 'label' => 'Стоимость', 'description' => 'Цена участия', 'sample' => '1 500 ₽'],
             ['key' => 'start_date', 'label' => 'Дата начала', 'description' => 'Формат дд.мм.гггг', 'sample' => '15.11.2026'],
             ['key' => 'start_time', 'label' => 'Время начала', 'description' => 'Формат чч:мм', 'sample' => '10:00'],

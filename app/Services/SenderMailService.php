@@ -28,7 +28,7 @@ class SenderMailService
         $speakers = $event->speakers->values();
         $isUpcoming = ! $event->is_archived;
 
-        return $this->send($this->template('event_registration'), $user->email, array_filter([
+        $data = array_filter([
             'user_name' => $userName,
             'first_name' => $user->first_name ?: ($userName !== '' ? explode(' ', $userName)[0] : ''),
             'user_email' => $user->email,
@@ -40,6 +40,7 @@ class SenderMailService
             'event_type' => $this->translateEventType($event->event_type),
             'event_format' => $this->translateFormat($event->format),
             'event_location' => $event->location,
+            'event_city' => $event->city,
             'price' => $event->getFormattedPrice(),
             'event_image' => $this->absoluteUrl($event->image),
             'event_description' => $event->short_description ? trim(strip_tags((string) $event->short_description)) : null,
@@ -52,10 +53,24 @@ class SenderMailService
             'end_time' => $event->is_archived ? null : $this->formatTime($event->end_time),
             'speakers' => $event->speakers->map(fn ($speaker): string => trim(implode(', ', array_filter([
                 $speaker->full_name,
+                $speaker->regalia,
                 $speaker->position,
                 $speaker->company,
             ]))))->implode('; '),
-        ], fn ($value): bool => $value !== null && $value !== '' && $value !== false));
+        ], fn ($value): bool => $value !== null && $value !== '' && $value !== false);
+
+        // у мероприятия может быть свой шаблон: ID или алиас из Sender; нет такого — уходит стандартное письмо
+        $custom = trim((string) $event->letter_draft_id);
+
+        if ($custom !== '') {
+            if ($this->send($custom, $user->email, $data)) {
+                return true;
+            }
+
+            Log::warning('Sender: шаблон мероприятия не принят, отправляем стандартное письмо', ['event_id' => $event->id, 'template' => $custom]);
+        }
+
+        return $this->send($this->template('event_registration'), $user->email, $data);
     }
 
     /**
@@ -152,7 +167,7 @@ class SenderMailService
     }
 
     /**
-     * Спикеры плоскими переменными speaker_N_name, speaker_N_position, speaker_N_company, speaker_N_photo:
+     * Спикеры плоскими переменными speaker_N_name, speaker_N_regalia, speaker_N_position, speaker_N_company, speaker_N_photo:
      * шаблон в Sender сам решает, какие показывать ({{#if speaker_1_name}}…{{/if}}).
      *
      * @param  iterable<int, \App\Models\Speaker>  $speakers
@@ -169,6 +184,7 @@ class SenderMailService
             }
 
             $variables["speaker_{$number}_name"] = $speaker->full_name;
+            $variables["speaker_{$number}_regalia"] = $speaker->regalia;
             $variables["speaker_{$number}_position"] = $speaker->position;
             $variables["speaker_{$number}_company"] = $speaker->company;
             $variables["speaker_{$number}_photo"] = $this->absoluteUrl($speaker->photo);
