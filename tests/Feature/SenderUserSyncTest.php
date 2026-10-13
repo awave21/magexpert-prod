@@ -499,3 +499,16 @@ it('не возвращает согласие тому, кто сам его о
     $user->update(['newsletter_consent' => true]);
     expect($user->fresh()->newsletter_withdrawn_at)->toBeNull();
 });
+
+it('сверяет базу пользователей с сайтом раз в сутки, пока синхронизация включена', function () {
+    $event = collect(app(Illuminate\Console\Scheduling\Schedule::class)->events())
+        ->first(fn ($event) => str_contains((string) $event->command, 'sender:sync-users'));
+
+    expect($event)->not->toBeNull()
+        ->and($event->expression)->toBe('30 3 * * *')
+        ->and($event->filtersPass(app()))->toBeTrue();
+
+    config(['sender.client.users_sync' => false]);
+
+    expect($event->filtersPass(app()))->toBeFalse();
+});
