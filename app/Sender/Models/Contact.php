@@ -11,7 +11,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Contact extends SenderModel
 {
-    public const TAG_PATTERN = '/^[a-z0-9][a-z0-9_.:-]{0,63}$/';
+    /** Тег: буквы любого алфавита, цифры, пробел и _ . : , - ( ) / +; начинается с буквы или цифры, до 120 символов. */
+    public const TAG_PATTERN = '/^[\p{L}\p{N}][\p{L}\p{N} _.:,\-()\/+]{0,119}$/u';
+
+    public const TAG_MAX_LENGTH = 120;
 
     public const MAX_TAGS = 100;
 
@@ -49,7 +52,7 @@ class Contact extends SenderModel
         $clean = [];
 
         foreach ($tags as $tag) {
-            if (is_string($tag) && ($tag = mb_strtolower(trim($tag))) !== '') {
+            if (is_string($tag) && ($tag = mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $tag)))) !== '') {
                 $clean[$tag] = true;
             }
         }

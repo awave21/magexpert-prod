@@ -32,6 +32,7 @@ class Event extends Model
         'full_description',
         'topic',
         'location',
+        'tags', // теги для рассылок: уходят в Sender при регистрации
         'city', // город: переменная event_city в письме о регистрации
         'letter_draft_id', // ID или алиас шаблона письма о регистрации в Sender; пусто — стандартное письмо
         'external_url',
@@ -73,6 +74,7 @@ class Event extends Model
         'price' => 'decimal:2',
         'is_live' => 'boolean',
         'max_quantity' => 'integer',
+        'tags' => 'array',
         'file_path' => 'string',
     ];
 

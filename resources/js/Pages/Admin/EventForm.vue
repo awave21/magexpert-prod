@@ -163,6 +163,12 @@
                     <span>Открыта регистрация</span>
                 </label>
                 <div v-if="form.registration_enabled">
+                    <label for="ev-tags" :class="label">Теги для рассылок</label>
+                    <input id="ev-tags" v-model="form.tags_text" :class="input" placeholder="Например: гинекология, школа, 2026" />
+                    <p :class="hint">Через запятую. Контакт в Sender получит их при регистрации, дополнительно к автоматическому тегу «дата время тема». По тегам отбираются получатели рассылки.</p>
+                    <p v-if="form.errors.tags || form.errors['tags.0']" :class="error">{{ form.errors.tags || form.errors['tags.0'] }}</p>
+                </div>
+                <div v-if="form.registration_enabled">
                     <label for="ev-letter" :class="label">Письмо о регистрации</label>
                     <input id="ev-letter" v-model="form.letter_draft_id" :class="input" placeholder="Стандартное письмо" />
                     <p :class="hint">ID или алиас (draft-12) шаблона из Sender. Если пусто или такого шаблона нет, уйдёт стандартное письмо.</p>
@@ -316,6 +322,7 @@ const blank = {
     location: "",
     city: "",
     letter_draft_id: "",
+    tags_text: "",
     external_url: "",
     price: "",
     is_paid: false,
@@ -448,6 +455,7 @@ function fill(event) {
         location: event.location || "",
         city: event.city || "",
         letter_draft_id: event.letter_draft_id || "",
+        tags_text: Array.isArray(event.tags) ? event.tags.join(", ") : "",
         external_url: event.external_url || "",
         price: event.price ? String(Math.round(Number(event.price))) : "",
         is_paid: !!event.is_paid,
@@ -531,6 +539,7 @@ function submitForm() {
         location: data.location || null,
         city: data.city || null,
         letter_draft_id: data.letter_draft_id || null,
+        tags: (data.tags_text || "").split(/[,\n]/).map((t) => t.trim()).filter(Boolean),
         external_url: data.external_url || null,
         format: data.format || null,
         price: data.is_paid && data.price !== "" ? data.price : null,

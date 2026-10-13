@@ -443,15 +443,16 @@ it('передаёт тег мероприятия вместе с контак�
     resetQueue();
     fakeSenderApi();
 
-    SyncUserToSender::dispatchEventTag($user, 63);
+    $event = App\Models\Event::factory()->create(['title' => 'Школа', 'topic' => null, 'start_date' => '2026-10-16', 'start_time' => null, 'is_on_demand' => false]);
+    SyncUserToSender::dispatchEventTag($user, $event);
 
-    Queue::assertPushed(SyncUserToSender::class, fn (SyncUserToSender $job) => $job->tags === ['event-63']);
+    Queue::assertPushed(SyncUserToSender::class, fn (SyncUserToSender $job) => $job->tags === ['2026-10-16 школа']);
 
     runPushedSyncJobs();
 
     Http::assertSent(fn (Request $request) => $request->method() === 'PUT'
         && $request->url() === SENDER_API.'/lists/7/contacts'
-        && $request['tags'] === ['event-63']
+        && ($request->data()['tags'] ?? null) === ['2026-10-16 школа']
         && $request['subscribed'] === false);
 });
 
@@ -461,7 +462,7 @@ it('не ставит тег мероприятия, когда синхрони
     $user = userWithProfile();
     resetQueue();
 
-    SyncUserToSender::dispatchEventTag($user, 63);
+    SyncUserToSender::dispatchEventTag($user, App\Models\Event::factory()->create());
 
     Queue::assertNotPushed(SyncUserToSender::class);
 });
@@ -473,7 +474,7 @@ it('ставит согласие на рассылку при регистра�
     fakeSenderApi();
 
     expect($user->assumeNewsletterConsent())->toBeTrue();
-    SyncUserToSender::dispatchEventTag($user, 63);
+    SyncUserToSender::dispatchEventTag($user, App\Models\Event::factory()->create(['title' => 'Школа', 'topic' => null, 'start_date' => '2026-10-16', 'start_time' => null, 'is_on_demand' => false]));
 
     expect($user->fresh()->newsletter_consent)->toBeTrue()
         ->and($user->fresh()->newsletter_withdrawn_at)->toBeNull();
@@ -482,7 +483,7 @@ it('ставит согласие на рассылку при регистра�
 
     Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/lists/7/contacts'
         && $request['subscribed'] === true
-        && ($request->data()['tags'] ?? null) === ['event-63']);
+        && ($request->data()['tags'] ?? null) === ['2026-10-16 школа']);
 });
 
 it('не возвращает согласие тому, кто сам его отозвал', function () {
@@ -511,4 +512,71 @@ it('сверяет базу пользователей с сайтом раз в
     config(['sender.client.users_sync' => false]);
 
     expect($event->filtersPass(app()))->toBeFalse();
+});
+
+it('собирает тег мероприятия из даты, времени и темы', function (string $title, ?string $topic, ?string $date, ?string $time, string $expected) {
+    $tag = SyncUserToSender::eventTagFrom(63, $title, $topic, $date, $time);
+
+    expect($tag)->toBe($expected)
+        ->and(mb_strlen($tag))->toBeLessThanOrEqual(120)
+        ->and(preg_match(App\Sender\Models\Contact::TAG_PATTERN, $tag))->toBe(1);
+})->with([
+    'тема вместо названия' => ['Гинекологическая эндокринология в клинических примерах', 'Медицина климактерия в клинических примерах', '2026-10-16', '12:00:00', '2026-10-16 12:00 Медицина климактерия в клинических примерах'],
+    'нет темы — название' => ['Вебинар по УЗИ', null, '2026-10-16', null, '2026-10-16 Вебинар по УЗИ'],
+    'пустая тема — название' => ['Вебинар по УЗИ', '   ', '2026-10-16', '9:05', '2026-10-16 09:05 Вебинар по УЗИ'],
+    'без даты (по запросу)' => ['Курс «Диагностика»', null, null, '10:00', 'Курс Диагностика'],
+    'переносы и лишние пробелы' => ["Школа \n  врача", null, '2026-11-01', '18:30', '2026-11-01 18:30 Школа врача'],
+    'кавычки и знаки заменяются' => ['«Ранняя диагностика: что нового?»', null, '2026-11-01', null, '2026-11-01 Ранняя диагностика: что нового'],
+]);
+
+it('обрезает длинный тег по границе слова и берёт запасной вариант без темы', function () {
+    $long = implode(' ', array_fill(0, 40, 'эндокринология'));
+    $tag = SyncUserToSender::eventTagFrom(5, $long, null, '2026-10-16', '12:00');
+
+    expect(mb_strlen($tag))->toBeLessThanOrEqual(120)
+        ->and($tag)->toStartWith('2026-10-16 12:00 эндокринология')
+        ->and($tag)->toEndWith('эндокринология')
+        ->and(SyncUserToSender::eventTagFrom(7, '', null, null))->toBe('event-7');
+});
+
+it('ставит тег с датой и темой при выдаче доступа и передаёт его в Sender', function () {
+    Queue::fake();
+    $user = userWithProfile();
+    resetQueue();
+
+    $event = App\Models\Event::factory()->create([
+        'title' => 'Цикл', 'topic' => 'Тема раз', 'start_date' => '2026-10-16', 'start_time' => '12:00:00', 'is_on_demand' => false,
+    ]);
+
+    SyncUserToSender::dispatchEventTag($user, $event);
+
+    Queue::assertPushed(SyncUserToSender::class, fn (SyncUserToSender $job) => $job->tags === ['2026-10-16 12:00 тема раз']);
+});
+
+it('добавляет к автоматическому тегу теги, заданные в форме мероприятия', function () {
+    Queue::fake();
+    $user = userWithProfile();
+    resetQueue();
+
+    $event = App\Models\Event::factory()->create([
+        'title' => 'Цикл', 'topic' => 'Тема раз', 'start_date' => '2026-10-16', 'start_time' => '12:00:00',
+        'is_on_demand' => false, 'tags' => ['Гинекология', ' школа ', 'гинекология'],
+    ]);
+
+    SyncUserToSender::dispatchEventTag($user, $event);
+
+    Queue::assertPushed(SyncUserToSender::class, fn (SyncUserToSender $job) => $job->tags === ['2026-10-16 12:00 тема раз', 'гинекология', 'школа']);
+});
+
+it('передаёт теги мероприятий пользователя в синхронизируемый список сайта', function () {
+    Queue::fake();
+    $user = userWithProfile(['newsletter_consent' => true]);
+    $event = App\Models\Event::factory()->create([
+        'title' => 'Цикл', 'topic' => 'Тема два', 'start_date' => '2026-11-02', 'start_time' => '09:30:00', 'is_on_demand' => false, 'tags' => ['школа'],
+    ]);
+    $event->users()->attach($user->id, ['access_type' => 'free', 'payment_status' => 'free', 'access_granted_at' => now(), 'is_active' => true]);
+
+    $subscriber = collect((new App\Services\NewsletterSubscribers)->subscribers())->firstWhere('email', $user->email);
+
+    expect($subscriber['tags'])->toBe(['2026-11-02 09:30 Тема два', 'школа']);
 });

@@ -514,7 +514,7 @@ class UserController extends Controller
         $user->events()->attach($validated['event_id'], $pivotData);
 
         if ($pivotData['is_active'] && in_array($pivotData['payment_status'], ['free', 'completed'], true)) {
-            SyncUserToSender::dispatchEventTag($user, (int) $validated['event_id']);
+            SyncUserToSender::dispatchEventTag($user, Event::query()->findOrFail($validated['event_id']));
         }
 
         return back()->with('success', 'Доступ к событию успешно добавлен');
@@ -564,7 +564,7 @@ class UserController extends Controller
         $user->events()->updateExistingPivot($event->id, $pivotData);
 
         if ($pivotData['is_active'] && in_array($pivotData['payment_status'], ['free', 'completed'], true)) {
-            SyncUserToSender::dispatchEventTag($user, $event->id);
+            SyncUserToSender::dispatchEventTag($user, $event);
         }
 
         return back()->with('success', 'Доступ к событию успешно обновлен');

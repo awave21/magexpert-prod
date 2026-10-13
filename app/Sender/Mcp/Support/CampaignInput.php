@@ -44,7 +44,7 @@ class CampaignInput
 
             foreach ($tags as $tag) {
                 if (! preg_match(\App\Sender\Models\Contact::TAG_PATTERN, $tag)) {
-                    throw new ToolException('Тег «'.$tag.'»: латиница в нижнем регистре, цифры и . _ : -, до 64 символов');
+                    throw new ToolException('Тег «'.$tag.'»: буквы, цифры, пробел и . _ : , - ( ) / +, до 120 символов');
                 }
             }
 

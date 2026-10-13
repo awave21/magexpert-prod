@@ -54,7 +54,7 @@ class Schemas
                 'active_days' => ['type' => ['integer', 'null'], 'minimum' => 1, 'maximum' => 3650],
                 'field' => ['type' => ['string', 'null'], 'pattern' => '^[a-z0-9_]{1,64}$'],
                 'values' => ['type' => ['array', 'null'], 'items' => ['type' => 'string', 'maxLength' => 200], 'maxItems' => 50],
-                'tags' => ['type' => ['array', 'null'], 'items' => ['type' => 'string', 'maxLength' => 64], 'maxItems' => 20],
+                'tags' => ['type' => ['array', 'null'], 'items' => ['type' => 'string', 'maxLength' => 120], 'maxItems' => 20],
             ],
             'additionalProperties' => false,
         ];

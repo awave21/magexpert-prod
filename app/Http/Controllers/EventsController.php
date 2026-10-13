@@ -329,7 +329,7 @@ class EventsController extends Controller
                 ]);
 
                 $user->assumeNewsletterConsent();
-                SyncUserToSender::dispatchEventTag($user, $event->id);
+                SyncUserToSender::dispatchEventTag($user, $event);
 
                 try {
                     app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, '', false);
@@ -435,7 +435,7 @@ class EventsController extends Controller
             }
 
             $user->assumeNewsletterConsent();
-            SyncUserToSender::dispatchEventTag($user, $event->id);
+            SyncUserToSender::dispatchEventTag($user, $event);
 
             try {
                 app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, $generatedPassword, $isNewUser);

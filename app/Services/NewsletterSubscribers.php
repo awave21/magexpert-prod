@@ -78,14 +78,21 @@ class NewsletterSubscribers implements SubscriberSource
         $tags = [];
 
         DB::table('event_user')
-            ->whereIn('user_id', $userIds)
-            ->where('is_active', true)
-            ->whereIn('payment_status', ['completed', 'free', 'unpaid'])
-            ->where(fn ($query) => $query->whereNull('access_expires_at')->orWhere('access_expires_at', '>', now()))
-            ->orderBy('event_id')
-            ->get(['user_id', 'event_id'])
+            ->join('events', 'events.id', '=', 'event_user.event_id')
+            ->whereIn('event_user.user_id', $userIds)
+            ->where('event_user.is_active', true)
+            ->whereIn('event_user.payment_status', ['completed', 'free', 'unpaid'])
+            ->where(fn ($query) => $query->whereNull('event_user.access_expires_at')->orWhere('event_user.access_expires_at', '>', now()))
+            ->orderBy('event_user.event_id')
+            ->get(['event_user.user_id', 'event_user.event_id', 'events.title', 'events.topic', 'events.start_date', 'events.start_time', 'events.is_on_demand', 'events.tags'])
             ->each(function (object $row) use (&$tags): void {
-                $tags[(int) $row->user_id][] = SyncUserToSender::eventTag((int) $row->event_id);
+                $tag = SyncUserToSender::eventTagFrom((int) $row->event_id, $row->title, $row->topic, $row->is_on_demand ? null : $row->start_date, $row->start_time);
+
+                $custom = is_string($row->tags) ? (array) json_decode($row->tags, true) : [];
+
+                foreach ([$tag, ...$custom] as $value) {
+                    $tags[(int) $row->user_id][] = $value;
+                }
             });
 
         return $tags;

@@ -240,7 +240,7 @@ class PaymentService
             ]);
 
             $user->assumeNewsletterConsent();
-            SyncUserToSender::dispatchEventTag($user, $event->id);
+            SyncUserToSender::dispatchEventTag($user, $event);
 
             Log::info('Предоставлен доступ к мероприятию после оплаты', [
                 'event_id' => $event->id,

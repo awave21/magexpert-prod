@@ -116,7 +116,7 @@ class UpsertContactRequest extends FormRequest
             'tags.array' => 'Теги передаются списком ["event-63", …]',
             'tags.max' => 'Не больше '.self::MAX_TAGS_PER_REQUEST.' тегов за один запрос',
             'tags.*.string' => 'Тег — строка',
-            'tags.*.regex' => 'Тег: латиница в нижнем регистре, цифры и . _ : -, начинается с буквы или цифры, до 64 символов',
+            'tags.*.regex' => 'Тег: буквы, цифры, пробел и . _ : , - ( ) / +, начинается с буквы или цифры, до 120 символов',
             'subscribed.boolean' => 'subscribed — true или false',
         ];
     }
