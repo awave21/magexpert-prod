@@ -43,10 +43,9 @@ class MessageService
         $uuid = (string) Str::uuid();
         $data = array_merge($this->defaults($organization), $data);
 
-        // письма рассылки получают ссылку отписки: её можно вставить в текст как {{ unsubscribe_url }}
-        if ($campaign !== null) {
-            $data['unsubscribe_url'] = SenderUi::url('unsubscribe/'.$uuid);
-        }
+        // у каждого письма есть ссылка отписки: её можно вставить в текст как {{ unsubscribe_url }},
+        // а если её в письме нет, она добавляется внизу автоматически (SendMessageJob)
+        $data['unsubscribe_url'] = SenderUi::url('unsubscribe/'.$uuid);
 
         [$fromEmail, $fromName, $domain, $sender] = $this->sender($organization, $template, $fromEmail, $fromName);
 

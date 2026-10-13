@@ -131,14 +131,14 @@ class SendMessageJob implements ShouldQueue
     }
 
     /**
-     * В письмо рассылки (и в его тест) без ссылки отписки она добавляется внизу автоматически.
+     * В любое письмо без ссылки отписки она добавляется внизу автоматически: убрать её из шаблона нельзя.
      *
      * @param  array{subject: string, html: string, text?: string|null}  $content
      * @return array{subject: string, html: string, text?: string|null}
      */
     private function withUnsubscribeLink(Message $message, array $content): array
     {
-        $url = $message->campaign_id || ($message->data['campaign_test'] ?? false) ? ($message->data['unsubscribe_url'] ?? null) : null;
+        $url = $message->data['unsubscribe_url'] ?? null;
 
         if (! is_string($url) || str_contains($content['html'], $url)) {
             return $content;

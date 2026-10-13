@@ -383,3 +383,24 @@ it('does not move a login without a fresh confirmation from yandex', function ()
 
     expect($owner->socialAccounts()->exists())->toBeTrue();
 });
+
+it('returns to the event page after a social login started from the event registration', function (): void {
+    $user = User::factory()->create();
+    $user->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '333']);
+    fakeSocialUser('yandex', ['id' => '333', 'first_name' => 'Анна'], 'anna@yandex.ru');
+
+    $this->get('/auth/yandex/redirect?return=/events/webinar-1')->assertRedirect();
+    $this->get('/auth/yandex/callback?code=x&state=y')->assertRedirect(url('/events/webinar-1'));
+
+    $this->assertAuthenticatedAs($user);
+});
+
+it('ignores a foreign return address', function (): void {
+    $user = User::factory()->create();
+    $user->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '444']);
+    fakeSocialUser('yandex', ['id' => '444', 'first_name' => 'Анна'], 'anna@yandex.ru');
+
+    $this->get('/auth/yandex/redirect?return=//evil.example/steal')->assertRedirect();
+    $this->get('/auth/yandex/redirect?return=https://evil.example')->assertRedirect();
+    $this->get('/auth/yandex/callback?code=x&state=y')->assertRedirect(route('dashboard', absolute: false));
+});

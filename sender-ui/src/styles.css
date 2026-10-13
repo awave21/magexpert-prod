@@ -1115,3 +1115,6 @@ button { font: inherit; color: inherit; }
 .tpl-steps li.now .tpl-step-n { background: var(--accent); color: #fff; }
 .tpl-steps li.done .tpl-step-n { background: var(--ok); color: #fff; }
 .tpl-steps .btn { align-self: flex-start; }
+
+/* системная ссылка отписки: есть в каждом письме, в редакторе только показана */
+.be-system-foot { padding: 14px 16px 20px; text-align: center; font-size: 13px; line-height: 1.5; color: #6B7280; border-top: 1px dashed var(--line); user-select: none; cursor: default; }

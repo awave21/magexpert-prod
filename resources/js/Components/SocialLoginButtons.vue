@@ -10,9 +10,13 @@ const count = computed(() => (providers.value.includes('yandex') ? 1 : 0) + (pro
 const button =
     'inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brandblue/30 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700';
 
-defineProps({
+const props = defineProps({
     title: { type: String, default: 'или войдите через' },
+    // путь на этом сайте, куда вернуть после входа (например, /events/slug)
+    returnTo: { type: String, default: '' },
 });
+
+const href = (provider, via) => route('social.redirect', { provider, ...(via ? { via } : {}), ...(props.returnTo ? { return: props.returnTo } : {}) });
 </script>
 
 <template>
@@ -23,20 +27,20 @@ defineProps({
             <span class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></span>
         </div>
         <div class="grid grid-cols-1 gap-3" :class="{ 'sm:grid-cols-2': count > 1 }">
-            <a v-if="providers.includes('yandex')" :href="route('social.redirect', 'yandex')" :class="button">
+            <a v-if="providers.includes('yandex')" :href="href('yandex')" :class="button">
                 <span class="grid h-5 w-5 place-items-center rounded-full bg-[#FC3F1D] text-xs font-bold text-white" aria-hidden="true">Я</span>
                 Яндекс ID
             </a>
             <template v-if="providers.includes('vkid')">
-                <a :href="route('social.redirect', { provider: 'vkid', via: 'vkid' })" :class="button">
+                <a :href="href('vkid', 'vkid')" :class="button">
                     <span class="grid h-5 w-5 place-items-center rounded-md bg-[#0077FF] text-[10px] font-bold text-white" aria-hidden="true">VK</span>
                     ВКонтакте
                 </a>
-                <a :href="route('social.redirect', { provider: 'vkid', via: 'ok_ru' })" :class="button">
+                <a :href="href('vkid', 'ok_ru')" :class="button">
                     <span class="grid h-5 w-5 place-items-center rounded-md bg-[#EE8208] text-[10px] font-bold text-white" aria-hidden="true">ОК</span>
                     Одноклассники
                 </a>
-                <a :href="route('social.redirect', { provider: 'vkid', via: 'mail_ru' })" :class="button">
+                <a :href="href('vkid', 'mail_ru')" :class="button">
                     <span class="grid h-5 w-5 place-items-center rounded-md bg-[#005FF9] text-xs font-bold text-white" aria-hidden="true">@</span>
                     Mail.ru
                 </a>

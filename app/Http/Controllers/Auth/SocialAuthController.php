@@ -52,6 +52,8 @@ class SocialAuthController extends Controller
             return redirect()->route('login')->withErrors(['email' => 'Вход через '.self::NAMES[$provider].' пока не настроен.']);
         }
 
+        $this->rememberReturnPath();
+
         $driver = $this->driver($provider);
 
         // телефон просим, только если доступ к нему включён в приложении у Яндекса или ВКонтакте
@@ -255,7 +257,20 @@ class SocialAuthController extends Controller
         Auth::login($user, true);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard')->with('message', 'Регистрация прошла успешно. Добро пожаловать!');
+        // пришёл с окна регистрации на мероприятие: возвращаем на его страницу
+        return redirect()->intended(route('dashboard'))->with('message', 'Регистрация прошла успешно. Добро пожаловать!');
+    }
+
+    /**
+     * ?return=/events/slug — куда вернуть после входа. Только путь на этом же сайте: чужой адрес и «//host» игнорируются.
+     */
+    private function rememberReturnPath(): void
+    {
+        $path = request()->query('return');
+
+        if (is_string($path) && preg_match('~^/(?!/)[A-Za-z0-9/_\-.%]*$~', $path) && ! str_starts_with($path, '/auth/')) {
+            session(['url.intended' => url($path)]);
+        }
     }
 
     /**

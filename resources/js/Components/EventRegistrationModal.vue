@@ -18,6 +18,7 @@ import {
 import CityAutocomplete from "./CityAutocomplete.vue";
 import TextInput from "./Form/TextInput.vue";
 import PhoneInput from "./Form/PhoneInput.vue";
+import SocialLoginButtons from "./SocialLoginButtons.vue";
 
 const props = defineProps({
     show: {
@@ -572,6 +573,16 @@ const progressPercent = computed(() => {
                                     @submit.prevent="submitRegistration"
                                     class="space-y-4"
                                 >
+                                    <!-- вход и регистрация через Яндекс ID, VK, Одноклассники, Mail.ru; после входа вернёмся на страницу мероприятия -->
+                                    <SocialLoginButtons
+                                        title="Зарегистрироваться через"
+                                        :return-to="`/events/${props.event.slug}`"
+                                    />
+                                    <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                                        <span class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></span>
+                                        или заполните форму
+                                        <span class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></span>
+                                    </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         <TextInput
                                             id="first_name"

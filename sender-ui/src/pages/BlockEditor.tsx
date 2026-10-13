@@ -545,6 +545,9 @@ export default function BlockEditor() {
                 <span>Перетащите сюда блок слева или нажмите на него.</span>
               </div>
             ) : renderList(design.blocks, ROOT, mailWidth)}
+            <div className="be-system-foot" title="Добавляется в конец каждого письма автоматически, убрать её нельзя" onClick={(e) => e.stopPropagation()}>
+              Чтобы не получать такие письма, <u>отпишитесь от рассылки</u>
+            </div>
           </div>
           <div className="be-canvas-note">{total} {total % 10 === 1 && total % 100 !== 11 ? 'блок' : total % 10 >= 2 && total % 10 <= 4 && (total % 100 < 10 || total % 100 >= 20) ? 'блока' : 'блоков'} · {device === 'mobile' ? 'телефон, 375 px' : `ширина ${s.width} px`}</div>
         </main>

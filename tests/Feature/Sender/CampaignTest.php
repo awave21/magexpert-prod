@@ -298,14 +298,18 @@ it('adds the unsubscribe link and headers to campaign mail', function (): void {
     $this->get($path)->assertOk()->assertSee('Вы уже отписаны');
 });
 
-it('does not add an unsubscribe link to transactional mail', function (): void {
+it('adds a system unsubscribe link to every letter, transactional included', function (): void {
     $message = app(App\Sender\Services\MessageService::class)->send($this->organization, $this->template, 'anna@example.com', data: ['name' => 'Анна']);
 
     $sent = Mail::mailer('array')->getSymfonyTransport()->messages()->first()->getOriginalMessage();
 
-    expect($message->data)->not->toHaveKey('unsubscribe_url')
-        ->and($sent->getHtmlBody())->not->toContain('unsubscribe')
+    expect($message->data['unsubscribe_url'])->toContain('/unsubscribe/'.$message->uuid)
+        ->and($sent->getHtmlBody())->toContain($message->data['unsubscribe_url'])
+        ->and($sent->getTextBody())->toContain($message->data['unsubscribe_url'])
         ->and($sent->getHeaders()->has('List-Unsubscribe'))->toBeFalse();
+
+    // отписка по этой ссылке работает, служебные письма после неё по-прежнему уходят
+    $this->post('/sender/unsubscribe/'.$message->uuid)->assertOk()->assertSee('Вы отписались');
 });
 
 it('shows an error page for an unknown unsubscribe link', function (): void {
@@ -367,7 +371,8 @@ it('keeps unsubscribe links working after the campaign is deleted', function ():
     $this->post('/sender/unsubscribe/'.$message->uuid)->assertOk()->assertSee('Вы отписались');
     expect(Suppression::query()->where('email', 'anna@example.com')->value('reason'))->toBe(Suppression::REASON_UNSUBSCRIBE);
 
-    // у служебного письма ссылки отписки нет
+    // у служебного письма ссылка отписки тоже есть, а неизвестная ссылка не действует
     $service = app(App\Sender\Services\MessageService::class)->send($this->organization, $this->template, 'petr@example.com');
-    $this->post('/sender/unsubscribe/'.$service->uuid)->assertStatus(410);
+    expect($service->data['unsubscribe_url'])->toContain('/unsubscribe/'.$service->uuid);
+    $this->post('/sender/unsubscribe/'.Illuminate\Support\Str::uuid())->assertStatus(410);
 });

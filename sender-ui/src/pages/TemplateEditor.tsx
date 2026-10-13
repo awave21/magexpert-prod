@@ -182,7 +182,7 @@ export default function TemplateEditor() {
   const err = (k: string) => errors[k]?.[0]
   const backTo = form.folder_id ? `/templates?folder=${form.folder_id}` : '/templates'
   const folderName = fq.data?.data.find((f) => f.id === form.folder_id)?.name
-  const previewHtml = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${FRAME_CSS}</style>${render(form.body_html, data)}`
+  const previewHtml = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${FRAME_CSS}</style>${render(form.body_html, data)}<div style="text-align:center;font:13px/1.5 Arial,Helvetica,sans-serif;color:#6B7280;padding:16px 16px 8px">Чтобы не получать такие письма, <u>отпишитесь от рассылки</u></div>`
 
   if (!isNew && q.isError) return <main className="page"><div className="callout err"><div><b>Письмо не найдено</b></div></div></main>
   if (!isNew && !saved) return <main className="page muted">Загрузка…</main>
