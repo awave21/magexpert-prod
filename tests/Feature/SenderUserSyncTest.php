@@ -558,3 +558,16 @@ it('передаёт теги мероприятий пользователя в
 
     expect($subscriber['tags'])->toBe(['школа', 'гинекология']);
 });
+
+it('передаёт оба предзаполненных тега мероприятия при регистрации', function () {
+    Queue::fake();
+    $user = userWithProfile();
+    resetQueue();
+    fakeSenderApi();
+
+    $event = App\Models\Event::factory()->create(['slug' => 'shkola-ginekologii', 'start_date' => '2026-11-15', 'tags' => null]);
+    $event->update(['tags' => $event->defaultTags()]);
+    SyncUserToSender::dispatchEventTag($user, $event->refresh());
+
+    Queue::assertPushed(SyncUserToSender::class, fn (SyncUserToSender $job) => $job->tags === ['shkola-ginekologii', '2026-11-15']);
+});

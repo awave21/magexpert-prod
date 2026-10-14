@@ -207,6 +207,41 @@ class Event extends Model
     }
 
     /**
+     * Теги для рассылок, которыми заполняется мероприятие при создании: адрес страницы и дата начала (Y-m-d).
+     * Это разовое предзаполнение: после создания теги ведутся вручную и при смене адреса или даты не пересчитываются.
+     * У мероприятия «в любое время» без даты остаётся только адрес.
+     *
+     * @return list<string>
+     */
+    public function defaultTags(): array
+    {
+        $date = $this->start_date;
+
+        return array_values(array_filter(array_map(
+            fn (?string $value): ?string => $this->asTag($value),
+            [$this->slug, $date !== null ? \Illuminate\Support\Carbon::parse($date)->format('Y-m-d') : null],
+        )));
+    }
+
+    /**
+     * Приводит значение к допустимому тегу Sender: нижний регистр, недопустимые символы заменены на «-»,
+     * начало с буквы или цифры, не длиннее 120 символов. Не подошло, значит null.
+     */
+    private function asTag(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $tag = mb_strtolower(trim((string) $value));
+        $tag = (string) preg_replace('/[^\p{L}\p{N} _.:,\-()\/+]/u', '-', $tag);
+        $tag = (string) preg_replace('/^[^\p{L}\p{N}]+/u', '', $tag);
+        $tag = rtrim(mb_substr($tag, 0, \App\Sender\Models\Contact::TAG_MAX_LENGTH));
+
+        return preg_match(\App\Sender\Models\Contact::TAG_PATTERN, $tag) === 1 ? $tag : null;
+    }
+
+    /**
      * Получить отформатированную цену мероприятия.
      * Возвращает null если цену не нужно показывать или она не установлена.
      */

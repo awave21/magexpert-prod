@@ -138,3 +138,62 @@ test('скрытый спикер мероприятия остаётся в ф�
             ->where('event.speakers.0.id', $first->id)
             ->where('event.speakers.1.id', $hidden->id));
 });
+
+test('теги нового мероприятия предзаполняются адресом страницы и датой', function () {
+    $this->actingAs(eventEditor())->post('/admin/events', eventPayload(['slug' => 'shkola-ginekologii', 'start_date' => '2026-11-15']))
+        ->assertSessionHasNoErrors();
+
+    expect(Event::first()->tags)->toBe(['shkola-ginekologii', '2026-11-15']);
+});
+
+test('у мероприятия без даты в тегах остаётся только адрес страницы', function () {
+    $this->actingAs(eventEditor())->post('/admin/events', eventPayload([
+        'slug' => 'zapis-na-demand', 'is_on_demand' => true, 'start_date' => null, 'start_time' => null,
+    ]))->assertSessionHasNoErrors();
+
+    expect(Event::first()->tags)->toBe(['zapis-na-demand']);
+});
+
+test('заданные вручную теги не дополняются адресом и датой', function () {
+    $this->actingAs(eventEditor())->post('/admin/events', eventPayload([
+        'slug' => 'shkola-ginekologii', 'start_date' => '2026-11-15', 'tags' => ['гинекология', 'школа'],
+    ]))->assertSessionHasNoErrors();
+
+    expect(Event::first()->tags)->toBe(['гинекология', 'школа']);
+});
+
+test('адрес страницы без указанного slug берётся из сгенерированного', function () {
+    $this->actingAs(eventEditor())->post('/admin/events', eventPayload(['start_date' => '2026-11-15']))
+        ->assertSessionHasNoErrors();
+
+    $event = Event::first();
+
+    expect($event->slug)->not->toBeEmpty()
+        ->and($event->tags)->toBe([mb_strtolower($event->slug), '2026-11-15']);
+});
+
+test('при редактировании теги не пересчитываются после смены адреса и даты', function () {
+    $this->actingAs(eventEditor())->post('/admin/events', eventPayload(['slug' => 'staryj-adres', 'start_date' => '2026-11-15']))
+        ->assertSessionHasNoErrors();
+    $event = Event::first();
+
+    $this->actingAs(eventEditor())->post("/admin/events/{$event->id}", eventPayload([
+        '_method' => 'PUT', 'slug' => 'novyj-adres', 'start_date' => '2026-12-01', 'title' => 'Другое название',
+        'tags' => $event->tags,
+    ]))->assertSessionHasNoErrors();
+
+    $event->refresh();
+
+    expect($event->slug)->toBe('novyj-adres')
+        ->and(\Illuminate\Support\Carbon::parse($event->start_date)->format('Y-m-d'))->toBe('2026-12-01')
+        ->and($event->tags)->toBe(['staryj-adres', '2026-11-15']);
+});
+
+test('defaultTags приводит адрес и дату к допустимым тегам и обрезает длинные значения', function () {
+    $long = str_repeat('a', 200);
+
+    expect((new Event(['slug' => 'Школа_Гинекологии', 'start_date' => '2026-11-15']))->defaultTags())->toBe(['школа_гинекологии', '2026-11-15'])
+        ->and((new Event(['slug' => 'slug@#name', 'start_date' => null]))->defaultTags())->toBe(['slug--name'])
+        ->and((new Event(['slug' => $long, 'start_date' => null]))->defaultTags()[0])->toHaveLength(120)
+        ->and((new Event(['slug' => null, 'start_date' => null]))->defaultTags())->toBe([]);
+});

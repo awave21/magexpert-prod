@@ -276,6 +276,14 @@ class EventController extends Controller
             $validated['slug'] = $this->generateUniqueSlug($validated['title']);
         }
 
+        // теги для рассылок один раз предзаполняются адресом и датой; заданные вручную не трогаем
+        if (empty($validated['tags'])) {
+            $validated['tags'] = (new Event([
+                'slug' => $validated['slug'],
+                'start_date' => $validated['start_date'] ?? null,
+            ]))->defaultTags();
+        }
+
         // Обрабатываем даты - убеждаемся что они в правильном формате
         if (! empty($validated['start_date'])) {
             $validated['start_date'] = \Carbon\Carbon::parse($validated['start_date'])->format('Y-m-d');
