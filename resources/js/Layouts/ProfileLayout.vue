@@ -4,7 +4,6 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import { ArrowLeftIcon, BookOpenIcon, CalendarDaysIcon, ChevronLeftIcon, Cog6ToothIcon, EnvelopeIcon, KeyIcon, PaperAirplaneIcon, PhoneIcon, SignalIcon, SparklesIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 import MainLogo from '@/Components/main-logo.vue';
-import MobileBottomNav from '@/Components/MobileBottomNav.vue';
 import CookieConsent from '@/Components/CookieConsent.vue';
 import UserMenu from '@/Components/Cabinet/UserMenu.vue';
 import MessagesBell from '@/Components/Cabinet/MessagesBell.vue';
@@ -12,11 +11,12 @@ import MessagesBell from '@/Components/Cabinet/MessagesBell.vue';
 // Каркас личного кабинета: боковое меню на экран высотой, верхняя панель с колокольчиком и меню пользователя.
 const page = usePage();
 
+// одно меню кабинета: боковое на десктопе и нижнее на телефоне и планшете (short — подпись в нижнем)
 const nav = [
-    { label: 'Главная', route: 'dashboard', active: ['dashboard'], icon: Squares2X2Icon },
-    { label: 'Мои доступы', route: 'my-events', active: ['my-events', 'my-events.*'], icon: KeyIcon },
-    { label: 'Библиотека', route: 'documents.index', active: ['documents.*'], icon: BookOpenIcon },
-    { label: 'ИИ-помощник', route: 'cabinet.assistant', active: ['cabinet.assistant'], icon: SparklesIcon },
+    { label: 'Главная', short: 'Главная', route: 'dashboard', active: ['dashboard'], icon: Squares2X2Icon },
+    { label: 'Мои доступы', short: 'Доступы', route: 'my-events', active: ['my-events', 'my-events.*'], icon: KeyIcon },
+    { label: 'Библиотека', short: 'Библиотека', route: 'documents.index', active: ['documents.*'], icon: BookOpenIcon },
+    { label: 'ИИ-помощник', short: 'ИИ-помощник', route: 'cabinet.assistant', active: ['cabinet.assistant'], icon: SparklesIcon },
 ];
 
 const crumbs = {
@@ -239,9 +239,9 @@ watch(() => page.props.flash?.error, (error) => {
                     <UserMenu />
                 </div>
 
-                <!-- до полного доступа: что осталось сделать -->
+                <!-- до полного доступа: что осталось сделать; на главной кабинета это уже есть в блоке «Завершите настройку» -->
                 <div
-                    v-if="profileMissing.length"
+                    v-if="profileMissing.length && !route().current('dashboard')"
                     role="status"
                     class="flex flex-wrap items-center gap-3 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100"
                 >
@@ -256,6 +256,25 @@ watch(() => page.props.flash?.error, (error) => {
         </div>
 
         <CookieConsent />
-        <MobileBottomNav />
+
+        <!-- Нижнее меню кабинета на телефоне и планшете: те же пункты, что в боковом меню на десктопе -->
+        <nav
+            aria-label="Личный кабинет"
+            class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden dark:border-gray-800 dark:bg-gray-900"
+        >
+            <div class="mx-auto grid h-16 max-w-xl grid-cols-4">
+                <Link
+                    v-for="item in nav"
+                    :key="item.route"
+                    :href="route(item.route)"
+                    class="cab-focus flex flex-col items-center justify-center gap-1 text-[11px] font-bold transition-colors"
+                    :class="isActive(item) ? 'text-brandblue-dark dark:text-brandblue' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
+                    :aria-current="isActive(item) ? 'page' : undefined"
+                >
+                    <component :is="item.icon" class="h-6 w-6" aria-hidden="true" />
+                    {{ item.short }}
+                </Link>
+            </div>
+        </nav>
     </div>
 </template>

@@ -90,3 +90,35 @@
 @keyframes cab-ping { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(2.4); opacity: 0; } }
 .cab-thumb { position: relative; overflow: hidden; border-radius: 20px; background: linear-gradient(135deg, #f3f7fb, #c7d3e3 60%, #6186b6); }
 @media (prefers-reduced-motion: reduce) { .cab-live::before { animation: none; } }
+
+/* Всплывающие уведомления (vue-toastification) в стиле сайта: белая карточка как панели кабинета,
+   тип различается фирменным цветом иконки, полоска таймера — фирменный синий. Селекторы с контейнером,
+   чтобы перебить стили библиотеки, которые подключаются позже. */
+.Vue-Toastification__container .Vue-Toastification__toast {
+  min-height: 0; max-width: 420px; padding: 14px 14px 16px 16px; align-items: center; gap: 12px;
+  border: 1px solid #e5e7eb; border-radius: 20px; background: #fff; color: #111827;
+  box-shadow: 0 1px 2px #0f172a0f, 0 18px 40px -18px #0f172a4d;
+  font: 600 15px/22px var(--font-sans);
+}
+.Vue-Toastification__container .Vue-Toastification__toast-body { font: inherit; }
+.Vue-Toastification__container .Vue-Toastification__icon {
+  flex: none; width: 36px; height: 36px; margin: 0; padding: 8px; border-radius: 999px; box-sizing: border-box;
+}
+.Vue-Toastification__container .Vue-Toastification__toast--success .Vue-Toastification__icon,
+.Vue-Toastification__container .Vue-Toastification__toast--info .Vue-Toastification__icon,
+.Vue-Toastification__container .Vue-Toastification__toast--default .Vue-Toastification__icon { background: var(--color-brandblue-soft); color: var(--color-brandblue-dark); }
+.Vue-Toastification__container .Vue-Toastification__toast--error .Vue-Toastification__icon { background: var(--color-brandcoral-soft); color: #b4361c; }
+.Vue-Toastification__container .Vue-Toastification__toast--warning .Vue-Toastification__icon { background: #fef3c7; color: #92400e; }
+.Vue-Toastification__container .Vue-Toastification__close-button { align-self: center; color: #9ca3af; opacity: 1; font-size: 22px; padding-left: 6px; }
+.Vue-Toastification__container .Vue-Toastification__close-button:hover { color: #111827; }
+.Vue-Toastification__container .Vue-Toastification__progress-bar { height: 3px; background: var(--color-brandblue); opacity: .55; }
+.Vue-Toastification__container .Vue-Toastification__toast--error .Vue-Toastification__progress-bar { background: var(--color-brandcoral); }
+.dark .Vue-Toastification__container .Vue-Toastification__toast { background: #1f2937; border-color: #374151; color: #f9fafb; box-shadow: 0 18px 40px -18px #000000b3; }
+.dark .Vue-Toastification__container .Vue-Toastification__toast--success .Vue-Toastification__icon,
+.dark .Vue-Toastification__container .Vue-Toastification__toast--info .Vue-Toastification__icon,
+.dark .Vue-Toastification__container .Vue-Toastification__toast--default .Vue-Toastification__icon { background: #26364d; color: #9db6d6; }
+.dark .Vue-Toastification__container .Vue-Toastification__toast--error .Vue-Toastification__icon { background: #3b211b; color: #f7a08d; }
+.dark .Vue-Toastification__container .Vue-Toastification__close-button:hover { color: #fff; }
+@media (max-width: 600px) {
+  .Vue-Toastification__container .Vue-Toastification__toast { max-width: none; margin: 0 12px 8px; border-radius: 18px; }
+}
