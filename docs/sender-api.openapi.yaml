@@ -17,6 +17,8 @@ info:
       с клиентами, которые их уже читают. Заблокированное письмо возвращается как ресурс `Message` с кодом 422
       и `status: blocked`, а не как ошибка.
     - Лимиты: `429 Too Many Requests` с заголовком `Retry-After`.
+    - Трассировка: любой запрос может нести `X-Request-Id`; Sender возвращает его в ответе и сохраняет у письма
+      (`request_id`), поэтому письмо находят по следу в логах клиента.
     - Идемпотентность: `POST /messages` принимает `Idempotency-Key`. Повтор с тем же ключом возвращает то же письмо
       с заголовком `Idempotent-Replayed: true`; тот же ключ для другого письма даёт 422.
 
@@ -57,6 +59,7 @@ paths:
         Переменные шаблона передаются в `data`.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
       requestBody:
         required: true
         content:
@@ -373,6 +376,16 @@ components:
       scheme: bearer
       description: API-ключ организации (`mxs_…`)
   parameters:
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: |
+        Сквозной идентификатор запроса клиента (8–64 символа: латиница, цифры, `.`, `_`, `-`). Не передан или
+        некорректен, значит Sender создаёт свой. Возвращается в заголовке ответа и сохраняется у письма (`request_id`).
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9._-]{8,64}$'
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -538,11 +551,16 @@ components:
           additionalProperties: true
     Message:
       type: object
-      required: [id, status, to, subject, attempts, error, sent_at]
+      required: [id, status, to, subject, attempts, error, request_id, sent_at]
       properties:
         id:
           type: string
           format: uuid
+        request_id:
+          type:
+            - string
+            - 'null'
+          description: Идентификатор запроса клиента (`X-Request-Id`), по которому письмо создано
         status:
           type: string
           enum: [queued, sending, sent, delivered, failed, bounced, blocked]

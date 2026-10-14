@@ -25,9 +25,9 @@ function fakeSender(array $responses): object
 
         public function __construct(private array $responses) {}
 
-        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null, ?string $requestId = null): array
         {
-            $this->calls[] = compact('template', 'idempotencyKey');
+            $this->calls[] = compact('template', 'idempotencyKey', 'requestId');
             $next = array_shift($this->responses);
 
             if ($next instanceof Throwable) {
@@ -53,7 +53,9 @@ it('delivers a pending letter, stores the Sender message id and erases one-time 
     expect($entry->status)->toBe(MailOutbox::STATUS_SENT)
         ->and($entry->sender_message_id)->toBe('msg-1')
         ->and($entry->data)->toBe(['first_name' => 'Анна'])
-        ->and($client->calls[0]['idempotencyKey'])->toBe('reg-1');
+        ->and($client->calls[0]['idempotencyKey'])->toBe('reg-1')
+        // идентификатор письма в исходящих уходит в Sender как X-Request-Id: по нему письмо находят в журнале Sender
+        ->and($client->calls[0]['requestId'])->toBe($entry->uuid);
 });
 
 it('keeps a letter pending and asks the queue to retry after a server error', function (): void {

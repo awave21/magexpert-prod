@@ -14,7 +14,7 @@ beforeEach(function (): void {
     {
         public array $calls = [];
 
-        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null, ?string $requestId = null): array
         {
             $this->calls[] = compact('template', 'to');
 

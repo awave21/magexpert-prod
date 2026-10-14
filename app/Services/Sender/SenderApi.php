@@ -6,6 +6,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
@@ -75,13 +76,17 @@ class SenderApi implements ContactSyncClient, SenderClient, SubscriptionClient
         ];
     }
 
-    public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
+    public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null, ?string $requestId = null): array
     {
         try {
             $request = $this->request(15, retry: $idempotencyKey !== null);
 
             if ($idempotencyKey !== null) {
                 $request = $request->withHeader('Idempotency-Key', $idempotencyKey);
+            }
+
+            if ($requestId !== null) {
+                $request = $request->withHeader('X-Request-Id', $requestId);
             }
 
             $response = $request->post('messages', ['template' => $template, 'to' => $to, 'data' => $data]);
@@ -150,6 +155,8 @@ class SenderApi implements ContactSyncClient, SenderClient, SubscriptionClient
 
         $request = Http::baseUrl(self::baseUrl())
             ->withToken((string) config('services.sender.api_key'))
+            // сквозной идентификатор: письмо и запрос пользователя связаны в логах обеих сторон
+            ->withHeaders(array_filter(['X-Request-Id' => Context::get('request_id')]))
             ->acceptJson()
             ->asJson()
             ->connectTimeout(3)

@@ -48,6 +48,7 @@ class Message extends SenderModel
     protected $fillable = [
         'uuid',
         'idempotency_key',
+        'request_id',
         'organization_id',
         'domain_id',
         'template_id',

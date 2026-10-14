@@ -82,3 +82,16 @@ it('throws when the API is not configured', function (): void {
 
     expect(fn () => app(SenderApi::class)->send('welcome', 'anna@example.com'))->toThrow(SenderApiException::class);
 });
+
+it('forwards the request id of the current request to Sender', function (): void {
+    Http::fake(['sender.test/*' => Http::response(['id' => 'u', 'status' => 'queued'], 202)]);
+    Illuminate\Support\Facades\Context::add('request_id', 'site-req-12345678');
+
+    app(SenderApi::class)->setSubscription('anna@example.com', true);
+    app(SenderApi::class)->send('welcome', 'anna@example.com', [], null, 'outbox-uuid-12345');
+
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/subscriptions')
+        && $request->hasHeader('X-Request-Id', 'site-req-12345678'));
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/messages')
+        && $request->hasHeader('X-Request-Id', 'outbox-uuid-12345'));
+});

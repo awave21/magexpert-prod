@@ -16,7 +16,7 @@ beforeEach(function (): void {
         /** @var list<string> */
         public array $rejected = [];
 
-        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null, ?string $requestId = null): array
         {
             $this->calls[] = compact('template', 'to', 'data', 'idempotencyKey');
 
@@ -121,7 +121,7 @@ it('keeps a rejected letter in the outbox as failed instead of losing it silentl
 it('keeps the letter pending in the outbox when the client throws', function (): void {
     $this->app->instance(SenderClient::class, new class implements SenderClient
     {
-        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null, ?string $requestId = null): array
         {
             throw new RuntimeException('Sender недоступен');
         }
@@ -146,7 +146,8 @@ it('writes the letter to the outbox with the context and links it to the Sender 
     expect($entry->status)->toBe(MailOutbox::STATUS_SENT)
         ->and($entry->to_email)->toBe('anna@example.com')
         ->and($entry->user_id)->toBe($user->id)
-        ->and($entry->context)->toBe(['kind' => 'welcome', 'user_id' => $user->id])
+        ->and($entry->context)->toMatchArray(['kind' => 'welcome', 'user_id' => $user->id])
+        ->and($entry->context)->toHaveKey('request_id')
         ->and($entry->sender_message_id)->toBe('abc')
         ->and($entry->sent_at)->not->toBeNull();
 });

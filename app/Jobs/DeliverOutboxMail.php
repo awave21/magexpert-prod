@@ -82,7 +82,7 @@ class DeliverOutboxMail implements ShouldQueue
     private function deliver(SenderClient $client, MailOutbox $entry, string $template, string $key): string
     {
         try {
-            $result = $client->send($template, $entry->to_email, (array) $entry->data, $key);
+            $result = $client->send($template, $entry->to_email, (array) $entry->data, $key, $entry->uuid);
         } catch (SenderApiException $exception) {
             $entry->last_error = $exception->getMessage();
 
@@ -113,7 +113,7 @@ class DeliverOutboxMail implements ShouldQueue
             'data' => MailOutbox::redact($entry->data),
         ])->save();
 
-        Log::warning('Sender: письмо не отправлено', ['outbox_id' => $entry->id, 'template' => $entry->template, 'error' => $entry->last_error]);
+        Log::warning('Sender: письмо не отправлено', ['outbox_id' => $entry->id, 'uuid' => $entry->uuid, 'template' => $entry->template, 'error' => $entry->last_error]);
     }
 
     private function retryLater(MailOutbox $entry): void

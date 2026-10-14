@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // сквозной X-Request-Id: логи, очередь и запросы к Sender связаны одним идентификатором
+        $middleware->append(\App\Http\Middleware\AssignRequestId::class);
+
         $middleware->web(append: [
             // завершает сессии на других устройствах, когда меняется пароль (смена пароля, удаление аккаунта)
             \Illuminate\Session\Middleware\AuthenticateSession::class,

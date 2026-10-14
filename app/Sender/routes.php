@@ -31,6 +31,7 @@ use App\Sender\Http\Controllers\SubscriptionController;
 use App\Sender\Http\Controllers\TrackController;
 use App\Sender\Http\Controllers\UnsubscribeController;
 use App\Sender\Http\Middleware\ApiProblemResponse;
+use App\Sender\Http\Middleware\AssignRequestId;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
 use App\Sender\Http\Middleware\AuthorizeRole;
@@ -49,7 +50,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
     Route::get('docs/redoc', [ApiDocsController::class, 'redoc'])->name('sender.api.docs.redoc');
 
     // публичный API: ответы всегда JSON, ошибки в едином формате application/problem+json
-    Route::middleware([ForceJsonResponse::class, ApiProblemResponse::class, AuthenticateApiKey::class, 'throttle:sender-api'])->group(function (): void {
+    Route::middleware([AssignRequestId::class, ForceJsonResponse::class, ApiProblemResponse::class, AuthenticateApiKey::class, 'throttle:sender-api'])->group(function (): void {
         Route::post('messages', [MessageController::class, 'store']);
         Route::get('messages/{uuid}', [MessageController::class, 'show']);
         Route::put('subscriptions', [SubscriptionController::class, 'update']);

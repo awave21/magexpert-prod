@@ -202,3 +202,35 @@ it('removes an address from every list of the organization', function (): void {
     // повторное удаление ничего не ломает
     $this->withToken($this->key)->deleteJson('/api/sender/v1/contacts/anna@example.com')->assertNoContent();
 });
+
+it('echoes X-Request-Id and stores it on the message', function (): void {
+    Queue::fake();
+
+    $response = $this->withToken($this->key)->withHeader('X-Request-Id', 'outbox-7f3a9c2e')
+        ->postJson('/api/sender/v1/messages', $this->payload)->assertAccepted();
+
+    expect($response->headers->get('X-Request-Id'))->toBe('outbox-7f3a9c2e')
+        ->and($response->json('request_id'))->toBe('outbox-7f3a9c2e')
+        ->and($this->organization->messages()->latest('id')->value('request_id'))->toBe('outbox-7f3a9c2e');
+
+    $this->withToken($this->key)->getJson('/api/sender/v1/messages/'.$response->json('id'))
+        ->assertOk()->assertJsonPath('request_id', 'outbox-7f3a9c2e');
+});
+
+it('replaces a missing or malformed X-Request-Id with its own', function (): void {
+    Queue::fake();
+
+    $generated = $this->withToken($this->key)->postJson('/api/sender/v1/messages', $this->payload)->assertAccepted();
+    $bad = $this->withToken($this->key)->withHeader('X-Request-Id', "bad id\twith spaces")
+        ->postJson('/api/sender/v1/messages', $this->payload)->assertAccepted();
+
+    expect(Str::isUuid($generated->headers->get('X-Request-Id')))->toBeTrue()
+        ->and(Str::isUuid($bad->headers->get('X-Request-Id')))->toBeTrue();
+});
+
+it('returns X-Request-Id on error responses too', function (): void {
+    $this->withToken($this->key)->withHeader('X-Request-Id', 'trace-abcdef12')
+        ->postJson('/api/sender/v1/messages', ['template' => 'missing', 'to' => 'a@example.com'])
+        ->assertNotFound()
+        ->assertHeader('X-Request-Id', 'trace-abcdef12');
+});

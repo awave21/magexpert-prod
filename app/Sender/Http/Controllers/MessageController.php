@@ -42,6 +42,7 @@ class MessageController extends Controller
                 $to,
                 $request->input('data', []),
                 idempotencyKey: $idempotencyKey,
+                requestId: $request->attributes->get('request_id'),
             );
         } catch (UniqueConstraintViolationException $exception) {
             // два одинаковых запроса пришли одновременно: победил первый, второй получает его письмо
@@ -107,6 +108,7 @@ class MessageController extends Controller
             'subject' => $message->subject,
             'attempts' => (int) $message->attempts,
             'error' => $message->error,
+            'request_id' => $message->request_id,
             'sent_at' => $message->sent_at?->toIso8601String(),
         ];
     }

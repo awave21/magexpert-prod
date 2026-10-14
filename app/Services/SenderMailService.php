@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\MailOutbox;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -180,7 +181,8 @@ class SenderMailService
                     'data' => $data,
                     'status' => MailOutbox::STATUS_PENDING,
                     'user_id' => $context['user_id'] ?? null,
-                    'context' => $context === [] ? null : $context,
+                    // request_id исходного запроса пользователя: по нему находят и лог сайта, и письмо в Sender
+                    'context' => $context === [] ? null : [...$context, 'request_id' => Context::get('request_id')],
                 ],
             );
         } catch (Throwable $exception) {

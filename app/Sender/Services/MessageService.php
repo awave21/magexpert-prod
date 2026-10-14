@@ -37,6 +37,7 @@ class MessageService
         array $data = [],
         ?Campaign $campaign = null,
         ?string $idempotencyKey = null,
+        ?string $requestId = null,
     ): Message {
         $to = Str::lower(trim($to));
         $uuid = (string) Str::uuid();
@@ -51,6 +52,7 @@ class MessageService
         $message = $organization->messages()->make([
             'uuid' => $uuid,
             'idempotency_key' => $idempotencyKey,
+            'request_id' => $requestId,
             'domain_id' => $domain?->id,
             'template_id' => $template->id,
             'campaign_id' => $campaign?->id,

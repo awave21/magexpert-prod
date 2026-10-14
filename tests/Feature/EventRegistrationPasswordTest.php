@@ -11,7 +11,7 @@ beforeEach(function (): void {
     {
         public array $calls = [];
 
-        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null, ?string $requestId = null): array
         {
             $this->calls[] = compact('template', 'to', 'data');
 
@@ -69,4 +69,11 @@ it('creates an api user with an unusable password and a set-password link', func
     expect($mail)->not->toBeNull()
         ->and($mail['data'])->not->toHaveKey('password')
         ->and($mail['data']['set_password_url'])->toContain('/reset-password/');
+});
+
+it('gives every response an X-Request-Id and keeps the one that came with the request', function (): void {
+    $this->get('/up')->assertHeader('X-Request-Id');
+
+    $this->withHeader('X-Request-Id', 'client-trace-12345678')->get('/up')
+        ->assertHeader('X-Request-Id', 'client-trace-12345678');
 });
