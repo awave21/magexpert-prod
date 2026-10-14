@@ -34,6 +34,12 @@ export default function ApiDocs() {
     <main className="page api-page">
       <PageHead title="API" sub="Как приложению отправлять письма через Sender" />
 
+      <p className="hint" style={{ fontSize: 14 }}>
+        Полное описание API (все методы, схемы и ошибки) в формате OpenAPI: <a href={`${window.location.origin}/api/sender/v1/docs/swagger`} target="_blank" rel="noreferrer">Swagger UI</a>,{' '}
+        <a href={`${window.location.origin}/api/sender/v1/docs/redoc`} target="_blank" rel="noreferrer">Redoc</a> и{' '}
+        <Link to="/settings/api-docs">настройки документации</Link>.
+      </p>
+
       <section className="api-sec">
         <h2>Отправка письма</h2>
         <p>Приложение передаёт только ID шаблона, адрес получателя и значения переменных. Отправитель, имя, тема, прехедер и адрес для ответов берутся из настроек шаблона.</p>

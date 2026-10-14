@@ -22,6 +22,7 @@ use App\Sender\Http\Controllers\Admin\WebhookController;
 use App\Sender\Http\Controllers\Api\ContactController as ApiContactController;
 use App\Sender\Http\Controllers\Api\ListContactController;
 use App\Sender\Http\Controllers\Api\ListController;
+use App\Sender\Http\Controllers\ApiDocsController;
 use App\Sender\Http\Controllers\ConfirmSenderAddressController;
 use App\Sender\Http\Controllers\ConfirmSubscriptionController;
 use App\Sender\Http\Controllers\MessageController;
@@ -41,6 +42,12 @@ use App\Sender\Support\SenderUi;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
+    // документация публичного API: без ключа, спецификация docs/sender-api.openapi.yaml
+    Route::get('openapi.yaml', [ApiDocsController::class, 'spec'])->name('sender.api.spec');
+    Route::get('docs', [ApiDocsController::class, 'index'])->name('sender.api.docs');
+    Route::get('docs/swagger', [ApiDocsController::class, 'swagger'])->name('sender.api.docs.swagger');
+    Route::get('docs/redoc', [ApiDocsController::class, 'redoc'])->name('sender.api.docs.redoc');
+
     // публичный API: ответы всегда JSON, ошибки в едином формате application/problem+json
     Route::middleware([ForceJsonResponse::class, ApiProblemResponse::class, AuthenticateApiKey::class, 'throttle:sender-api'])->group(function (): void {
         Route::post('messages', [MessageController::class, 'store']);

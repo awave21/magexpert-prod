@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Bot, Building2, ScrollText, UserCog, UserRound } from 'lucide-react'
+import { BookOpen, Bot, Building2, ScrollText, UserCog, UserRound } from 'lucide-react'
 import { useAuth, usePermissions } from '../auth'
 import { PageHead } from '../components/ui'
 import './settings.css'
@@ -21,6 +21,7 @@ export default function Settings() {
         <nav className="nav-sub settings-nav" aria-label="Разделы настроек">
           {tab('/settings/profile', <UserRound size={16} />, 'Профиль')}
           {tab('/settings/ai', <Bot size={16} />, 'Подключение ИИ')}
+          {tab('/settings/api-docs', <BookOpen size={16} />, 'Документация API')}
           {isAdmin && tab('/settings/team', <UserCog size={16} />, 'Команда')}
           {isAdmin && tab('/settings/audit', <ScrollText size={16} />, 'Журнал действий')}
           {isOwner && tab('/settings/organization', <Building2 size={16} />, 'Организация')}

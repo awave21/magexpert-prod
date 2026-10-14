@@ -20,6 +20,7 @@ import ListDetail from './pages/ListDetail'
 import NewList from './pages/NewList'
 import Profile from './pages/Profile'
 import SettingsAi from './pages/SettingsAi'
+import SettingsApiDocs from './pages/SettingsApiDocs'
 import Campaigns from './pages/Campaigns'
 import CampaignEditor from './pages/CampaignEditor'
 import Privacy from './pages/Privacy'
@@ -70,6 +71,7 @@ export default function App() {
           <Route index element={<Navigate to="profile" replace />} />
           <Route path="profile" element={<Profile />} />
           <Route path="ai" element={<SettingsAi />} />
+          <Route path="api-docs" element={<SettingsApiDocs />} />
           <Route path="team" element={<RequireRole need="admin"><Team /></RequireRole>} />
           <Route path="audit" element={<RequireRole need="admin"><AuditLog /></RequireRole>} />
           <Route path="organization" element={<RequireRole need="owner"><SettingsOrganization /></RequireRole>} />

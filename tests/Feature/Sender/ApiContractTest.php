@@ -196,3 +196,31 @@ it('documents the schema checker itself: a wrong type and a missing field are re
         ->toContain('$.id: ожидался тип string, получен integer')
         ->toContain('$: нет обязательного поля subject');
 });
+
+it('serves the OpenAPI specification and the documentation pages without a key', function (): void {
+    $spec = $this->get('/api/sender/v1/openapi.yaml')->assertOk();
+    expect($spec->headers->get('Content-Type'))->toContain('application/yaml');
+
+    $parsed = Yaml::parse($spec->getContent());
+    expect($parsed['openapi'])->toBe('3.1.0')
+        ->and($parsed['paths'])->toHaveKey('/messages')
+        ->and($parsed['paths'])->toHaveKey('/contacts/{email}');
+
+    $this->get('/api/sender/v1/docs/swagger')->assertOk()
+        ->assertSee('swagger-ui-bundle.js', false)
+        ->assertSee('/api/sender/v1/openapi.yaml', false);
+
+    $this->get('/api/sender/v1/docs/redoc')->assertOk()
+        ->assertSee('redoc.standalone.js', false)
+        ->assertSee('/api/sender/v1/openapi.yaml', false);
+
+    $this->get('/api/sender/v1/docs')->assertOk()
+        ->assertSee('Swagger UI')
+        ->assertSee('Redoc');
+});
+
+it('points the specification server at the address it was opened from', function (): void {
+    $yaml = $this->get('http://sender.example.test/api/sender/v1/openapi.yaml')->assertOk()->getContent();
+
+    expect(Yaml::parse($yaml)['servers'][0]['url'])->toBe('http://sender.example.test/api/sender/v1');
+});
