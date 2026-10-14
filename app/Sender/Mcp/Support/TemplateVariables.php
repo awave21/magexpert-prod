@@ -28,6 +28,8 @@ class TemplateVariables
 
     /**
      * Имена переменных в {{ name }} и {{#if name}}, в порядке появления.
+     * Блок {{#each items}}…{{/each}} даёт имя списка items; поля элемента внутри блока (name, photo, …)
+     * принадлежат элементу, а не письму, поэтому в список не попадают.
      *
      * @return list<string>
      */
@@ -36,6 +38,16 @@ class TemplateVariables
         $found = [];
 
         foreach ($sources as $source) {
+            $source = (string) preg_replace_callback(
+                '/\{\{#each\s+([a-zA-Z0-9_.]+)\s*\}\}.*?\{\{\/each\}\}/s',
+                function (array $match) use (&$found): string {
+                    $found[$match[1]] = true;
+
+                    return '';
+                },
+                $source,
+            );
+
             preg_match_all('/\{\{\s*(?:#if\s+)?([a-zA-Z0-9_.]+)\s*\}\}/', $source, $matches);
 
             foreach ($matches[1] as $key) {

@@ -182,12 +182,15 @@ class TemplateLinter
             return;
         }
 
-        $hasDomain = $organization->domains()->where('status', Domain::STATUS_VERIFIED)->exists();
+        // отправитель берётся только из письма: без адреса в письме оно будет заблокировано, запасного адреса нет
+        if ($template !== null) {
+            $add(self::ERROR, 'sender_missing', 'В письме не выбран адрес отправителя: письмо будет заблокировано. Выберите адрес в настройках письма.');
 
-        if (! $hasDomain) {
-            $add(self::ERROR, 'sender_missing', 'У письма нет адреса отправителя, и у организации нет подтверждённого домена: отправить письмо не получится.');
-        } elseif ($template !== null) {
-            $add(self::INFO, 'sender_default', 'Адрес отправителя в письме не выбран: уйдёт с адреса по умолчанию (см. get_brand → sender.default).');
+            return;
+        }
+
+        if (! $organization->domains()->where('status', Domain::STATUS_VERIFIED)->exists()) {
+            $add(self::ERROR, 'sender_missing', 'У организации нет подтверждённого домена: отправить письмо не получится.');
         }
     }
 }
