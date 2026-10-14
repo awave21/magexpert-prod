@@ -9,7 +9,6 @@ use App\Models\Speaker;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Services\Bitrix24RegistrationService;
-use App\Services\PasswordSetupLink;
 use App\Services\PaymentService;
 use App\Services\SenderMailService;
 use Illuminate\Http\Request;
@@ -17,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 
 class EventsController extends Controller
@@ -363,13 +363,20 @@ class EventsController extends Controller
                 'phone' => 'required|string|max:20',
                 'city' => 'nullable|string|max:255',
                 'specialization' => 'nullable|string|max:255',
+                'password' => ['required', 'confirmed', Rules\Password::defaults()],
                 'privacy_consent' => 'required|accepted',
                 'oferta_consent' => 'required|accepted',
                 'newsletter_consent' => 'nullable|boolean',
+            ], [
+                'password.required' => 'Придумайте пароль',
+                'password.confirmed' => 'Пароли не совпадают',
             ]);
         }
         if ($validator->fails()) {
-            return $this->errorResponse($request, $validator->errors()->first());
+            // ошибки формы новичка показываются у своих полей (пароль, телефон…), а не одной строкой
+            return $request->wantsJson() || $isExistingUser
+                ? $this->errorResponse($request, $validator->errors()->first())
+                : back()->withErrors($validator)->withInput($request->except('password', 'password_confirmation'));
         }
 
         try {
@@ -393,7 +400,8 @@ class EventsController extends Controller
                     'phone' => $request->phone,
                     'city' => $request->city,
                     'specialization' => $request->specialization,
-                    'password' => Hash::make(PasswordSetupLink::unusablePassword()),
+                    // новичок регистрируется как на обычной странице регистрации: со своим паролем
+                    'password' => Hash::make($request->password),
                     'email_verified_at' => now(),
                     'newsletter_consent' => $request->boolean('newsletter_consent', false),
                     'privacy_consent' => $request->boolean('privacy_consent'),
@@ -437,7 +445,7 @@ class EventsController extends Controller
             SyncUserToSender::dispatchEventTag($user, $event);
 
             try {
-                app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, $isNewUser);
+                app(SenderMailService::class)->sendEventRegistrationEmail($event, $user);
             } catch (\Throwable $e) {
                 \Log::warning('Не удалось отправить email о регистрации', [
                     'event_id' => $event->id,

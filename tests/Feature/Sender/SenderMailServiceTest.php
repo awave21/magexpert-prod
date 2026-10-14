@@ -76,7 +76,7 @@ it('sends an event registration email with only filled fields', function (): voi
 
     $user = User::factory()->create(['first_name' => 'Анна', 'last_name' => 'Петрова', 'email' => 'anna@example.com']);
 
-    expect($this->service->sendEventRegistrationEmail($event, $user, true))->toBeTrue();
+    expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue();
 
     $data = $this->client->calls[0]['data'];
 
@@ -84,16 +84,13 @@ it('sends an event registration email with only filled fields', function (): voi
         ->and($data)->toMatchArray([
             'user_name' => 'Анна Петрова',
             'first_name' => 'Анна',
-            'is_new_user' => true,
             'event_title' => 'Вебинар',
             'event_type' => 'Вебинар',
             'event_format' => 'Онлайн',
             'start_date' => '16.10.2026',
             'start_time' => '12:00',
         ])
-        ->and($data)->not->toHaveKeys(['event_location', 'price', 'speakers', 'speakers_text', 'end_date', 'password'])
-        ->and($data['set_password_url'])->toContain('/reset-password/')
-        ->and($data['set_password_expires_in'])->toBe(60);
+        ->and($data)->not->toHaveKeys(['event_location', 'price', 'speakers', 'speakers_text', 'end_date', 'password', 'is_new_user', 'set_password_url', 'set_password_expires_in']);
 });
 
 it('does not send a set-password link to an existing user', function (): void {

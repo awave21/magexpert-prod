@@ -120,6 +120,8 @@ const registrationForm = useForm({
     middle_name: "",
     email: "",
     phone: "",
+    password: "",
+    password_confirmation: "",
     event_id: props.event.id,
     privacy_consent: false,
     oferta_consent: false,
@@ -570,10 +572,10 @@ const progressPercent = computed(() => {
                                     @submit.prevent="submitRegistration"
                                     class="space-y-4"
                                 >
-                                    <!-- вход и регистрация через Яндекс ID, VK, Одноклассники, Mail.ru; после входа вернёмся на страницу мероприятия -->
+                                    <!-- вход и регистрация через Яндекс ID, VK, Одноклассники, Mail.ru; после входа вернёмся на страницу мероприятия и сразу зарегистрируем -->
                                     <SocialLoginButtons
                                         title="Зарегистрироваться через"
-                                        :return-to="`/events/${props.event.slug}`"
+                                        :return-to="`/events/${props.event.slug}?register=1`"
                                     />
                                     <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
                                         <span class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></span>
@@ -637,6 +639,36 @@ const progressPercent = computed(() => {
                                         :error="registrationForm.errors.phone"
                                         placeholder="(999) 123-45-67"
                                     />
+
+                                    <!-- как на обычной странице регистрации: свой пароль, учётная запись без пароля не создаётся -->
+                                    <TextInput
+                                        id="event_password"
+                                        label="Пароль *"
+                                        v-model="registrationForm.password"
+                                        type="password"
+                                        autocomplete="new-password"
+                                        :required="true"
+                                        placeholder="Придумайте пароль"
+                                        :error="registrationForm.errors.password"
+                                    />
+
+                                    <TextInput
+                                        id="event_password_confirmation"
+                                        label="Повторите пароль *"
+                                        v-model="registrationForm.password_confirmation"
+                                        type="password"
+                                        autocomplete="new-password"
+                                        :required="true"
+                                        placeholder="Ещё раз пароль"
+                                        :error="registrationForm.errors.password_confirmation"
+                                    />
+
+                                    <p
+                                        v-if="registrationForm.errors.event"
+                                        class="text-sm text-red-600 dark:text-red-400"
+                                    >
+                                        {{ registrationForm.errors.event }}
+                                    </p>
 
                                     <!-- Чекбоксы согласия -->
                                     <div

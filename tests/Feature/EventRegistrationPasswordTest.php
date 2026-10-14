@@ -25,11 +25,12 @@ function guestRegistration(array $overrides = []): array
 {
     return array_merge([
         'first_name' => 'Анна', 'last_name' => 'Иванова', 'email' => 'new.guest@example.com', 'phone' => '+79990000000',
+        'password' => 'Secret-pass-2026', 'password_confirmation' => 'Secret-pass-2026',
         'privacy_consent' => true, 'oferta_consent' => true,
     ], $overrides);
 }
 
-it('registers a new guest without sending a password: only a set-password link', function (): void {
+it('registers a new guest without account details in the event letter', function (): void {
     $event = Event::factory()->create(['is_paid' => false, 'registration_enabled' => true, 'is_active' => true]);
 
     $this->post("/events/{$event->slug}/register", guestRegistration())->assertSessionHasNoErrors();
@@ -38,12 +39,25 @@ it('registers a new guest without sending a password: only a set-password link',
     $mail = collect($this->client->calls)->firstWhere('template', 'event-registration');
 
     expect($mail)->not->toBeNull()
-        ->and($mail['data'])->not->toHaveKey('password')
-        ->and($mail['data']['is_new_user'])->toBeTrue()
-        ->and($mail['data']['set_password_url'])->toContain('/reset-password/')
-        ->and($mail['data']['set_password_url'])->toContain(rawurlencode('new.guest@example.com'))
+        // письмо о регистрации только про мероприятие: ни пароля, ни ссылки «Задать пароль», ни «Мы создали учётную запись»
+        ->and(array_keys($mail['data']))->not->toContain('password', 'is_new_user', 'set_password_url', 'set_password_expires_in')
+        ->and($this->isAuthenticated())->toBeTrue()
+        // войти можно своим паролем из формы, как после обычной регистрации
+        ->and(Hash::check('Secret-pass-2026', $user->password))->toBeTrue()
         // пароль случайный и нигде не показан: подобрать его по данным письма нельзя
         ->and(Hash::check(json_encode($mail['data']), $user->password))->toBeFalse();
+});
+
+it('does not register a new guest without a password or with a mismatched one', function (): void {
+    $event = Event::factory()->create(['is_paid' => false, 'registration_enabled' => true, 'is_active' => true]);
+
+    $this->post("/events/{$event->slug}/register", guestRegistration(['password' => '', 'password_confirmation' => '']))
+        ->assertSessionHasErrors(['password' => 'Придумайте пароль']);
+    $this->post("/events/{$event->slug}/register", guestRegistration(['password_confirmation' => 'другой']))
+        ->assertSessionHasErrors(['password' => 'Пароли не совпадают']);
+
+    expect(User::query()->where('email', 'new.guest@example.com')->exists())->toBeFalse()
+        ->and($this->client->calls)->toBe([]);
 });
 
 it('does not keep a generated password in the metadata of a payment', function (): void {

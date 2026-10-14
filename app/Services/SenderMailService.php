@@ -21,7 +21,11 @@ use Throwable;
  */
 class SenderMailService
 {
-    public function sendEventRegistrationEmail(Event $event, User $user, bool $isNewUser = false): bool
+    /**
+     * Письмо о регистрации — только про мероприятие. Учётную запись для нового участника сайт создаёт молча:
+     * он уже вошёл, а пароль при желании задаст через «Забыли пароль».
+     */
+    public function sendEventRegistrationEmail(Event $event, User $user): bool
     {
         $event->loadMissing('speakers');
 
@@ -34,10 +38,6 @@ class SenderMailService
             'user_name' => $userName,
             'first_name' => $user->first_name ?: ($userName !== '' ? explode(' ', $userName)[0] : ''),
             'user_email' => $user->email,
-            'is_new_user' => $isNewUser,
-            // пароль в письмо не попадает: новому пользователю уходит одноразовая ссылка «Задать пароль»
-            'set_password_url' => $isNewUser ? app(PasswordSetupLink::class)->url($user) : null,
-            'set_password_expires_in' => $isNewUser ? app(PasswordSetupLink::class)->expiresInMinutes() : null,
             'event_title' => $event->title,
             'event_slug' => $event->slug,
             'event_url' => url('/events/'.$event->slug),

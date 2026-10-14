@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { Head, Link, router, usePage } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import MainLayout from "@/Layouts/MainLayout.vue";
@@ -107,6 +107,17 @@ const handleRegistrationClick = () => {
     // гость
     showRegistrationModal.value = true;
 };
+
+// вернулся после входа через Яндекс ID или VK из окна регистрации (?register=1): регистрация завершается сама
+onMounted(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("register") !== "1") return;
+    url.searchParams.delete("register");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    if (page.props.auth?.user && !props.event.user_has_access) {
+        handleRegistrationClick();
+    }
+});
 
 const closeRegistrationModal = () => {
     showRegistrationModal.value = false;

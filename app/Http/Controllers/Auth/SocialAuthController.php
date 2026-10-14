@@ -263,12 +263,13 @@ class SocialAuthController extends Controller
 
     /**
      * ?return=/events/slug — куда вернуть после входа. Только путь на этом же сайте: чужой адрес и «//host» игнорируются.
+     * Из окна регистрации на мероприятие приходит /events/slug?register=1: страница мероприятия сразу завершит регистрацию.
      */
     private function rememberReturnPath(): void
     {
         $path = request()->query('return');
 
-        if (is_string($path) && preg_match('~^/(?!/)[A-Za-z0-9/_\-.%]*$~', $path) && ! str_starts_with($path, '/auth/')) {
+        if (is_string($path) && preg_match('~^/(?!/)[A-Za-z0-9/_\-.%]*(\?register=1)?$~', $path) && ! str_starts_with($path, '/auth/')) {
             session(['url.intended' => url($path)]);
         }
     }

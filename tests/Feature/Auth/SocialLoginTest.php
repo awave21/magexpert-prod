@@ -395,6 +395,24 @@ it('returns to the event page after a social login started from the event regist
     $this->assertAuthenticatedAs($user);
 });
 
+it('returns to the event page with the registration mark after a social login from the event window', function (): void {
+    $user = User::factory()->create();
+    $user->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '555']);
+    fakeSocialUser('yandex', ['id' => '555', 'first_name' => 'Анна'], 'anna@yandex.ru');
+
+    $this->get('/auth/yandex/redirect?return='.urlencode('/events/webinar-1?register=1'))->assertRedirect();
+    $this->get('/auth/yandex/callback?code=x&state=y')->assertRedirect(url('/events/webinar-1?register=1'));
+});
+
+it('ignores a return address with any other query', function (): void {
+    $user = User::factory()->create();
+    $user->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '666']);
+    fakeSocialUser('yandex', ['id' => '666', 'first_name' => 'Анна'], 'anna@yandex.ru');
+
+    $this->get('/auth/yandex/redirect?return='.urlencode('/events/webinar-1?next=//evil.example'))->assertRedirect();
+    $this->get('/auth/yandex/callback?code=x&state=y')->assertRedirect(route('dashboard', absolute: false));
+});
+
 it('ignores a foreign return address', function (): void {
     $user = User::factory()->create();
     $user->socialAccounts()->create(['provider' => 'yandex', 'provider_user_id' => '444']);
