@@ -402,7 +402,13 @@ it('confirms a sender address by the link from the email', function (): void {
     // ссылку подменяем известным токеном, как будто открыли письмо
     $address->forceFill(['confirmation_token' => hash('sha256', str_repeat('a', 48))])->save();
     $this->get('/sender/confirm-address/'.str_repeat('b', 48))->assertStatus(410);
-    $this->get('/sender/confirm-address/'.str_repeat('a', 48))->assertOk()->assertSee('Адрес подтверждён');
+    $this->post('/sender/confirm-address/'.str_repeat('b', 48))->assertStatus(410);
+
+    // GET только показывает кнопку: сканер почты, открывший ссылку, адрес не подтверждает
+    $this->get('/sender/confirm-address/'.str_repeat('a', 48))->assertOk()->assertSee('Подтвердить адрес');
+    expect($address->fresh()->isConfirmed())->toBeFalse();
+
+    $this->post('/sender/confirm-address/'.str_repeat('a', 48))->assertOk()->assertSee('Адрес подтверждён');
 
     expect($address->fresh()->isConfirmed())->toBeTrue();
     $this->withToken($this->token)->getJson(adminApi().'/sender-addresses')->assertJsonPath('data.0.confirmed', true);
@@ -421,6 +427,7 @@ it('expires the confirmation link after two days', function (): void {
     ]);
 
     $this->get('/sender/confirm-address/'.str_repeat('c', 48))->assertStatus(410);
+    $this->post('/sender/confirm-address/'.str_repeat('c', 48))->assertStatus(410);
     expect($address->fresh()->isConfirmed())->toBeFalse();
 });
 

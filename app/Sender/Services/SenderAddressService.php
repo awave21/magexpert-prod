@@ -74,13 +74,27 @@ class SenderAddressService
     }
 
     /**
-     * Подтверждает адрес по ссылке из письма. Возвращает адрес или null, если ссылка неверна или устарела.
+     * Адрес, ждущий подтверждения по этой ссылке, ничего не меняя. Null, если ссылка неверна или устарела.
      */
-    public function confirm(string $plain): ?SenderAddress
+    public function findPending(string $plain): ?SenderAddress
     {
         $address = SenderAddress::query()->where('confirmation_token', hash('sha256', $plain))->first();
 
         if ($address === null || $address->confirmation_sent_at?->lt(now()->subHours(self::LINK_TTL_HOURS))) {
+            return null;
+        }
+
+        return $address;
+    }
+
+    /**
+     * Подтверждает адрес по ссылке из письма. Возвращает адрес или null, если ссылка неверна или устарела.
+     */
+    public function confirm(string $plain): ?SenderAddress
+    {
+        $address = $this->findPending($plain);
+
+        if ($address === null) {
             return null;
         }
 

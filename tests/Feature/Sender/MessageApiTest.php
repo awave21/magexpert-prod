@@ -108,3 +108,82 @@ it('does not show messages of another organization', function (): void {
 
     $this->withToken($otherKey)->getJson('/api/sender/v1/messages/'.$uuid)->assertNotFound();
 });
+
+it('does not create a second message for a repeated Idempotency-Key', function (): void {
+    Queue::fake();
+
+    $first = $this->withToken($this->key)->withHeader('Idempotency-Key', 'reg-63-user-7')
+        ->postJson('/api/sender/v1/messages', $this->payload)->assertAccepted();
+
+    $second = $this->withToken($this->key)->withHeader('Idempotency-Key', 'reg-63-user-7')
+        ->postJson('/api/sender/v1/messages', $this->payload)->assertAccepted()
+        ->assertHeader('Idempotent-Replayed', 'true');
+
+    expect($second->json('id'))->toBe($first->json('id'))
+        ->and($this->organization->messages()->count())->toBe(1);
+
+    Queue::assertPushed(SendMessageJob::class, 1);
+});
+
+it('rejects an Idempotency-Key reused for another letter', function (): void {
+    Queue::fake();
+
+    $this->withToken($this->key)->withHeader('Idempotency-Key', 'k-1')
+        ->postJson('/api/sender/v1/messages', $this->payload)->assertAccepted();
+
+    $this->withToken($this->key)->withHeader('Idempotency-Key', 'k-1')
+        ->postJson('/api/sender/v1/messages', [...$this->payload, 'to' => 'other@example.com'])
+        ->assertUnprocessable()
+        ->assertJsonPath('detail', 'Idempotency-Key уже использован для другого письма');
+
+    expect($this->organization->messages()->count())->toBe(1);
+});
+
+it('keeps sending separate messages when there is no Idempotency-Key', function (): void {
+    Queue::fake();
+
+    $this->withToken($this->key)->postJson('/api/sender/v1/messages', $this->payload)->assertAccepted();
+    $this->withToken($this->key)->postJson('/api/sender/v1/messages', $this->payload)->assertAccepted();
+
+    expect($this->organization->messages()->count())->toBe(2);
+});
+
+it('validates the Idempotency-Key header', function (): void {
+    $this->withToken($this->key)->withHeader('Idempotency-Key', str_repeat('a', 256))
+        ->postJson('/api/sender/v1/messages', $this->payload)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('idempotency_key');
+});
+
+it('answers errors in application/problem+json even without an Accept header', function (): void {
+    $this->withToken($this->key)->withHeaders(['Accept' => '*/*'])
+        ->post('/api/sender/v1/messages', ['template' => 'missing', 'to' => 'user@example.com'])
+        ->assertNotFound()
+        ->assertHeader('Content-Type', 'application/problem+json')
+        ->assertJsonPath('status', 404)
+        ->assertJsonPath('title', 'Not Found')
+        ->assertJsonPath('detail', 'Шаблон не найден')
+        ->assertJsonPath('message', 'Шаблон не найден');
+
+    $this->flushHeaders()->withHeaders(['Accept' => '*/*'])->post('/api/sender/v1/messages', $this->payload)
+        ->assertUnauthorized()
+        ->assertHeader('Content-Type', 'application/problem+json')
+        ->assertJsonPath('status', 401);
+
+    $this->flushHeaders()->withToken($this->key)->withHeaders(['Accept' => '*/*'])
+        ->put('/api/sender/v1/subscriptions', ['email' => 'not-an-email', 'subscribed' => true])
+        ->assertUnprocessable()
+        ->assertHeader('Content-Type', 'application/problem+json')
+        ->assertJsonPath('status', 422)
+        ->assertJsonStructure(['type', 'title', 'status', 'detail', 'message', 'errors' => ['email']]);
+});
+
+it('keeps the blocked message as a resource rather than an error', function (): void {
+    Queue::fake();
+    $this->organization->templates()->where('slug', 'welcome')->update(['sender_address_id' => null]);
+
+    $this->withToken($this->key)->postJson('/api/sender/v1/messages', $this->payload)
+        ->assertUnprocessable()
+        ->assertJsonPath('status', 'blocked')
+        ->assertJsonStructure(['id', 'to', 'subject', 'error']);
+});

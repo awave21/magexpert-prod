@@ -28,6 +28,7 @@ use App\Sender\Http\Controllers\OAuthController;
 use App\Sender\Http\Controllers\SubscriptionController;
 use App\Sender\Http\Controllers\TrackController;
 use App\Sender\Http\Controllers\UnsubscribeController;
+use App\Sender\Http\Middleware\ApiProblemResponse;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
 use App\Sender\Http\Middleware\AuthorizeRole;
@@ -39,13 +40,14 @@ use App\Sender\Support\SenderUi;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
-    Route::middleware([AuthenticateApiKey::class, 'throttle:sender-api'])->group(function (): void {
+    // публичный API: ответы всегда JSON, ошибки в едином формате application/problem+json
+    Route::middleware([ForceJsonResponse::class, ApiProblemResponse::class, AuthenticateApiKey::class, 'throttle:sender-api'])->group(function (): void {
         Route::post('messages', [MessageController::class, 'store']);
         Route::get('messages/{uuid}', [MessageController::class, 'show']);
         Route::put('subscriptions', [SubscriptionController::class, 'update']);
 
         // базы и подписчики для внешних систем (например, сайта), которые держат базу в актуальном состоянии
-        Route::middleware(ForceJsonResponse::class)->name('sender.api.')->group(function (): void {
+        Route::name('sender.api.')->group(function (): void {
             Route::put('lists', [ListController::class, 'upsert'])->name('lists.upsert');
             Route::put('lists/{list}/contacts', [ListContactController::class, 'upsert'])->whereNumber('list')->name('contacts.upsert');
             Route::post('lists/{list}/contacts/batch', [ListContactController::class, 'batch'])->whereNumber('list')->name('contacts.batch');
@@ -177,8 +179,10 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
 // кроме API выше и статики (её отдаёт nginx).
 if ($uiHost = SenderUi::host()) {
     Route::domain($uiHost)->group(function (): void {
-        Route::get('confirm-address/{token}', ConfirmSenderAddressController::class)
+        Route::get('confirm-address/{token}', [ConfirmSenderAddressController::class, 'show'])
             ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.ui-host.confirm-address');
+        Route::post('confirm-address/{token}', [ConfirmSenderAddressController::class, 'store'])
+            ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}');
         Route::middleware('web')->group(function (): void {
             Route::get('oauth/{provider}/redirect', [OAuthController::class, 'redirect'])->whereIn('provider', ['yandex', 'vkid'])->name('sender.ui-host.oauth.redirect');
             Route::get('oauth/{provider}/callback', [OAuthController::class, 'callback'])->whereIn('provider', ['yandex', 'vkid'])->middleware('throttle:30,1');
@@ -197,8 +201,10 @@ if ($uiHost = SenderUi::host()) {
 }
 
 // Подтверждение адреса отправителя по ссылке из письма (страница без входа в админку)
-Route::get('sender/confirm-address/{token}', ConfirmSenderAddressController::class)
+Route::get('sender/confirm-address/{token}', [ConfirmSenderAddressController::class, 'show'])
     ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}')->name('sender.confirm-address');
+Route::post('sender/confirm-address/{token}', [ConfirmSenderAddressController::class, 'store'])
+    ->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}');
 
 // Вход в Sender через Яндекс ID и VK ID (нужна сессия: Socialite хранит в ней state и PKCE)
 Route::middleware('web')->group(function (): void {
