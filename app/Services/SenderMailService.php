@@ -55,7 +55,7 @@ class SenderMailService
                 'regalia' => $speaker->regalia,
                 'position' => $speaker->position,
                 'company' => $speaker->company,
-                'photo' => $this->absoluteUrl($speaker->photo),
+                'photo' => $this->absoluteUrl(app(EmailImages::class)->square($speaker->photo)),
             ], fn ($value): bool => filled($value)))->values()->all(),
             'start_date' => $event->is_archived ? null : $this->formatDate($event->start_date),
             'start_time' => $event->is_archived ? null : $this->formatTime($event->start_time),
