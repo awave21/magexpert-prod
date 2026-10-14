@@ -150,3 +150,29 @@ it('answers 409 for a base that is built automatically', function (): void {
     contactProfileApi()->putJson("{$this->base}/lists/{$list->id}/contacts/anna@example.com", ['name' => 'Анна'])
         ->assertStatus(409);
 });
+
+it('requires only the email: a contact is created with no other profile field', function (): void {
+    $listId = contactProfileApi()->postJson("{$this->base}/lists", ['name' => 'Только адрес'])->json('data.id');
+
+    // адрес в пути, тело пустое
+    contactProfileApi()->putJson("{$this->base}/lists/{$listId}/contacts/only@example.com", [])
+        ->assertCreated()
+        ->assertJsonPath('data.email', 'only@example.com');
+
+    // старый вид: в теле только email
+    contactProfileApi()->putJson("{$this->base}/lists/{$listId}/contacts", ['email' => 'legacy@example.com'])
+        ->assertCreated();
+
+    $shown = contactProfileApi()->getJson("{$this->base}/lists/{$listId}/contacts/only@example.com")->assertOk();
+
+    expect($shown->json('data.name'))->toBeNull()
+        ->and($shown->json('data.phone'))->toBeNull()
+        ->and($shown->json('data.city'))->toBeNull()
+        ->and($shown->json('data.attributes'))->toBe([]);
+
+    // в пакете строка с одним адресом тоже допустима
+    contactProfileApi()->postJson("{$this->base}/lists/{$listId}/contacts/batch", ['contacts' => [['email' => 'batch@example.com']]])
+        ->assertOk()
+        ->assertJsonPath('data.created', 1)
+        ->assertJsonPath('data.invalid', []);
+});
