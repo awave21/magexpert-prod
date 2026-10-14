@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\User as SiteUser;
 use App\Sender\Dns\Blacklists;
 use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Jobs\SendMessageJob;
@@ -43,15 +42,46 @@ beforeEach(function (): void {
     ]);
 });
 
+/**
+ * Тестовый источник подписчиков вместо источника сайта: Sender не зависит от кода сайта.
+ */
+class FakeSiteSource implements App\Sender\Contracts\SubscriberSource
+{
+    /** @var list<array{email: string, name: string|null, data: array<string, string>}> */
+    public static array $rows = [];
+
+    public function key(): string
+    {
+        return 'site';
+    }
+
+    public function label(): string
+    {
+        return 'Пользователи сайта';
+    }
+
+    public function organization(): string
+    {
+        return 'magexpert';
+    }
+
+    public function subscribers(): iterable
+    {
+        return self::$rows;
+    }
+}
+
 function toolsApi(string $path): string
 {
     return '/api/sender/v1/admin'.$path;
 }
 
-it('builds a base from site users who agreed to the newsletter and keeps it in sync', function (): void {
-    $anna = SiteUser::factory()->create(['email' => 'Anna@Example.com', 'first_name' => 'Анна', 'last_name' => 'Иванова', 'specialization' => 'Кардиолог', 'newsletter_consent' => true]);
-    SiteUser::factory()->create(['email' => 'petr@example.com', 'newsletter_consent' => true]);
-    SiteUser::factory()->create(['email' => 'silent@example.com', 'newsletter_consent' => false]);
+it('builds a base from a subscriber source and keeps it in sync', function (): void {
+    $this->app->tag([FakeSiteSource::class], App\Sender\Services\SubscriberSources::TAG);
+    FakeSiteSource::$rows = [
+        ['email' => 'anna@example.com', 'name' => 'Анна Иванова', 'data' => ['specialization' => 'Кардиолог']],
+        ['email' => 'petr@example.com', 'name' => null, 'data' => []],
+    ];
 
     $this->withToken($this->token)->getJson(toolsApi('/list-sources'))
         ->assertOk()->assertJsonPath('data.0.key', 'site');
@@ -67,9 +97,11 @@ it('builds a base from site users who agreed to the newsletter and keeps it in s
     $this->withToken($this->token)->postJson(toolsApi("/lists/{$id}/contacts"), ['email' => 'x@example.com'])->assertUnprocessable();
     $this->withToken($this->token)->postJson(toolsApi("/lists/{$id}/import"), ['text' => 'x@example.com'])->assertUnprocessable();
 
-    // Анна выключила галочку, появился новый подписчик
-    $anna->update(['newsletter_consent' => false]);
-    SiteUser::factory()->create(['email' => 'new@example.com', 'newsletter_consent' => true]);
+    // Анна пропала из источника, появился новый подписчик
+    FakeSiteSource::$rows = [
+        ['email' => 'petr@example.com', 'name' => null, 'data' => []],
+        ['email' => 'new@example.com', 'name' => null, 'data' => []],
+    ];
 
     $this->withToken($this->token)->postJson(toolsApi("/lists/{$id}/sync"))
         ->assertOk()->assertJsonPath('result', ['added' => 1, 'updated' => 1, 'removed' => 1, 'total' => 2]);
@@ -80,12 +112,16 @@ it('builds a base from site users who agreed to the newsletter and keeps it in s
     $this->withToken($this->token)->postJson(toolsApi('/lists'), ['name' => 'Чужой', 'source' => 'crm'])->assertUnprocessable()->assertJsonValidationErrors('source');
 });
 
-it('refreshes a site base right before the campaign starts', function (): void {
+it('refreshes a source base right before the campaign starts', function (): void {
     Queue::fake();
-    SiteUser::factory()->create(['email' => 'early@example.com', 'newsletter_consent' => true]);
+    $this->app->tag([FakeSiteSource::class], App\Sender\Services\SubscriberSources::TAG);
+    FakeSiteSource::$rows = [['email' => 'early@example.com', 'name' => null, 'data' => []]];
     $list = $this->organization->lists()->create(['name' => 'Сайт', 'source' => 'site']);
     app(App\Sender\Services\SubscriberSources::class)->sync($list);
-    SiteUser::factory()->create(['email' => 'late@example.com', 'newsletter_consent' => true]);
+    FakeSiteSource::$rows = [
+        ['email' => 'early@example.com', 'name' => null, 'data' => []],
+        ['email' => 'late@example.com', 'name' => null, 'data' => []],
+    ];
 
     $campaign = $this->organization->campaigns()->create(['name' => 'Ноябрь', 'template_id' => $this->template->id, 'list_id' => $list->id, 'status' => Campaign::STATUS_DRAFT]);
 

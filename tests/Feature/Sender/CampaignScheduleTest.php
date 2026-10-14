@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\User as SiteUser;
 use App\Sender\Dns\DnsLookup;
 use App\Sender\Jobs\CheckContactsJob;
 use App\Sender\Jobs\SendCampaignJob;
@@ -276,9 +275,8 @@ it('validates drip settings and drops them when sending at once', function (): v
         ->assertUnprocessable()->assertJsonValidationErrors('scheduled_at');
 });
 
-it('remembers an unsubscribe for bases imported later and clears the consent on the site', function (): void {
+it('remembers an unsubscribe for bases imported later', function (): void {
     Queue::fake();
-    $siteUser = SiteUser::factory()->create(['email' => 'Doctor1@Example.com', 'newsletter_consent' => true]);
     $campaign = dripCampaign(1, ['send_mode' => Campaign::MODE_NOW, 'batch_size' => null, 'batch_interval' => null]);
     app(CampaignService::class)->start($campaign->load(['template', 'list']));
     app(CampaignService::class)->prepare($campaign->fresh());
@@ -286,8 +284,7 @@ it('remembers an unsubscribe for bases imported later and clears the consent on 
     $uuid = $campaign->messages()->value('uuid');
     $this->post('/sender/unsubscribe/'.$uuid)->assertOk()->assertSee('Вы отписались');
 
-    expect(Suppression::query()->where('email', 'doctor1@example.com')->value('reason'))->toBe(Suppression::REASON_UNSUBSCRIBE)
-        ->and($siteUser->fresh()->newsletter_consent)->toBeFalse();
+    expect(Suppression::query()->where('email', 'doctor1@example.com')->value('reason'))->toBe(Suppression::REASON_UNSUBSCRIBE);
 
     // свежая выгрузка в новую базу: отписавшемуся письмо рассылки не уходит
     $fresh = $this->organization->lists()->create(['name' => 'Выгрузка с сайта']);
@@ -300,8 +297,8 @@ it('remembers an unsubscribe for bases imported later and clears the consent on 
     expect($next->fresh()->recipients_count)->toBe(1)
         ->and($next->messages()->pluck('to_email')->all())->toBe(['colleague@example.com']);
 
-    // снова включил галочку на сайте — рассылки снова можно отправлять
-    $siteUser->fresh()->update(['newsletter_consent' => true]);
+    // сайт сообщил, что человек снова согласен (PUT /subscriptions) — рассылки снова можно отправлять
+    app(App\Sender\Services\SubscriptionService::class)->resubscribe($this->organization, 'doctor1@example.com');
 
     expect(Suppression::query()->where('email', 'doctor1@example.com')->exists())->toBeFalse();
 });

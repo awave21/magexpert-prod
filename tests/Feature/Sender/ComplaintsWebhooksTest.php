@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\User as SiteUser;
 use App\Sender\Contracts\FeedbackMailbox;
 use App\Sender\Jobs\SendWebhookJob;
 use App\Sender\Models\Campaign;
@@ -77,9 +76,8 @@ it('puts the sender id and feedback id headers into every letter', function (): 
         ->and($headers->get('Feedback-ID')->getBodyAsString())->toBe("service:org{$this->organization->id}:transactional:sender");
 });
 
-it('handles a spam complaint: blocks the address, unsubscribes it on the site and counts it in the campaign', function (bool $base64): void {
+it('handles a spam complaint: blocks the address and counts it in the campaign', function (bool $base64): void {
     Queue::fake();
-    $siteUser = SiteUser::factory()->create(['email' => 'anna@mail.ru', 'newsletter_consent' => true]);
     $message = campaignMessage();
 
     $found = app(ComplaintService::class)->handle(arfReport($message, $base64));
@@ -89,7 +87,6 @@ it('handles a spam complaint: blocks the address, unsubscribes it on the site an
         ->and(Suppression::query()->where('email', 'anna@mail.ru')->value('reason'))->toBe(Suppression::REASON_COMPLAINT)
         ->and(Contact::query()->where('email', 'anna@mail.ru')->value('unsubscribed_at'))->not->toBeNull()
         ->and($message->events()->where('type', MessageEvent::TYPE_COMPLAINT)->count())->toBe(1)
-        ->and($siteUser->fresh()->newsletter_consent)->toBeFalse()
         ->and(app(CampaignService::class)->stats($message->campaign)['complained'])->toBe(1);
 })->with(['plain' => false, 'base64' => true]);
 
