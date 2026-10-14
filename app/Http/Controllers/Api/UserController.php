@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\PasswordSetupLink;
 use App\Services\SenderMailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -40,9 +40,6 @@ class UserController extends Controller
         }
 
         try {
-            // Генерация пароля (12 символов)
-            $generatedPassword = Str::random(12);
-
             // Создание пользователя
             $user = User::create([
                 'first_name' => $request->first_name,
@@ -54,16 +51,16 @@ class UserController extends Controller
                 'specialization' => $request->specialization,
                 'company' => $request->company,
                 'city' => $request->city,
-                'password' => Hash::make($generatedPassword),
+                'password' => Hash::make(PasswordSetupLink::unusablePassword()),
                 'privacy_consent' => $request->privacy_consent,
                 'oferta_consent' => $request->oferta_consent,
                 'newsletter_consent' => $request->newsletter_consent ?? false,
                 'email_verified_at' => now(),
             ]);
 
-            // Отправка письма с паролем
+            // письмо со ссылкой «Задать пароль»: пароль нигде не генерируется и не отправляется
             if ($request->newsletter_consent) {
-                $this->sendWelcomeEmailWithPassword($user, $generatedPassword);
+                $this->sendRegistrationEmail($user);
             }
 
             return response()->json([
@@ -92,27 +89,21 @@ class UserController extends Controller
     }
 
     /**
-     * Отправка приветственного письма с паролем
+     * Письмо о создании учётной записи со ссылкой, по которой человек задаёт пароль
      */
-    protected function sendWelcomeEmailWithPassword(User $user, string $password): void
+    protected function sendRegistrationEmail(User $user): void
     {
-        $fullName = trim($user->first_name.' '.$user->last_name);
-
         try {
             // Используем специальный метод для API регистрации
-            app(SenderMailService::class)->sendApiRegistrationEmail(
-                $user->email,
-                $password,
-                $fullName
-            );
+            app(SenderMailService::class)->sendApiRegistrationEmail($user);
 
-            \Log::info('API registration email with password sent', [
+            \Log::info('API registration email sent', [
                 'email' => $user->email,
                 'user_id' => $user->id,
             ]);
 
         } catch (\Exception $e) {
-            \Log::warning('Failed to send API registration email with password', [
+            \Log::warning('Failed to send API registration email', [
                 'email' => $user->email,
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),

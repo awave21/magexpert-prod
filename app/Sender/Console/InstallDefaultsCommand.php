@@ -50,7 +50,7 @@ class InstallDefaultsCommand extends Command
 {{#if speakers}}<p><strong>Спикеры</strong></p>
 {{#each speakers}}<p>{{#if photo}}<img src="{{ photo }}" alt="{{ name }}" width="64" height="64" style="border-radius:32px;vertical-align:middle"> {{/if}}{{ name }}{{#if regalia}}, {{ regalia }}{{/if}}{{#if position}}, {{ position }}{{/if}}</p>
 {{/each}}{{/if}}
-{{#if password}}<p>Данные для входа на сайт:<br>Логин: {{ user_email }}<br>Пароль: {{ password }}</p>{{/if}}
+{{#if set_password_url}}<p>Мы создали для вас учётную запись ({{ user_email }}). <a href="{{ set_password_url }}">Задать пароль</a>: ссылка действует {{ set_password_expires_in }} мин.</p>{{/if}}
 <p><a href="{{ event_url }}">Страница мероприятия</a></p>
 HTML,
                 'body_text' => <<<'TEXT'
@@ -59,27 +59,9 @@ HTML,
 Вы зарегистрированы на мероприятие «{{ event_title }}».
 {{#if start_date}}Дата: {{ start_date }} {{ start_time }}{{/if}}
 {{#if event_location}}Место: {{ event_location }}{{/if}}
-{{#if password}}Логин: {{ user_email }}
-Пароль: {{ password }}{{/if}}
+{{#if set_password_url}}Мы создали для вас учётную запись ({{ user_email }}). Задать пароль: {{ set_password_url }} (ссылка действует {{ set_password_expires_in }} мин.){{/if}}
 
 Страница мероприятия: {{ event_url }}
-TEXT,
-            ],
-            [
-                'slug' => 'password-reset',
-                'name' => 'Восстановление пароля',
-                'subject' => 'Новый пароль для входа',
-                'body_html' => <<<'HTML'
-<p>Здравствуйте{{#if name}}, {{ name }}{{/if}}!</p>
-<p>Для вашей учётной записи создан новый пароль.</p>
-<p>Логин: {{ user_email }}<br>Пароль: {{ password }}</p>
-HTML,
-                'body_text' => <<<'TEXT'
-Здравствуйте{{#if name}}, {{ name }}{{/if}}!
-
-Для вашей учётной записи создан новый пароль.
-Логин: {{ user_email }}
-Пароль: {{ password }}
 TEXT,
             ],
             [
@@ -88,15 +70,14 @@ TEXT,
                 'subject' => 'Ваша учётная запись создана',
                 'body_html' => <<<'HTML'
 <p>Здравствуйте{{#if name}}, {{ name }}{{/if}}!</p>
-<p>Для вас создана учётная запись.</p>
-<p>Логин: {{ user_email }}<br>Пароль: {{ password }}</p>
+<p>Для вас создана учётная запись ({{ user_email }}).</p>
+<p><a href="{{ set_password_url }}">Задать пароль</a>: ссылка действует {{ set_password_expires_in }} мин.</p>
 HTML,
                 'body_text' => <<<'TEXT'
 Здравствуйте{{#if name}}, {{ name }}{{/if}}!
 
-Для вас создана учётная запись.
-Логин: {{ user_email }}
-Пароль: {{ password }}
+Для вас создана учётная запись ({{ user_email }}).
+Задать пароль: {{ set_password_url }} (ссылка действует {{ set_password_expires_in }} мин.)
 TEXT,
             ],
         ];

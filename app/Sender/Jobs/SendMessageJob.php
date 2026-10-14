@@ -104,6 +104,7 @@ class SendMessageJob implements ShouldQueue
             'status' => Message::STATUS_SENT,
             'error' => null,
             'sent_at' => now(),
+            'data' => Message::redact($message->data),
         ])->save();
     }
 

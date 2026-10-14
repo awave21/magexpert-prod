@@ -115,4 +115,19 @@ class Message extends SenderModel
     {
         return $this->belongsTo(Campaign::class, 'campaign_id');
     }
+
+    /**
+     * Данные письма без секретов (sender.redact_keys): после отправки пароли и одноразовые ссылки в журнале не нужны.
+     *
+     * @param  array<string, mixed>|null  $data
+     * @return array<string, mixed>|null
+     */
+    public static function redact(?array $data): ?array
+    {
+        if ($data === null) {
+            return null;
+        }
+
+        return array_diff_key($data, array_flip((array) config('sender.redact_keys', [])));
+    }
 }

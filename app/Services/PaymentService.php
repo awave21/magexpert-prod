@@ -260,16 +260,10 @@ class PaymentService
 
             // Отправляем email уведомление о регистрации
             try {
-                // Получаем пароль из дополнительных данных платежа если есть
-                $generatedPassword = '';
-                $isNewUser = false;
+                // новому пользователю в письме уходит ссылка «Задать пароль»; пароль нигде не хранится
+                $isNewUser = (bool) ($payment->metadata['is_new_user'] ?? false);
 
-                if (isset($payment->metadata['generated_password'])) {
-                    $generatedPassword = $payment->metadata['generated_password'];
-                    $isNewUser = $payment->metadata['is_new_user'] ?? false;
-                }
-
-                app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, $generatedPassword, $isNewUser);
+                app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, $isNewUser);
             } catch (\Exception $e) {
                 Log::warning('Не удалось отправить email о регистрации на платное мероприятие', [
                     'event_id' => $event->id,

@@ -9,6 +9,7 @@ use App\Models\Speaker;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Services\Bitrix24RegistrationService;
+use App\Services\PasswordSetupLink;
 use App\Services\PaymentService;
 use App\Services\SenderMailService;
 use Illuminate\Http\Request;
@@ -332,7 +333,7 @@ class EventsController extends Controller
                 SyncUserToSender::dispatchEventTag($user, $event);
 
                 try {
-                    app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, '', false);
+                    app(SenderMailService::class)->sendEventRegistrationEmail($event, $user);
                 } catch (\Throwable $e) {
                     \Log::warning('Не удалось отправить email при быстрой регистрации', [
                         'event_id' => $event->id,
@@ -374,7 +375,6 @@ class EventsController extends Controller
         try {
             $user = User::where('email', $request->email)->first();
             $isNewUser = false;
-            $generatedPassword = '';
 
             if ($isExistingUser) {
                 if (! $user) {
@@ -384,7 +384,6 @@ class EventsController extends Controller
                 if ($user) {
                     return $this->errorResponse($request, 'Пользователь уже существует');
                 }
-                $generatedPassword = Str::random(12);
                 $isNewUser = true;
                 $user = User::create([
                     'first_name' => $request->first_name,
@@ -394,7 +393,7 @@ class EventsController extends Controller
                     'phone' => $request->phone,
                     'city' => $request->city,
                     'specialization' => $request->specialization,
-                    'password' => Hash::make($generatedPassword),
+                    'password' => Hash::make(PasswordSetupLink::unusablePassword()),
                     'email_verified_at' => now(),
                     'newsletter_consent' => $request->boolean('newsletter_consent', false),
                     'privacy_consent' => $request->boolean('privacy_consent'),
@@ -422,7 +421,7 @@ class EventsController extends Controller
                     ],
                 ]);
             } elseif ($event->isPaid()) {
-                return $this->handlePaidEventRegistration($event, $user, $request, $generatedPassword, $isNewUser);
+                return $this->handlePaidEventRegistration($event, $user, $request, $isNewUser);
             } else {
                 $event->users()->syncWithoutDetaching([
                     $user->id => [
@@ -438,7 +437,7 @@ class EventsController extends Controller
             SyncUserToSender::dispatchEventTag($user, $event);
 
             try {
-                app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, $generatedPassword, $isNewUser);
+                app(SenderMailService::class)->sendEventRegistrationEmail($event, $user, $isNewUser);
             } catch (\Throwable $e) {
                 \Log::warning('Не удалось отправить email о регистрации', [
                     'event_id' => $event->id,
@@ -478,7 +477,7 @@ class EventsController extends Controller
     }
 
     /** Оплата */
-    protected function handlePaidEventRegistration(Event $event, User $user, Request $request, string $generatedPassword = '', bool $isNewUser = false)
+    protected function handlePaidEventRegistration(Event $event, User $user, Request $request, bool $isNewUser = false)
     {
         try {
             if ($isNewUser && ! auth()->check()) {
@@ -497,7 +496,6 @@ class EventsController extends Controller
                     'city' => $request->city,
                     'specialization' => $request->specialization,
                 ],
-                'generated_password' => $generatedPassword,
                 'is_new_user' => $isNewUser,
             ]);
 

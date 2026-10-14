@@ -109,3 +109,16 @@ test('correct password must be provided to delete account', function () {
 
     $this->assertNotNull($user->fresh());
 });
+
+test('payments:scrub-passwords erases generated passwords from payment metadata', function () {
+    $with = App\Models\Payment::factory()->create(['metadata' => ['generated_password' => 'Qw3rty_91', 'is_new_user' => true]]);
+    $without = App\Models\Payment::factory()->create(['metadata' => ['is_new_user' => false]]);
+
+    $this->artisan('payments:scrub-passwords', ['--dry-run' => true])->assertSuccessful();
+    expect($with->fresh()->metadata)->toHaveKey('generated_password');
+
+    $this->artisan('payments:scrub-passwords')->assertSuccessful();
+
+    expect($with->fresh()->metadata)->toBe(['is_new_user' => true])
+        ->and($without->fresh()->metadata)->toBe(['is_new_user' => false]);
+});

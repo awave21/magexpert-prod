@@ -21,6 +21,7 @@ use App\Sender\Console\McpTokenCommand;
 use App\Sender\Console\OrganizationCommand;
 use App\Sender\Console\PruneCommand;
 use App\Sender\Console\RecoverCommand;
+use App\Sender\Console\ScrubSecretsCommand;
 use App\Sender\Console\TemplateImportCommand;
 use App\Sender\Console\UserCreateCommand;
 use App\Sender\Console\WarmupCommand;
@@ -75,7 +76,7 @@ class SenderServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/routes.php');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([CampaignsTickCommand::class, ComplaintCommand::class, InstallDefaultsCommand::class, DomainCommand::class, HealthCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, OrganizationCommand::class, PruneCommand::class, RecoverCommand::class, TemplateImportCommand::class, WarmupCommand::class]);
+            $this->commands([CampaignsTickCommand::class, ComplaintCommand::class, InstallDefaultsCommand::class, DomainCommand::class, HealthCommand::class, DkimExportCommand::class, DkimImportCommand::class, UserCreateCommand::class, AddressConfirmCommand::class, MailLogCommand::class, OrganizationCommand::class, PruneCommand::class, RecoverCommand::class, TemplateImportCommand::class, WarmupCommand::class, ScrubSecretsCommand::class]);
             $this->commands([McpTokenCommand::class, AssignOwnerCommand::class]);
 
             $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {

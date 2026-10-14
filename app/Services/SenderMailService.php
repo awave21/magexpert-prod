@@ -16,7 +16,7 @@ class SenderMailService
 {
     public function __construct(private readonly SenderClient $client) {}
 
-    public function sendEventRegistrationEmail(Event $event, User $user, string $password = '', bool $isNewUser = false): bool
+    public function sendEventRegistrationEmail(Event $event, User $user, bool $isNewUser = false): bool
     {
         $event->loadMissing('speakers');
 
@@ -30,7 +30,9 @@ class SenderMailService
             'first_name' => $user->first_name ?: ($userName !== '' ? explode(' ', $userName)[0] : ''),
             'user_email' => $user->email,
             'is_new_user' => $isNewUser,
-            'password' => $password,
+            // пароль в письмо не попадает: новому пользователю уходит одноразовая ссылка «Задать пароль»
+            'set_password_url' => $isNewUser ? app(PasswordSetupLink::class)->url($user) : null,
+            'set_password_expires_in' => $isNewUser ? app(PasswordSetupLink::class)->expiresInMinutes() : null,
             'event_title' => $event->title,
             'event_slug' => $event->slug,
             'event_url' => url('/events/'.$event->slug),
@@ -130,12 +132,18 @@ class SenderMailService
         ]);
     }
 
-    public function sendApiRegistrationEmail(string $email, string $password, string $name = ''): bool
+    /**
+     * Учётную запись создали через API: человек сам задаёт пароль по одноразовой ссылке.
+     */
+    public function sendApiRegistrationEmail(User $user): bool
     {
-        return $this->send($this->template('api_registration'), $email, [
-            'user_email' => strtolower($email),
-            'password' => $password,
-            'name' => $name,
+        $link = app(PasswordSetupLink::class);
+
+        return $this->send($this->template('api_registration'), $user->email, [
+            'user_email' => strtolower($user->email),
+            'name' => trim($user->first_name.' '.$user->last_name),
+            'set_password_url' => $link->url($user),
+            'set_password_expires_in' => $link->expiresInMinutes(),
             'generated_at' => now()->format('d.m.Y H:i'),
         ]);
     }

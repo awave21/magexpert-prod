@@ -251,3 +251,44 @@ it('still sends service mail to an address that unsubscribed from campaigns', fu
     expect($message->status)->toBe(Message::STATUS_QUEUED);
     Queue::assertPushedOn('sender-transactional', SendMessageJob::class);
 });
+
+it('erases passwords and one-time links from the journal right after sending', function (): void {
+    $message = $this->organization->messages()->create([
+        'uuid' => (string) Illuminate\Support\Str::uuid(),
+        'domain_id' => $this->domain->id,
+        'template_id' => $this->template->id,
+        'to_email' => 'user@example.com',
+        'from_email' => 'noreply@mag-expert.ru',
+        'subject' => 'Тема',
+        'data' => ['name' => 'Анна', 'event' => 'Вебинар', 'password' => 'Qw3rty_91', 'set_password_url' => 'https://x.test/reset-password/abc', 'reset_url' => 'https://x.test/r', 'unsubscribe_url' => 'https://x.test/u'],
+    ]);
+
+    SendMessageJob::dispatchSync($message->id);
+
+    $data = $message->fresh()->data;
+
+    expect($data)->toHaveKeys(['name', 'event', 'unsubscribe_url'])
+        ->and($data)->not->toHaveKeys(['password', 'set_password_url', 'reset_url']);
+});
+
+it('scrubs secrets from already sent messages and keeps queued ones intact', function (): void {
+    $make = fn (string $status) => $this->organization->messages()->create([
+        'uuid' => (string) Illuminate\Support\Str::uuid(),
+        'template_id' => $this->template->id,
+        'to_email' => 'user@example.com',
+        'from_email' => 'noreply@mag-expert.ru',
+        'subject' => 'Тема',
+        'status' => $status,
+        'data' => ['name' => 'Анна', 'password' => 'Qw3rty_91'],
+    ]);
+    $sent = $make(Message::STATUS_SENT);
+    $queued = $make(Message::STATUS_QUEUED);
+
+    $this->artisan('sender:scrub-secrets', ['--dry-run' => true])->assertSuccessful();
+    expect($sent->fresh()->data)->toHaveKey('password');
+
+    $this->artisan('sender:scrub-secrets')->assertSuccessful();
+
+    expect($sent->fresh()->data)->toBe(['name' => 'Анна'])
+        ->and($queued->fresh()->data)->toHaveKey('password');
+});

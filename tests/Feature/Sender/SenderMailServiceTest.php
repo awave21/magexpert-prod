@@ -42,9 +42,18 @@ it('sends a password reset link without a password', function (): void {
         ]);
 });
 
-it('sends an api registration email', function (): void {
-    expect($this->service->sendApiRegistrationEmail('a@b.ru', 'pw', 'Анна'))->toBeTrue()
+it('sends an api registration email with a set-password link and no password', function (): void {
+    $user = User::factory()->create(['email' => 'A@b.ru', 'first_name' => 'Анна', 'last_name' => 'Иванова']);
+
+    expect($this->service->sendApiRegistrationEmail($user))->toBeTrue()
         ->and($this->client->calls[0]['template'])->toBe('api-registration');
+
+    $data = $this->client->calls[0]['data'];
+
+    expect($data['name'])->toBe('Анна Иванова')
+        ->and($data['set_password_url'])->toContain('/reset-password/')->toContain(rawurlencode('A@b.ru'))
+        ->and($data['set_password_expires_in'])->toBe(60)
+        ->and($data)->not->toHaveKey('password');
 });
 
 it('sends an event registration email with only filled fields', function (): void {
@@ -63,7 +72,9 @@ it('sends an event registration email with only filled fields', function (): voi
 
     $user = User::make(['first_name' => 'Анна', 'last_name' => 'Петрова', 'email' => 'anna@example.com']);
 
-    expect($this->service->sendEventRegistrationEmail($event, $user, 'pw', true))->toBeTrue();
+    $user = User::factory()->create(['first_name' => 'Анна', 'last_name' => 'Петрова', 'email' => 'anna@example.com']);
+
+    expect($this->service->sendEventRegistrationEmail($event, $user, true))->toBeTrue();
 
     $data = $this->client->calls[0]['data'];
 
@@ -72,20 +83,31 @@ it('sends an event registration email with only filled fields', function (): voi
             'user_name' => 'Анна Петрова',
             'first_name' => 'Анна',
             'is_new_user' => true,
-            'password' => 'pw',
             'event_title' => 'Вебинар',
             'event_type' => 'Вебинар',
             'event_format' => 'Онлайн',
             'start_date' => '16.10.2026',
             'start_time' => '12:00',
         ])
-        ->and($data)->not->toHaveKeys(['event_location', 'price', 'speakers', 'speakers_text', 'end_date']);
+        ->and($data)->not->toHaveKeys(['event_location', 'price', 'speakers', 'speakers_text', 'end_date', 'password'])
+        ->and($data['set_password_url'])->toContain('/reset-password/')
+        ->and($data['set_password_expires_in'])->toBe(60);
+});
+
+it('does not send a set-password link to an existing user', function (): void {
+    $event = Event::make(['title' => 'Вебинар', 'slug' => 'webinar', 'format' => 'online', 'is_archived' => false, 'is_paid' => false, 'show_price' => false]);
+    $event->setRelation('speakers', collect());
+    $user = User::factory()->create(['email' => 'anna@example.com']);
+
+    $this->service->sendEventRegistrationEmail($event, $user);
+
+    expect(array_keys($this->client->calls[0]['data']))->not->toContain('set_password_url', 'password', 'is_new_user');
 });
 
 it('returns false when the sender rejects the message', function (): void {
     $this->client->status = 'blocked';
 
-    expect($this->service->sendApiRegistrationEmail('a@b.ru', 'pw'))->toBeFalse();
+    expect($this->service->sendApiRegistrationEmail(User::factory()->create()))->toBeFalse();
 });
 
 it('returns false instead of throwing when the client fails', function (): void {
@@ -97,7 +119,7 @@ it('returns false instead of throwing when the client fails', function (): void 
         }
     });
 
-    expect($service->sendApiRegistrationEmail('a@b.ru', 'pw'))->toBeFalse();
+    expect($service->sendApiRegistrationEmail(User::factory()->create()))->toBeFalse();
 });
 
 it('sends a welcome email after sign-up without a password', function (): void {

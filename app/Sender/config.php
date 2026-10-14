@@ -47,6 +47,8 @@ return [
     'mail_host' => env('SENDER_MAIL_HOST', 'mail.mag-expert.ru'),
     // сколько дней хранить письма, открытия и клики (указано в политике обработки персональных данных)
     'retention_days' => (int) env('SENDER_RETENTION_DAYS', 365),
+    // ключи данных письма, которые стираются из журнала сразу после отправки: пароли и одноразовые ссылки
+    'redact_keys' => ['password', 'set_password_url', 'reset_url', 'verify_url'],
     // журнал Postfix: из него берутся статусы доставки (sender:mail-log)
     'mail_log' => env('SENDER_MAIL_LOG', '/var/log/mail.log'),
     // адрес админки на своём поддомене; пусто — админка открывается по /sender
