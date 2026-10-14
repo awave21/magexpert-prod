@@ -25,7 +25,7 @@ class CampaignController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $campaigns = $this->organization($request)->campaigns()->with(['template:id,name', 'list:id,name'])->latest('id')->get();
+        $campaigns = $this->organization($request)->campaigns()->with(['template:id,name', 'list:id,name', 'savedSegment:id,name'])->latest('id')->get();
         $stats = $this->campaigns->statsForMany($campaigns->reject(fn (Campaign $c): bool => $c->isDraft()));
 
         return response()->json([
@@ -41,18 +41,18 @@ class CampaignController extends Controller
 
     public function store(CampaignRequest $request): JsonResponse
     {
-        $campaign = $this->organization($request)->campaigns()->create([...$request->validated(), 'status' => Campaign::STATUS_DRAFT]);
+        $campaign = $this->organization($request)->campaigns()->create([...$this->withSegment($request, $request->validated()), 'status' => Campaign::STATUS_DRAFT]);
 
-        return response()->json(['data' => $this->present($campaign->load(['template', 'list']))], 201);
+        return response()->json(['data' => $this->present($campaign->load(['template', 'list', 'savedSegment']))], 201);
     }
 
     public function update(CampaignRequest $request, int $campaign): JsonResponse
     {
         $model = $this->find($request, $campaign);
         abort_unless($model->isDraft(), 422, 'Запущенную рассылку изменить нельзя');
-        $model->update($request->validated());
+        $model->update($this->withSegment($request, $request->validated()));
 
-        return response()->json(['data' => $this->present($model->refresh()->load(['template', 'list']), true)]);
+        return response()->json(['data' => $this->present($model->refresh()->load(['template', 'list', 'savedSegment']), true)]);
     }
 
     public function send(Request $request, int $campaign): JsonResponse
@@ -109,7 +109,24 @@ class CampaignController extends Controller
 
     private function find(Request $request, int $campaign): Campaign
     {
-        return $this->organization($request)->campaigns()->with(['template', 'list'])->findOrFail($campaign);
+        return $this->organization($request)->campaigns()->with(['template', 'list', 'savedSegment'])->findOrFail($campaign);
+    }
+
+    /**
+     * Выбран сегмент: рассылка идёт по его базе, а отбор, заданный в самой рассылке, снимается.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withSegment(Request $request, array $data): array
+    {
+        if (! empty($data['segment_id'])) {
+            $segment = $this->organization($request)->segments()->findOrFail($data['segment_id']);
+
+            return [...$data, 'list_id' => $segment->list_id, 'segment' => null];
+        }
+
+        return $data;
     }
 
     /**
@@ -141,8 +158,9 @@ class CampaignController extends Controller
             'prepared' => $campaign->prepared_at !== null,
             'estimated_finish_at' => $detailed ? $this->campaigns->estimatedFinish($campaign)?->toIso8601String() : null,
             'stats' => $stats,
-            'subscribed_count' => $detailed && $campaign->isDraft() ? ($campaign->list?->contacts()->deliverable()->inSegment($campaign->segment)->count() ?? 0) : null,
+            'subscribed_count' => $detailed && $campaign->isDraft() ? ($campaign->list?->contacts()->deliverable()->forCampaign($campaign)->count() ?? 0) : null,
             'segment' => $campaign->segment,
+            'saved_segment' => $campaign->segmentInfo(),
             'started_at' => $campaign->started_at?->toIso8601String(),
             'finished_at' => $campaign->finished_at?->toIso8601String(),
             'created_at' => $campaign->created_at?->toIso8601String(),

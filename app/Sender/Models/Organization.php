@@ -92,6 +92,11 @@ class Organization extends SenderModel
         return $this->hasMany(Contact::class, 'organization_id');
     }
 
+    public function segments(): HasMany
+    {
+        return $this->hasMany(Segment::class, 'organization_id');
+    }
+
     public function campaigns(): HasMany
     {
         return $this->hasMany(Campaign::class, 'organization_id');

@@ -2,14 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowRight, Clock, Eye, MousePointerClick, Pause, Play, Search, Send, Trash2, X } from 'lucide-react'
-import { api, ApiError, type Campaign, type Contact, type ContactList, type ListField, type ListTag, type Message, type Paged, type Segment, type SenderAddress, type Template } from '../api'
+import { api, ApiError, type Campaign, type Contact, type ContactList, type ListField, type ListTag, type Message, type Paged, type SavedSegment, type Segment, type SenderAddress, type Template } from '../api'
 import { BackLink, CampaignStatus, Modal, Status, fmtDate, useToast } from '../components/ui'
 import { usePermissions } from '../auth'
+import { FIELD_LABELS } from '../segments'
 import { WEEKDAYS, estimateFinish, fmtWhen, nextOpening, perHour, type Schedule } from '../schedule'
 
 const n = (v: number) => v.toLocaleString('ru-RU')
-// поля базы «Пользователи сайта»; поля из файла показываются как есть
-const FIELD_LABELS: Record<string, string> = { specialization: 'специальность', city: 'город', company: 'организация', position: 'должность' }
 type Rendered = { subject: string; html: string; text: string | null }
 
 export default function CampaignEditor() {
@@ -37,20 +36,21 @@ export default function CampaignEditor() {
   if (!isNew && !campaign) return <main className="page"><BackLink to="/campaigns">Все рассылки</BackLink></main>
   if (campaign && campaign.status !== 'draft') return <CampaignReport campaign={campaign} onChanged={(c) => { qc.setQueryData(['campaigns', String(c.id)], { data: c }); qc.invalidateQueries({ queryKey: ['campaigns'] }) }} />
 
-  return <CampaignDraft key={campaign?.id ?? 'new'} campaign={campaign} initialList={params.get('list')} onSaved={(c) => {
+  return <CampaignDraft key={campaign?.id ?? 'new'} campaign={campaign} initialList={params.get('list')} initialSegment={params.get('segment')} onSaved={(c) => {
     qc.setQueryData(['campaigns', String(c.id)], { data: c })
     qc.invalidateQueries({ queryKey: ['campaigns'] })
     if (isNew) nav(`/campaigns/${c.id}`, { replace: true })
   }} onDeleted={() => { qc.invalidateQueries({ queryKey: ['campaigns'] }); toast('Рассылка удалена'); nav('/campaigns') }} />
 }
 
-function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign?: Campaign; initialList: string | null; onSaved: (c: Campaign) => void; onDeleted: () => void }) {
+function CampaignDraft({ campaign, initialList, initialSegment, onSaved, onDeleted }: { campaign?: Campaign; initialList: string | null; initialSegment: string | null; onSaved: (c: Campaign) => void; onDeleted: () => void }) {
   const toast = useToast()
   const { canEdit } = usePermissions()
   const qc = useQueryClient()
   const [name, setName] = useState(campaign?.name ?? '')
   const [templateId, setTemplateId] = useState<number | ''>(campaign?.template?.id ?? '')
-  const [listId, setListId] = useState<number | ''>(campaign?.list?.id ?? (initialList ? Number(initialList) : ''))
+  const [listChoice, setListId] = useState<number | ''>(campaign?.list?.id ?? (initialList ? Number(initialList) : ''))
+  const [segmentId, setSegmentId] = useState<number | ''>(campaign?.saved_segment?.id ?? (initialSegment ? Number(initialSegment) : ''))
   const [track, setTrack] = useState(campaign?.track ?? true)
   const [mode, setMode] = useState<'now' | 'drip'>(campaign?.send_mode ?? 'drip')
   const [batchSize, setBatchSize] = useState(String(campaign?.batch_size ?? 100))
@@ -76,16 +76,34 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
   const templates = tq.data?.data ?? []
   const lists = lq.data?.data ?? []
   const template = templates.find((t) => t.id === templateId)
+  const segq = useQuery({ queryKey: ['segments'], queryFn: () => api<{ data: SavedSegment[] }>('/segments') })
+  const segments = segq.data?.data ?? []
+  const savedSegment = segments.find((s) => s.id === segmentId)
+  // рассылка по сегменту идёт по его базе
+  const listId = savedSegment?.list.id ?? listChoice
   const list = lists.find((l) => l.id === listId)
+  // условия отбора в самой рассылке остались от прежней версии: показываются, только если уже заданы
+  const legacyFilter = Boolean(campaign?.segment)
+  const pickRecipients = (value: string) => {
+    if (value.startsWith('s')) {
+      const picked = segments.find((s) => s.id === Number(value.slice(1)))
+      setSegmentId(picked?.id ?? '')
+      if (picked) setListId(picked.list.id)
+      setActiveOn(false); setField(''); setValues([]); setTags([])
+    } else {
+      setSegmentId('')
+      setListId(value ? Number(value.slice(1)) : '')
+    }
+  }
   const sender = aq.data?.data.find((a) => a.id === template?.sender_address_id)
 
   // название по умолчанию — название письма
   useEffect(() => { if (!name && template) setName(template.name) }, [template]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // предпросмотр с данными первого подписчика базы
+  // предпросмотр с данными первого подписчика базы, а при выбранном сегменте — первого подходящего под него
   const sq = useQuery({
-    queryKey: ['contacts', String(listId), 'sample'],
-    queryFn: () => api<Paged<Contact>>(`/lists/${listId}/contacts?status=subscribed`),
+    queryKey: ['contacts', String(listId), 'sample', segmentId],
+    queryFn: () => api<Paged<Pick<Contact, 'id' | 'email' | 'name' | 'data'>>>(segmentId ? `/segments/${segmentId}/contacts` : `/lists/${listId}/contacts?status=subscribed`),
     enabled: listId !== '',
   })
   const sample = sq.data?.data[0]
@@ -97,7 +115,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
     enabled: templateId !== '',
   })
 
-  const segment: Segment | null = activeOn || (field && values.length) || tags.length
+  const segment: Segment | null = !segmentId && (activeOn || (field && values.length) || tags.length)
     ? { active_days: activeOn ? Number(activeDays) || null : null, field: field && values.length ? field : null, values: field && values.length ? values : null, tags: tags.length ? tags : null }
     : null
   const fq = useQuery({
@@ -128,7 +146,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
     days: windowOn ? days : null,
   }
   const body = {
-    name: name.trim(), template_id: templateId || null, list_id: listId || null, track,
+    name: name.trim(), template_id: templateId || null, list_id: listId || null, segment_id: segmentId || null, track,
     send_mode: mode,
     batch_size: drip ? schedule.batch || null : null,
     batch_interval: drip ? schedule.interval || null : null,
@@ -140,7 +158,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
     segment,
   }
   const saved = campaign ? {
-    name: campaign.name, template_id: campaign.template?.id ?? null, list_id: campaign.list?.id ?? null, track: campaign.track,
+    name: campaign.name, template_id: campaign.template?.id ?? null, list_id: campaign.list?.id ?? null, segment_id: campaign.saved_segment?.id ?? null, track: campaign.track,
     send_mode: campaign.send_mode, batch_size: campaign.batch_size, batch_interval: campaign.batch_interval, daily_limit: campaign.daily_limit,
     window_start: campaign.window_start, window_end: campaign.window_end, window_days: campaign.window_days,
     scheduled_at: campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString() : null,
@@ -185,12 +203,12 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
   const [removing, setRemoving] = useState(false)
   const remove = useMutation({ mutationFn: () => api(`/campaigns/${campaign?.id}`, { method: 'DELETE' }), onSuccess: onDeleted })
 
-  const recipients = segment ? (countQ.data?.data.count ?? 0) : (list?.deliverable_count ?? 0)
+  const recipients = savedSegment ? savedSegment.count : segment ? (countQ.data?.data.count ?? 0) : (list?.deliverable_count ?? 0)
   const rejected = list ? list.checks.typo + list.checks.disposable + list.checks.no_mx + list.checks.invalid : 0
   const problems = [
     !template && 'Выберите письмо',
     !list && 'Выберите базу',
-    list && recipients === 0 && !countQ.isFetching && (segment ? 'Под условия отбора не подходит ни один подписчик' : 'В базе нет адресов, которым можно отправить письмо'),
+    list && recipients === 0 && !countQ.isFetching && (savedSegment ? 'Под условия сегмента не подходит ни один подписчик' : segment ? 'Под условия отбора не подходит ни один подписчик' : 'В базе нет адресов, которым можно отправить письмо'),
     field && values.length === 0 && 'Выберите значения поля для отбора',
     template && !template.sender_address_id && 'У письма не выбран отправитель',
     sender && !sender.confirmed && `Адрес ${sender.email} не подтверждён`,
@@ -255,13 +273,28 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
               <span className="step-num">2</span>
               <div className="field" style={{ flex: 1 }}>
                 <label htmlFor="c-list">Кому</label>
-                <select id="c-list" className={`select${errors.list_id ? ' err' : ''}`} value={listId} onChange={(e) => setListId(e.target.value ? Number(e.target.value) : '')}>
-                  <option value="">Выберите базу подписчиков</option>
-                  {lists.map((l) => <option key={l.id} value={l.id}>{l.name} · {n(l.deliverable_count)}</option>)}
+                <select id="c-list" className={`select${errors.list_id || errors.segment_id ? ' err' : ''}`} value={segmentId ? `s${segmentId}` : listId ? `l${listId}` : ''} onChange={(e) => pickRecipients(e.target.value)}>
+                  <option value="">{segments.length ? 'Выберите базу или сегмент' : 'Выберите базу подписчиков'}</option>
+                  <optgroup label="Базы">
+                    {lists.map((l) => <option key={l.id} value={`l${l.id}`}>{l.name} · {n(l.deliverable_count)}</option>)}
+                  </optgroup>
+                  {segments.length > 0 && (
+                    <optgroup label="Сегменты">
+                      {segments.map((s) => <option key={s.id} value={`s${s.id}`}>{s.name} · {n(s.count)}</option>)}
+                    </optgroup>
+                  )}
                 </select>
-                {errors.list_id && <div className="hint err">{errors.list_id}</div>}
+                {(errors.list_id || errors.segment_id) && <div className="hint err">{errors.list_id ?? errors.segment_id}</div>}
                 {lq.isSuccess && lists.length === 0 && <div className="hint">Баз пока нет. <Link to="/subscribers">Создайте базу и загрузите адреса</Link></div>}
-                {list && (
+                {savedSegment && (
+                  <div className="step-info">
+                    <div><span className="muted">Получат</span><b>{n(recipients)}</b>&nbsp;подписчиков</div>
+                    <div><span className="muted">Сегмент</span>часть базы «{savedSegment.list.name}»</div>
+                    {savedSegment.list_count > savedSegment.count && <div className="muted">{n(savedSegment.list_count - savedSegment.count)} в базе не подходят под условия сегмента</div>}
+                    <Link to={`/subscribers/segments/${savedSegment.id}`}>Открыть сегмент <ArrowRight size={13} /></Link>
+                  </div>
+                )}
+                {list && !segmentId && (
                   <div className="step-info">
                     <div><span className="muted">Получат</span><b>{n(recipients)}</b>&nbsp;подписчиков</div>
                     {list.contacts_count > list.subscribed_count && <div className="muted">{n(list.contacts_count - list.subscribed_count)} отписались</div>}
@@ -270,7 +303,7 @@ function CampaignDraft({ campaign, initialList, onSaved, onDeleted }: { campaign
                     <Link to={`/subscribers/${list.id}`}>Открыть базу <ArrowRight size={13} /></Link>
                   </div>
                 )}
-                {list && (
+                {list && !segmentId && legacyFilter && (
                   <div className="step-info schedule">
                     <b style={{ fontWeight: 500 }}>Кому из базы</b>
                     <label className="check-row">
@@ -579,6 +612,7 @@ function CampaignReport({ campaign: c, onChanged }: { campaign: Campaign; onChan
       <div className="report-info">
         <div><span className="muted">Письмо</span>{c.template ? <Link to={`/templates/${c.template.id}`}>{c.template.name}</Link> : 'удалено'}</div>
         <div><span className="muted">База</span>{c.list ? <Link to={`/subscribers/${c.list.id}`}>{c.list.name}</Link> : 'удалена'}</div>
+        {c.saved_segment && <div><span className="muted">Сегмент</span>{c.saved_segment.id ? <Link to={`/subscribers/segments/${c.saved_segment.id}`}>{c.saved_segment.name}</Link> : `${c.saved_segment.name} (удалён)`}</div>}
       </div>
     </main>
   )

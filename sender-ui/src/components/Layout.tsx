@@ -6,6 +6,7 @@ import { api, type Domain } from '../api'
 import { useAuth, usePermissions } from '../auth'
 import { FolderNav, useSubnavHidden } from './FolderNav'
 import { SubscribersNav } from './SubscribersNav'
+import { useDismiss } from './useDismiss'
 
 const TITLES: Record<string, string> = {
   '/': 'Обзор', '/campaigns': 'Рассылки', '/subscribers': 'Подписчики', '/messages': 'Журнал', '/domains': 'Домены', '/templates': 'Контент', '/variables': 'Переменные', '/api': 'API', '/api-keys': 'API-ключи', '/blocked': 'Блокировки', '/team': 'Команда', '/profile': 'Профиль', '/settings': 'Настройки', '/help': 'Видеоинструкции',
@@ -27,17 +28,6 @@ function useTheme() {
   return { theme, toggle: () => apply(theme === 'dark' ? 'light' : 'dark') }
 }
 
-function useDismiss(open: boolean, ref: React.RefObject<HTMLElement | null>, close: () => void) {
-  useEffect(() => {
-    if (!open) return
-    const onEvent = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !ref.current?.contains(e.target as Node)) close()
-    }
-    document.addEventListener('mousedown', onEvent)
-    document.addEventListener('keydown', onEvent)
-    return () => { document.removeEventListener('mousedown', onEvent); document.removeEventListener('keydown', onEvent) }
-  }, [open, ref, close])
-}
 
 export function Layout() {
   const { user, logout } = useAuth()
@@ -75,6 +65,10 @@ export function Layout() {
   const root = '/' + (loc.pathname.split('/')[1] ?? '')
   const section = TITLES[root] ?? ''
   const sub = loc.pathname.split('/')[2]
+  const segmentPage = root === '/subscribers' && sub === 'segments' ? loc.pathname.split('/')[3] : undefined
+  const subLabel = !sub || root === '/settings' ? null
+    : sub === 'segments' && root === '/subscribers' ? (segmentPage === 'new' ? 'Новый сегмент' : segmentPage ? 'Сегмент' : 'Сегменты')
+    : decodeURIComponent(sub) === 'new' ? (root === '/subscribers' ? 'Новая база' : 'Новый') : 'Карточка'
   const initial = (user?.name ?? '?').trim().charAt(0).toUpperCase()
 
   // вторая колонка у «Контента» и «Подписчиков»: закреплена в своём разделе или выезжает при наведении на пункт меню
@@ -179,7 +173,7 @@ export function Layout() {
             <span className="crumb-org">{user?.organization}</span><span className="sep crumb-org-sep">/</span>
             <span className="crumb-path">
               <b>{section}</b>
-              {sub && root !== '/settings' && <><span className="sep">/</span><b>{decodeURIComponent(sub) === 'new' ? (root === '/subscribers' ? 'Новая база' : 'Новый') : 'Карточка'}</b></>}
+              {subLabel && <><span className="sep">/</span><b>{subLabel}</b></>}
             </span>
           </nav>
           <span className="grow" />

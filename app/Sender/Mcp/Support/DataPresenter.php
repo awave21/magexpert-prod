@@ -103,7 +103,7 @@ class DataPresenter
             'rejected_count' => (int) $campaign->rejected_count,
             // сколько подписчиков получит черновик, если запустить его сейчас
             'deliverable_count' => $detailed && $campaign->isDraft()
-                ? ($campaign->list?->contacts()->deliverable()->inSegment($campaign->segment)->count() ?? 0)
+                ? ($campaign->list?->contacts()->deliverable()->forCampaign($campaign)->count() ?? 0)
                 : null,
             'estimated_finish_at' => $detailed ? $this->campaigns->estimatedFinish($campaign)?->toIso8601String() : null,
             'stats' => $stats,

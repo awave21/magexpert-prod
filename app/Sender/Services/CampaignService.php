@@ -63,10 +63,10 @@ class CampaignService
             $errors['list_id'] = 'Выберите базу подписчиков';
         }
 
-        $recipients = $campaign->list?->contacts()->deliverable()->inSegment($campaign->segment)->count() ?? 0;
+        $recipients = $campaign->list?->contacts()->deliverable()->forCampaign($campaign)->count() ?? 0;
 
         if ($campaign->list !== null && $recipients === 0) {
-            $errors['list_id'] = empty($campaign->segment)
+            $errors['list_id'] = empty($campaign->segment) && $campaign->segment_id === null
                 ? 'В базе нет подписчиков, которым можно отправить письмо: все отписались или адреса не прошли проверку'
                 : 'Под условия отбора не подходит ни один подписчик базы';
         }
@@ -120,7 +120,7 @@ class CampaignService
         $rejected = [];
         $next = null;
 
-        $contacts = $campaign->list->contacts()->deliverable()->inSegment($campaign->segment)
+        $contacts = $campaign->list->contacts()->deliverable()->forCampaign($campaign)
             ->whereNull('checked_at')
             ->where('id', '>', $afterContactId)
             ->lazyById(100);
@@ -169,7 +169,7 @@ class CampaignService
             return null;
         }
 
-        $contacts = $campaign->list->contacts()->deliverable()->inSegment($campaign->segment)
+        $contacts = $campaign->list->contacts()->deliverable()->forCampaign($campaign)
             ->where('id', '>', $afterContactId)
             ->orderBy('id')
             ->limit(self::PREPARE_PER_JOB + 1)
@@ -365,7 +365,7 @@ class CampaignService
         $contacts = $campaign->list?->contacts();
         $contact = $contactEmail !== null
             ? $contacts?->where('email', Str::lower(trim($contactEmail)))->first()
-            : $contacts?->deliverable()->inSegment($campaign->segment)->orderBy('id')->first();
+            : $contacts?->deliverable()->forCampaign($campaign)->orderBy('id')->first();
 
         if ($contactEmail !== null && $contact === null) {
             throw ValidationException::withMessages(['contact_email' => 'Такого адреса нет в базе рассылки']);

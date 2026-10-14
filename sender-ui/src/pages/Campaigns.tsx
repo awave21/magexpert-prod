@@ -55,7 +55,7 @@ export default function Campaigns() {
                 <tr key={c.id} className="click" onClick={() => nav(`/campaigns/${c.id}`)}>
                   <td>
                     <div style={{ fontWeight: 500 }}>{c.name}</div>
-                    <div className="sub">{c.template?.name ?? 'Письмо не выбрано'} → {c.list?.name ?? 'база не выбрана'}</div>
+                    <div className="sub">{c.template?.name ?? 'Письмо не выбрано'} → {c.saved_segment ? `сегмент «${c.saved_segment.name}»${c.saved_segment.deleted ? ' (удалён)' : ''}` : c.list?.name ?? 'база не выбрана'}</div>
                   </td>
                   <td><CampaignStatus campaign={c} /></td>
                   <td className="r num-cell">{c.status === 'draft' ? '—' : n(c.recipients_count)}</td>

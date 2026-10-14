@@ -126,6 +126,66 @@ class Contact extends SenderModel
     }
 
     /**
+     * Условия сохранённого сегмента (см. Segment). Пустой список — вся база.
+     *
+     * @param  list<array<string, mixed>>|null  $conditions
+     */
+    public function scopeMatchingConditions(Builder $query, ?array $conditions): void
+    {
+        foreach ($conditions ?? [] as $condition) {
+            $exclude = in_array($condition['op'] ?? null, ['not_opened', 'not_in', 'none'], true);
+
+            switch ($condition['type'] ?? null) {
+                case Segment::TYPE_ACTIVITY:
+                    $since = now()->subDays((int) ($condition['days'] ?? 0));
+                    $exclude
+                        ? $query->where(fn (Builder $q) => $q->whereNull('last_opened_at')->orWhere('last_opened_at', '<', $since))
+                        : $query->where('last_opened_at', '>=', $since);
+                    break;
+
+                case Segment::TYPE_FIELD:
+                    $field = (string) ($condition['field'] ?? '');
+                    $values = array_values((array) ($condition['values'] ?? []));
+
+                    if (! preg_match('~^[a-z0-9_]{1,64}$~', $field) || $values === []) {
+                        break;
+                    }
+
+                    $exclude
+                        ? $query->where(fn (Builder $q) => $q->whereNull('data->'.$field)->orWhereNotIn('data->'.$field, $values))
+                        : $query->whereIn('data->'.$field, $values);
+                    break;
+
+                case Segment::TYPE_TAG:
+                    $tags = array_values(array_filter((array) ($condition['tags'] ?? []), fn (mixed $tag): bool => is_string($tag) && $tag !== ''));
+
+                    if ($tags === []) {
+                        break;
+                    }
+
+                    $any = function (Builder $q) use ($tags): void {
+                        foreach ($tags as $tag) {
+                            $q->orWhereJsonContains('tags', $tag);
+                        }
+                    };
+
+                    $exclude
+                        ? $query->where(fn (Builder $q) => $q->whereNull('tags')->orWhereNot($any))
+                        : $query->where($any);
+                    break;
+            }
+        }
+    }
+
+    /**
+     * Получатели рассылки внутри её базы: условия, заданные в самой рассылке, и выбранный сегмент.
+     */
+    public function scopeForCampaign(Builder $query, Campaign $campaign): void
+    {
+        $query->inSegment($campaign->segment)->matchingConditions($campaign->savedSegment?->conditions);
+    }
+
+    /**
      * Кому уйдёт рассылка: подписан (и подтвердил подписку, если её нужно было подтверждать), адрес не забракован проверкой (непроверенные тоже получают)
      * и не в блок-листе организации (отказ, жалоба, отписка из другой базы).
      */

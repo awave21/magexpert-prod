@@ -18,6 +18,9 @@ import ApiDocs from './pages/ApiDocs'
 import Subscribers from './pages/Subscribers'
 import ListDetail from './pages/ListDetail'
 import NewList from './pages/NewList'
+import Segments from './pages/Segments'
+import SegmentEditor from './pages/SegmentEditor'
+import SegmentDetail from './pages/SegmentDetail'
 import Profile from './pages/Profile'
 import SettingsAi from './pages/SettingsAi'
 import SettingsApiDocs from './pages/SettingsApiDocs'
@@ -56,6 +59,10 @@ export default function App() {
         <Route path="subscribers" element={<Subscribers />} />
         <Route path="subscribers/new" element={<NewList />} />
         <Route path="subscribers/:id" element={<ListDetail />} />
+        <Route path="subscribers/segments" element={<Segments />} />
+        <Route path="subscribers/segments/new" element={<SegmentEditor />} />
+        <Route path="subscribers/segments/:id" element={<SegmentDetail />} />
+        <Route path="subscribers/segments/:id/edit" element={<SegmentEditor />} />
         <Route path="messages" element={<Messages />} />
         <Route path="domains" element={<Domains />} />
         <Route path="domains/:id" element={<DomainDetail />} />

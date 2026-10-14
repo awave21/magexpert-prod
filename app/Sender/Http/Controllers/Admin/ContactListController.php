@@ -74,7 +74,12 @@ class ContactListController extends Controller
     {
         $model = $this->organization($request)->lists()->findOrFail($list);
 
-        return response()->json(['data' => ['count' => $model->contacts()->deliverable()->inSegment($request->validated('segment'))->count()]]);
+        $count = $model->contacts()->deliverable()
+            ->inSegment($request->validated('segment'))
+            ->matchingConditions($request->validated('conditions'))
+            ->count();
+
+        return response()->json(['data' => ['count' => $count]]);
     }
 
     /**

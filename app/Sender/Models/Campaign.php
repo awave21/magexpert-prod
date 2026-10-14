@@ -43,6 +43,8 @@ class Campaign extends SenderModel
         'name',
         'template_id',
         'list_id',
+        'segment_id',
+        'segment_name',
         'segment',
         'track',
         'send_mode',
@@ -124,6 +126,45 @@ class Campaign extends SenderModel
     public function list(): BelongsTo
     {
         return $this->belongsTo(ContactList::class, 'list_id');
+    }
+
+    /**
+     * Сохранённый сегмент базы: рассылка уходит только тем, кто подходит под его условия.
+     */
+    public function savedSegment(): BelongsTo
+    {
+        return $this->belongsTo(Segment::class, 'segment_id');
+    }
+
+    /**
+     * Сегмент принадлежит одной базе: если базу сменили, а сегмент нет, сегмент снимается.
+     * Название сегмента запоминается: после его удаления рассылка показывает, какой части базы ушла.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Campaign $campaign): void {
+            if ($campaign->segment_id !== null && $campaign->isDirty('list_id') && ! $campaign->isDirty('segment_id')) {
+                $campaign->segment_id = null;
+            }
+
+            if ($campaign->isDirty('segment_id')) {
+                $campaign->segment_name = $campaign->segment_id === null ? null : Segment::query()->whereKey($campaign->segment_id)->value('name');
+            }
+        });
+    }
+
+    /**
+     * Сегмент для отчёта и редактора: действующий или удалённый (только название).
+     *
+     * @return array{id: int|null, name: string, deleted: bool}|null
+     */
+    public function segmentInfo(): ?array
+    {
+        if ($this->segment_id !== null && $this->savedSegment !== null) {
+            return ['id' => $this->savedSegment->id, 'name' => $this->savedSegment->name, 'deleted' => false];
+        }
+
+        return $this->segment_name !== null ? ['id' => null, 'name' => $this->segment_name, 'deleted' => true] : null;
     }
 
     public function messages(): HasMany

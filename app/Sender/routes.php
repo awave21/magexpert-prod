@@ -11,6 +11,7 @@ use App\Sender\Http\Controllers\Admin\McpTokenController;
 use App\Sender\Http\Controllers\Admin\MessageController as AdminMessageController;
 use App\Sender\Http\Controllers\Admin\OrganizationController;
 use App\Sender\Http\Controllers\Admin\ProfileController;
+use App\Sender\Http\Controllers\Admin\SegmentController;
 use App\Sender\Http\Controllers\Admin\SenderAddressController;
 use App\Sender\Http\Controllers\Admin\StatsController;
 use App\Sender\Http\Controllers\Admin\SuppressionController;
@@ -152,6 +153,13 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
             Route::get('lists/{list}/tags', [ContactListController::class, 'tags'])->name('lists.tags');
             Route::post('lists/{list}/count', [ContactListController::class, 'count'])->name('lists.count');
             Route::post('lists/{list}/sync', [ContactListController::class, 'sync'])->middleware('throttle:10,1')->name('lists.sync');
+
+            Route::get('segments', [SegmentController::class, 'index'])->name('segments.index');
+            Route::post('segments', [SegmentController::class, 'store'])->name('segments.store');
+            Route::get('segments/{segment}', [SegmentController::class, 'show'])->whereNumber('segment')->name('segments.show');
+            Route::put('segments/{segment}', [SegmentController::class, 'update'])->whereNumber('segment')->name('segments.update');
+            Route::delete('segments/{segment}', [SegmentController::class, 'destroy'])->whereNumber('segment')->name('segments.destroy');
+            Route::get('segments/{segment}/contacts', [SegmentController::class, 'contacts'])->whereNumber('segment')->name('segments.contacts');
 
             Route::get('campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
             Route::post('campaigns', [CampaignController::class, 'store'])->name('campaigns.store');

@@ -110,8 +110,22 @@ export type Campaign = {
   send_mode: 'now' | 'drip'; batch_size: number | null; batch_interval: number | null; daily_limit: number | null
   window_start: string | null; window_end: string | null; window_days: number[] | null
   scheduled_at: string | null; next_batch_at: string | null; estimated_finish_at: string | null; prepared: boolean; segment: Segment | null
+  // сегмент рассылки; после удаления сегмента остаётся только его название (deleted)
+  saved_segment: { id: number | null; name: string; deleted: boolean } | null
   started_at: string | null; finished_at: string | null; created_at: string
 }
+
+export type SegmentCondition =
+  | { type: 'activity'; op: 'opened' | 'not_opened'; days: number }
+  | { type: 'field'; op: 'in' | 'not_in'; field: string; values: string[] }
+  | { type: 'tag'; op: 'any' | 'none'; tags: string[] }
+export type SavedSegment = {
+  id: number; name: string; description: string | null; list: { id: number; name: string }
+  conditions: SegmentCondition[]; count: number; list_count: number; campaigns_count: number
+  created_at: string; updated_at: string
+  campaigns?: { id: number; name: string; status: Campaign['status']; scheduled_at: string | null; finished_at: string | null; recipients_count: number | null; prepared: boolean }[]
+}
+export type SegmentContact = { id: number; email: string; name: string | null; data: Record<string, string>; tags: string[]; last_opened_at: string | null; created_at: string }
 
 // загрузка файла: api() отправляет только JSON
 export async function upload<T>(path: string, body: FormData): Promise<T> {
