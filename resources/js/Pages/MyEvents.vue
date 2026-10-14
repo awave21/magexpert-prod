@@ -20,13 +20,6 @@ const ordered = computed(() => [
     ...props.events.filter((event) => event.is_past && !event.is_live).sort((a, b) => startsAt(b).localeCompare(startsAt(a))),
 ]);
 
-const chips = [
-    { key: 'all', label: 'Все' },
-    { key: 'paid', label: 'Оплаченные' },
-    { key: 'free', label: 'Бесплатные' },
-];
-const chip = ref('all');
-
 // типы мероприятий (вебинары, мастер-классы, конференции…): фильтр показываем, только если у пользователя их больше одного
 const PLURAL = { 'Вебинар': 'Вебинары', 'Конференция': 'Конференции', 'Курс': 'Курсы', 'Мастер-класс': 'Мастер-классы', 'Семинар': 'Семинары', 'Мероприятие': 'Другие' };
 const types = computed(() => {
@@ -36,12 +29,7 @@ const types = computed(() => {
 });
 const type = ref('all');
 
-const shown = computed(() => ordered.value.filter((event) => {
-    if (type.value !== 'all' && event.type !== type.value) return false;
-    if (chip.value === 'paid') return event.access === 'paid' || event.access === 'pending';
-    if (chip.value === 'free') return event.access === 'free' || event.access === 'request';
-    return true;
-}));
+const shown = computed(() => ordered.value.filter((event) => type.value === 'all' || event.type === type.value));
 </script>
 
 <template>
@@ -67,29 +55,16 @@ const shown = computed(() => ordered.value.filter((event) => {
             <span class="cab-btn cab-btn--coral">Смотреть трансляцию</span>
         </Link>
 
-        <div class="flex flex-wrap items-center justify-between gap-4">
-            <div v-if="types.length > 1" role="group" aria-label="Тип мероприятия" class="flex flex-wrap gap-2">
-                <button
-                    v-for="t in [{ key: 'all', label: 'Все типы', count: events.length }, ...types]"
-                    :key="t.key"
-                    type="button"
-                    :aria-pressed="type === t.key ? 'true' : 'false'"
-                    class="cab-focus min-h-10 rounded-full border px-4 text-sm font-bold transition"
-                    :class="type === t.key ? 'border-brandblue-dark bg-brandblue-soft text-brandblue-dark' : 'border-gray-200 bg-white text-gray-900 hover:border-brandblue dark:border-gray-700 dark:bg-gray-900 dark:text-white'"
-                    @click="type = t.key"
-                >{{ t.label }}<span class="ml-1.5 opacity-60">{{ t.count }}</span></button>
-            </div>
-            <div role="group" aria-label="Доступ" class="flex flex-wrap gap-2">
-                <button
-                    v-for="c in chips"
-                    :key="c.key"
-                    type="button"
-                    :aria-pressed="chip === c.key ? 'true' : 'false'"
-                    class="cab-focus min-h-10 rounded-full border px-4 text-sm font-bold transition"
-                    :class="chip === c.key ? 'border-brandblue-dark bg-brandblue-soft text-brandblue-dark' : 'border-gray-200 bg-white text-gray-900 hover:border-brandblue dark:border-gray-700 dark:bg-gray-900 dark:text-white'"
-                    @click="chip = c.key"
-                >{{ c.label }}</button>
-            </div>
+        <div v-if="types.length > 1" role="group" aria-label="Тип мероприятия" class="flex flex-wrap gap-2">
+            <button
+                v-for="t in [{ key: 'all', label: 'Все типы', count: events.length }, ...types]"
+                :key="t.key"
+                type="button"
+                :aria-pressed="type === t.key ? 'true' : 'false'"
+                class="cab-focus min-h-10 rounded-full border px-4 text-sm font-bold transition"
+                :class="type === t.key ? 'border-brandblue-dark bg-brandblue-soft text-brandblue-dark' : 'border-gray-200 bg-white text-gray-900 hover:border-brandblue dark:border-gray-700 dark:bg-gray-900 dark:text-white'"
+                @click="type = t.key"
+            >{{ t.label }}<span class="ml-1.5 opacity-60">{{ t.count }}</span></button>
         </div>
 
         <div v-if="shown.length" class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-x-5 gap-y-6">
