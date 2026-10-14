@@ -148,16 +148,13 @@ it('passes the event image, schedule and speakers as separate variables', functi
         'event_location' => 'Москва, ул. Примерная, 1',
         'event_datetime' => '15.11.2026, 10:00',
         'speakers_count' => 2,
-        'speaker_1_position' => 'Профессор',
-        'speaker_1_company' => 'Клиника',
-        'speaker_1_photo' => url('/storage/speakers/1.webp'),
-        'speaker_2_photo' => 'https://cdn.example.com/p.webp',
-    ])->and($data['speaker_1_name'])->toContain('Иванов')
-        ->and($data)->not->toHaveKeys(['speaker_2_position', 'speaker_3_name'])
+    ])->and($data['speakers'])->toHaveCount(2)
+        ->and($data['speakers'][0]['name'])->toContain('Иванов')
         ->and($data['speakers'])->toBe([
-            ['name' => $data['speaker_1_name'], 'position' => 'Профессор', 'company' => 'Клиника', 'photo' => url('/storage/speakers/1.webp')],
-            ['name' => $data['speaker_2_name'], 'photo' => 'https://cdn.example.com/p.webp'],
-        ]);
+            ['name' => $data['speakers'][0]['name'], 'position' => 'Профессор', 'company' => 'Клиника', 'photo' => url('/storage/speakers/1.webp')],
+            ['name' => $data['speakers'][1]['name'], 'photo' => 'https://cdn.example.com/p.webp'],
+        ])
+        ->and(array_keys($data))->not->toContain('speaker_1_name', 'speaker_1_photo', 'speaker_2_name');
 });
 
 it('passes every speaker in the speakers list without the six-speaker limit', function (): void {
@@ -173,7 +170,7 @@ it('passes every speaker in the speakers list without the six-speaker limit', fu
     expect($data['speakers'])->toHaveCount(8)
         ->and($data['speakers_count'])->toBe(8)
         ->and($data['speakers'][7]['photo'])->toBe(url('/storage/speakers/8.webp'))
-        ->and($data)->not->toHaveKey('speaker_7_name');
+        ->and(array_keys($data))->not->toContain('speaker_1_name', 'speaker_7_name');
 });
 
 it('passes the city and speaker regalia and leaves empty fields out', function (): void {
@@ -190,9 +187,9 @@ it('passes the city and speaker regalia and leaves empty fields out', function (
     $data = $this->client->calls[0]['data'];
 
     expect($data['event_city'])->toBe('Казань')
-        ->and($data['speaker_1_regalia'])->toBe('Д.м.н., профессор')
+        ->and($data['speakers'])->toBe([['name' => $data['speakers'][0]['name'], 'regalia' => 'Д.м.н., профессор']])
         ->and($data['speakers_text'])->toContain('Д.м.н., профессор')
-        ->and($data)->not->toHaveKeys(['event_image', 'event_location', 'speaker_1_photo', 'speaker_1_position', 'speaker_2_name']);
+        ->and($data)->not->toHaveKeys(['event_image', 'event_location']);
 });
 
 it('sends the event letter by its own template id or alias and falls back to the standard one', function (): void {

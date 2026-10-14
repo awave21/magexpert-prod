@@ -14,9 +14,6 @@ use Throwable;
  */
 class SenderMailService
 {
-    /** Сколько спикеров передаётся в письмо отдельными (устаревшими) переменными speaker_1_*, speaker_2_* … */
-    public const MAX_SPEAKER_VARIABLES = 6;
-
     public function __construct(private readonly SenderClient $client) {}
 
     public function sendEventRegistrationEmail(Event $event, User $user, string $password = '', bool $isNewUser = false): bool
@@ -46,8 +43,6 @@ class SenderMailService
             'event_description' => $event->short_description ? trim(strip_tags((string) $event->short_description)) : null,
             'event_datetime' => $isUpcoming ? $this->formatDateTime($event->start_date, $event->start_time) : null,
             'speakers_count' => $speakers->count(),
-            // на время перехода шаблонов с плоских speaker_N_* на {{#each speakers}} передаются оба вида
-            ...$this->speakerVariables($speakers),
             'speakers' => $speakers->isEmpty() ? null : $speakers->map(fn ($speaker): array => array_filter([
                 'name' => $speaker->full_name,
                 'regalia' => $speaker->regalia,
@@ -170,33 +165,6 @@ class SenderMailService
         }
 
         return $accepted;
-    }
-
-    /**
-     * Спикеры плоскими переменными speaker_N_name, speaker_N_regalia, speaker_N_position, speaker_N_company, speaker_N_photo:
-     * шаблон в Sender сам решает, какие показывать ({{#if speaker_1_name}}…{{/if}}).
-     *
-     * @param  iterable<int, \App\Models\Speaker>  $speakers
-     * @return array<string, string|null>
-     */
-    private function speakerVariables(iterable $speakers): array
-    {
-        $variables = [];
-        $number = 0;
-
-        foreach ($speakers as $speaker) {
-            if (++$number > self::MAX_SPEAKER_VARIABLES) {
-                break;
-            }
-
-            $variables["speaker_{$number}_name"] = $speaker->full_name;
-            $variables["speaker_{$number}_regalia"] = $speaker->regalia;
-            $variables["speaker_{$number}_position"] = $speaker->position;
-            $variables["speaker_{$number}_company"] = $speaker->company;
-            $variables["speaker_{$number}_photo"] = $this->absoluteUrl($speaker->photo);
-        }
-
-        return $variables;
     }
 
     /**
