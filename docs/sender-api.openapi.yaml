@@ -1,0 +1,655 @@
+openapi: 3.1.0
+info:
+  title: Sender API
+  version: 1.0.0
+  description: |
+    Публичный API сервиса рассылок Sender. Через него внешние системы (в том числе сайт MagExpert) отправляют
+    служебные письма, сообщают о согласии на рассылку и ведут базы подписчиков. Прямых вызовов кода Sender
+    из других систем быть не должно: единственный интерфейс, это этот контракт.
+
+    ## Общие правила
+
+    - Базовый адрес: `{SENDER_API_URL}/api/sender/v1`. Версия в пути; несовместимые изменения выходят как `v2`.
+    - Авторизация: `Authorization: Bearer <API-ключ организации>`. Ключ создаётся в админке Sender.
+    - Формат: `application/json`, UTF-8. Заголовок `Accept` не обязателен, ответ всегда JSON.
+    - Время: ISO 8601 (`2026-10-14T15:19:10+03:00`).
+    - Ошибки: `application/problem+json` (RFC 9457). Поля `message` и `errors` оставлены для совместимости
+      с клиентами, которые их уже читают. Заблокированное письмо возвращается как ресурс `Message` с кодом 422
+      и `status: blocked`, а не как ошибка.
+    - Лимиты: `429 Too Many Requests` с заголовком `Retry-After`.
+    - Идемпотентность: `POST /messages` принимает `Idempotency-Key`. Повтор с тем же ключом возвращает то же письмо
+      с заголовком `Idempotent-Replayed: true`; тот же ключ для другого письма даёт 422.
+
+    ## Отправитель письма
+
+    Адрес и имя отправителя определяет шаблон в Sender. В запросе их передать нельзя: поля `from` и `from_name`
+    игнорируются. Если у шаблона не задан адрес отправителя, письмо получает статус `blocked`.
+
+    ## Известные отступления, которые будут исправлены в `v2`
+
+    - `PUT /lists` и `PUT /subscriptions` не адресуют ресурс в URL (идентификатор в теле).
+    - `PUT /lists/{list}/contacts` принимает email в теле, а `GET` и `DELETE` ждут его в пути.
+    - Недоступная для записи база даёт 409 в `PUT /lists` и 422 в операциях с контактами.
+  contact:
+    name: Sender
+servers:
+  - url: https://mail.mag-expert.ru/api/sender/v1
+    description: Продакшн
+security:
+  - bearerAuth: []
+tags:
+  - name: Messages
+    description: Отправка служебных писем по шаблону
+  - name: Subscriptions
+    description: Согласие адреса на рассылки
+  - name: Lists
+    description: Базы подписчиков
+  - name: Contacts
+    description: Подписчики базы и их теги
+paths:
+  /messages:
+    post:
+      tags: [Messages]
+      operationId: createMessage
+      summary: Отправить письмо по шаблону
+      description: |
+        Ставит письмо в очередь отправки и сразу отвечает. Шаблон задаёт тему, содержимое и отправителя.
+        Переменные шаблона передаются в `data`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessage'
+            example:
+              template: event-registration
+              to: anna@example.com
+              data:
+                first_name: Анна
+                event_title: Школа гинекологии
+                event_url: https://mag-expert.ru/events/shkola-ginekologii
+                start_date: 15.11.2026
+                speakers:
+                  - name: Иван Иванов
+                    regalia: Д.м.н., профессор
+                    photo: https://mag-expert.ru/storage/speakers/1.webp
+      responses:
+        '202':
+          description: Письмо принято и поставлено в очередь
+          headers:
+            Idempotent-Replayed:
+              $ref: '#/components/headers/IdempotentReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: |
+            Запрос не прошёл проверку (`application/problem+json`) либо письмо заблокировано (`application/json`,
+            ресурс `Message` со `status: blocked` и причиной в `error`) либо `Idempotency-Key` уже использован
+            для другого письма.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /messages/{uuid}:
+    get:
+      tags: [Messages]
+      operationId: getMessage
+      summary: Статус письма
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Письмо
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /subscriptions:
+    put:
+      tags: [Subscriptions]
+      operationId: setSubscription
+      summary: Согласен ли адрес получать рассылки
+      description: |
+        Служебные письма (сброс пароля, регистрация) отписка не затрагивает. Отписанному адресу рассылки не
+        отправляются.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetSubscription'
+      responses:
+        '200':
+          description: Состояние подписки после изменения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /lists:
+    put:
+      tags: [Lists]
+      operationId: upsertList
+      summary: Найти базу по названию или создать
+      description: |
+        Название сравнивается без учёта регистра и пробелов по краям. База, которая собирается из источника
+        автоматически, через API не меняется (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertList'
+      responses:
+        '200':
+          description: База уже была
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+        '201':
+          description: База создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /lists/{list}/contacts:
+    put:
+      tags: [Contacts]
+      operationId: upsertContact
+      summary: Добавить или обновить подписчика
+      description: |
+        Подписчик ищется по email. Теги **добавляются** к уже стоящим и ничего не затирают. Поле `subscribed`
+        меняет согласие; если оно не передано, согласие остаётся как было.
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertContact'
+            example:
+              email: anna@example.com
+              name: Анна Иванова
+              data:
+                city: Москва
+              subscribed: true
+              tags: [shkola-ginekologii, '2026-11-15']
+      responses:
+        '200':
+          description: Подписчик обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResultEnvelope'
+        '201':
+          description: Подписчик создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResultEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /lists/{list}/contacts/batch:
+    post:
+      tags: [Contacts]
+      operationId: upsertContactsBatch
+      summary: Добавить или обновить подписчиков пакетом
+      description: |
+        До 1000 подписчиков за запрос. Корректные строки применяются, ошибочные возвращаются в `invalid`
+        с номером строки (с нуля): пакет из-за них не отклоняется.
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchContacts'
+      responses:
+        '200':
+          description: Итог применения пакета
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResultEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /lists/{list}/contacts/{email}:
+    get:
+      tags: [Contacts]
+      operationId: getContact
+      summary: Подписчик базы
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+        - $ref: '#/components/parameters/Email'
+      responses:
+        '200':
+          description: Подписчик
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags: [Contacts]
+      operationId: deleteContact
+      summary: Удалить подписчика из базы
+      description: Отправленные подписчику письма остаются в журнале.
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+        - $ref: '#/components/parameters/Email'
+      responses:
+        '204':
+          description: Подписчик удалён
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: API-ключ организации (`mxs_…`)
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Ключ операции на стороне клиента, до 255 видимых ASCII-символов без пробелов. Повтор запроса с тем же
+        ключом не создаёт второе письмо.
+      schema:
+        type: string
+        maxLength: 255
+        pattern: '^[\x21-\x7E]+$'
+    ListId:
+      name: list
+      in: path
+      required: true
+      schema:
+        type: integer
+    Email:
+      name: email
+      in: path
+      required: true
+      description: Адрес подписчика, URL-кодированный
+      schema:
+        type: string
+        format: email
+  headers:
+    IdempotentReplayed:
+      description: '`true`, если ответ повторён по ранее использованному `Idempotency-Key`'
+      schema:
+        type: string
+        enum: ['true']
+  responses:
+    Unauthorized:
+      description: Неверный или отозванный API-ключ
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Шаблон, письмо, база или подписчик не найдены
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: База собирается автоматически и через API не меняется
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ValidationFailed:
+      description: Запрос не прошёл проверку
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    TooManyRequests:
+      description: Превышен лимит запросов
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: Ошибка (RFC 9457) с полями, которые читают текущие клиенты
+      required: [type, title, status, detail, message]
+      properties:
+        type:
+          type: string
+          example: about:blank
+        title:
+          type: string
+          example: Unprocessable Content
+        status:
+          type: integer
+          example: 422
+        detail:
+          type: string
+        message:
+          type: string
+          description: То же, что `detail`; оставлено для совместимости
+        errors:
+          type: object
+          description: Ошибки проверки по полям
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    CreateMessage:
+      type: object
+      required: [template, to]
+      properties:
+        template:
+          type: string
+          description: Идентификатор шаблона (slug) или его числовой ID
+          example: event-registration
+        to:
+          type: string
+          format: email
+        data:
+          type: object
+          description: |
+            Переменные шаблона. Допустимы строки, числа, `true/false` и списки объектов для блока `{{#each}}`.
+            Ключи `from` и `from_name` здесь, как и на верхнем уровне, игнорируются.
+          additionalProperties: true
+    Message:
+      type: object
+      required: [id, status, to, subject, attempts, error, sent_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, sending, sent, delivered, failed, bounced, blocked]
+        to:
+          type: string
+          format: email
+        subject:
+          type: string
+        attempts:
+          type: integer
+        error:
+          type:
+            - string
+            - 'null'
+          description: Причина блокировки или сбоя
+        sent_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    SetSubscription:
+      type: object
+      required: [email, subscribed]
+      properties:
+        email:
+          type: string
+          format: email
+        subscribed:
+          type: boolean
+    Subscription:
+      type: object
+      required: [email, subscribed]
+      properties:
+        email:
+          type: string
+          format: email
+        subscribed:
+          type: boolean
+    UpsertList:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type:
+            - string
+            - 'null'
+          maxLength: 500
+    List:
+      type: object
+      required: [id, name, description, require_confirmation, contacts_count, subscribed_count, pending_count, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type:
+            - string
+            - 'null'
+        require_confirmation:
+          type: boolean
+        contacts_count:
+          type: integer
+        subscribed_count:
+          type: integer
+        pending_count:
+          type: integer
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    ListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/List'
+    UpsertContact:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        name:
+          type:
+            - string
+            - 'null'
+          maxLength: 250
+        data:
+          type:
+            - object
+            - 'null'
+          description: |
+            Поля подписчика. Ключ: латиница в нижнем регистре, цифры и `_`, начинается с буквы, до 50 символов.
+            Значение: строка, число, `true/false` или `null`.
+          additionalProperties: true
+        subscribed:
+          type: boolean
+        tags:
+          type:
+            - array
+            - 'null'
+          description: Теги добавляются к имеющимся
+          items:
+            $ref: '#/components/schemas/Tag'
+    Tag:
+      type: string
+      maxLength: 120
+      pattern: '^[\p{L}\p{N}][\p{L}\p{N} _.:,\-()/+]{0,119}$'
+      description: |
+        Буквы любого алфавита, цифры, пробел и `_ . : , - ( ) / +`; начинается с буквы или цифры, до 120 символов.
+        Регистр приводится к нижнему.
+    ContactStatus:
+      type: string
+      enum: [subscribed, pending, unsubscribed]
+    ContactResult:
+      type: object
+      required: [email, status, created]
+      properties:
+        email:
+          type: string
+          format: email
+        status:
+          $ref: '#/components/schemas/ContactStatus'
+        created:
+          type: boolean
+    ContactResultEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ContactResult'
+    Contact:
+      type: object
+      required: [email, name, data, tags, status, created_at, updated_at]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type:
+            - string
+            - 'null'
+        data:
+          type: object
+          additionalProperties: true
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        status:
+          $ref: '#/components/schemas/ContactStatus'
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    ContactEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Contact'
+    BatchContacts:
+      type: object
+      required: [contacts]
+      properties:
+        contacts:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/UpsertContact'
+    BatchResult:
+      type: object
+      required: [created, updated, subscribed, pending, unsubscribed, invalid]
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        subscribed:
+          type: integer
+        pending:
+          type: integer
+        unsubscribed:
+          type: integer
+        invalid:
+          type: array
+          items:
+            type: object
+            required: [index, email, errors]
+            properties:
+              index:
+                type: integer
+                description: Номер строки в пакете, с нуля
+              email:
+                type:
+                  - string
+                  - 'null'
+              errors:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+    BatchResultEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/BatchResult'

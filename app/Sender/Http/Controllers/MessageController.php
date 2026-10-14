@@ -105,7 +105,7 @@ class MessageController extends Controller
             'status' => $message->status,
             'to' => $message->to_email,
             'subject' => $message->subject,
-            'attempts' => $message->attempts,
+            'attempts' => (int) $message->attempts,
             'error' => $message->error,
             'sent_at' => $message->sent_at?->toIso8601String(),
         ];
