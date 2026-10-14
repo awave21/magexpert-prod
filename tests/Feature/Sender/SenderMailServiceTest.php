@@ -79,7 +79,7 @@ it('sends an event registration email with only filled fields', function (): voi
             'start_date' => '16.10.2026',
             'start_time' => '12:00',
         ])
-        ->and($data)->not->toHaveKeys(['event_location', 'price', 'speakers', 'end_date']);
+        ->and($data)->not->toHaveKeys(['event_location', 'price', 'speakers', 'speakers_text', 'end_date']);
 });
 
 it('returns false when the sender rejects the message', function (): void {
@@ -153,7 +153,27 @@ it('passes the event image, schedule and speakers as separate variables', functi
         'speaker_1_photo' => url('/storage/speakers/1.webp'),
         'speaker_2_photo' => 'https://cdn.example.com/p.webp',
     ])->and($data['speaker_1_name'])->toContain('Иванов')
-        ->and($data)->not->toHaveKeys(['speaker_2_position', 'speaker_3_name']);
+        ->and($data)->not->toHaveKeys(['speaker_2_position', 'speaker_3_name'])
+        ->and($data['speakers'])->toBe([
+            ['name' => $data['speaker_1_name'], 'position' => 'Профессор', 'company' => 'Клиника', 'photo' => url('/storage/speakers/1.webp')],
+            ['name' => $data['speaker_2_name'], 'photo' => 'https://cdn.example.com/p.webp'],
+        ]);
+});
+
+it('passes every speaker in the speakers list without the six-speaker limit', function (): void {
+    $event = Event::make(['title' => 'Школа', 'slug' => 'school', 'format' => 'online', 'is_archived' => false, 'is_paid' => false, 'show_price' => false]);
+    $event->setRelation('speakers', collect(range(1, 8))->map(
+        fn (int $number): \App\Models\Speaker => new \App\Models\Speaker(['first_name' => 'Спикер', 'last_name' => (string) $number, 'photo' => "/storage/speakers/{$number}.webp"]),
+    ));
+
+    $this->service->sendEventRegistrationEmail($event, User::make(['first_name' => 'Анна', 'email' => 'anna@example.com']));
+
+    $data = $this->client->calls[0]['data'];
+
+    expect($data['speakers'])->toHaveCount(8)
+        ->and($data['speakers_count'])->toBe(8)
+        ->and($data['speakers'][7]['photo'])->toBe(url('/storage/speakers/8.webp'))
+        ->and($data)->not->toHaveKey('speaker_7_name');
 });
 
 it('passes the city and speaker regalia and leaves empty fields out', function (): void {
@@ -171,7 +191,7 @@ it('passes the city and speaker regalia and leaves empty fields out', function (
 
     expect($data['event_city'])->toBe('Казань')
         ->and($data['speaker_1_regalia'])->toBe('Д.м.н., профессор')
-        ->and($data['speakers'])->toContain('Д.м.н., профессор')
+        ->and($data['speakers_text'])->toContain('Д.м.н., профессор')
         ->and($data)->not->toHaveKeys(['event_image', 'event_location', 'speaker_1_photo', 'speaker_1_position', 'speaker_2_name']);
 });
 

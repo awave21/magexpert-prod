@@ -47,11 +47,9 @@ class InstallDefaultsCommand extends Command
 {{#if event_city}}<p>Город: {{ event_city }}</p>{{/if}}
 {{#if event_location}}<p>Место: {{ event_location }}</p>{{/if}}
 {{#if price}}<p>Стоимость: {{ price }}</p>{{/if}}
-{{#if speaker_1_name}}<p><strong>Спикеры</strong></p>
-<p>{{#if speaker_1_photo}}<img src="{{ speaker_1_photo }}" alt="{{ speaker_1_name }}" width="64" height="64" style="border-radius:32px;vertical-align:middle"> {{/if}}{{ speaker_1_name }}{{#if speaker_1_regalia}}, {{ speaker_1_regalia }}{{/if}}{{#if speaker_1_position}}, {{ speaker_1_position }}{{/if}}</p>
-{{#if speaker_2_name}}<p>{{#if speaker_2_photo}}<img src="{{ speaker_2_photo }}" alt="{{ speaker_2_name }}" width="64" height="64" style="border-radius:32px;vertical-align:middle"> {{/if}}{{ speaker_2_name }}{{#if speaker_2_regalia}}, {{ speaker_2_regalia }}{{/if}}{{#if speaker_2_position}}, {{ speaker_2_position }}{{/if}}</p>{{/if}}
-{{#if speaker_3_name}}<p>{{#if speaker_3_photo}}<img src="{{ speaker_3_photo }}" alt="{{ speaker_3_name }}" width="64" height="64" style="border-radius:32px;vertical-align:middle"> {{/if}}{{ speaker_3_name }}{{#if speaker_3_regalia}}, {{ speaker_3_regalia }}{{/if}}{{#if speaker_3_position}}, {{ speaker_3_position }}{{/if}}</p>{{/if}}
-{{/if}}
+{{#if speakers}}<p><strong>Спикеры</strong></p>
+{{#each speakers}}<p>{{#if photo}}<img src="{{ photo }}" alt="{{ name }}" width="64" height="64" style="border-radius:32px;vertical-align:middle"> {{/if}}{{ name }}{{#if regalia}}, {{ regalia }}{{/if}}{{#if position}}, {{ position }}{{/if}}</p>
+{{/each}}{{/if}}
 {{#if password}}<p>Данные для входа на сайт:<br>Логин: {{ user_email }}<br>Пароль: {{ password }}</p>{{/if}}
 <p><a href="{{ event_url }}">Страница мероприятия</a></p>
 HTML,

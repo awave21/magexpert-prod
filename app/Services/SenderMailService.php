@@ -14,7 +14,7 @@ use Throwable;
  */
 class SenderMailService
 {
-    /** Сколько спикеров передаётся в письмо отдельными переменными speaker_1_*, speaker_2_* … */
+    /** Сколько спикеров передаётся в письмо отдельными (устаревшими) переменными speaker_1_*, speaker_2_* … */
     public const MAX_SPEAKER_VARIABLES = 6;
 
     public function __construct(private readonly SenderClient $client) {}
@@ -46,12 +46,20 @@ class SenderMailService
             'event_description' => $event->short_description ? trim(strip_tags((string) $event->short_description)) : null,
             'event_datetime' => $isUpcoming ? $this->formatDateTime($event->start_date, $event->start_time) : null,
             'speakers_count' => $speakers->count(),
+            // на время перехода шаблонов с плоских speaker_N_* на {{#each speakers}} передаются оба вида
             ...$this->speakerVariables($speakers),
+            'speakers' => $speakers->isEmpty() ? null : $speakers->map(fn ($speaker): array => array_filter([
+                'name' => $speaker->full_name,
+                'regalia' => $speaker->regalia,
+                'position' => $speaker->position,
+                'company' => $speaker->company,
+                'photo' => $this->absoluteUrl($speaker->photo),
+            ], fn ($value): bool => filled($value)))->values()->all(),
             'start_date' => $event->is_archived ? null : $this->formatDate($event->start_date),
             'start_time' => $event->is_archived ? null : $this->formatTime($event->start_time),
             'end_date' => $event->is_archived ? null : $this->formatDate($event->end_date),
             'end_time' => $event->is_archived ? null : $this->formatTime($event->end_time),
-            'speakers' => $event->speakers->map(fn ($speaker): string => trim(implode(', ', array_filter([
+            'speakers_text' => $event->speakers->map(fn ($speaker): string => trim(implode(', ', array_filter([
                 $speaker->full_name,
                 $speaker->regalia,
                 $speaker->position,

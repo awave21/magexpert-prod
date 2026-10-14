@@ -9,6 +9,8 @@ class TemplateRenderer
     /**
      * Подставляет переменные {{ name }} в тему, HTML и текст письма.
      * Блок {{#if name}}...{{/if}} выводится, если переменная заполнена; блоки можно вкладывать.
+     * Блок {{#each items}}...{{/each}} повторяется для каждого элемента списка: внутри доступны поля элемента
+     * и внешние переменные; пустой или отсутствующий список даёт пустую строку, блоки each вкладывать нельзя.
      * В HTML значения экранируются, отсутствующие переменные заменяются пустой строкой.
      *
      * @param  array<string, mixed>  $data
@@ -43,6 +45,38 @@ class TemplateRenderer
      * @param  array<string, mixed>  $data
      */
     private function replace(string $source, array $data, bool $escape): string
+    {
+        // готовый текст элементов списка прячется за метками, чтобы {{ }} из данных не раскрывались повторно
+        $rendered = [];
+
+        $source = preg_replace_callback(
+            '/\{\{#each\s+([a-zA-Z0-9_.]+)\s*\}\}(.*?)\{\{\/each\}\}/s',
+            function (array $match) use ($data, $escape, &$rendered): string {
+                $items = data_get($data, $match[1]);
+                $output = '';
+
+                foreach (is_array($items) ? array_values($items) : [] as $item) {
+                    $scope = is_array($item) ? [...$data, ...$item] : [...$data, 'this' => $item];
+                    $output .= $this->replace($match[2], $scope, $escape);
+                }
+
+                $token = '@@each_'.bin2hex(random_bytes(8)).'@@';
+                $rendered[$token] = $output;
+
+                return $token;
+            },
+            $source,
+        );
+
+        $source = $this->replaceConditionsAndVariables($source, $data, $escape);
+
+        return $rendered === [] ? $source : strtr($source, $rendered);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function replaceConditionsAndVariables(string $source, array $data, bool $escape): string
     {
         // условия раскрываются изнутри наружу, поэтому блоки {{#if}} можно вкладывать друг в друга
         $pattern = '/\{\{#if\s+([a-zA-Z0-9_.]+)\s*\}\}((?:(?!\{\{#if\s).)*?)\{\{\/if\}\}/s';

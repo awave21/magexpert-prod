@@ -93,6 +93,10 @@ class TemplateVariables
     {
         $sample = array_column(BaseVariables::all(), 'sample', 'key');
         $sample['unsubscribe_url'] = SenderUi::url('unsubscribe/example');
+        $sample['speakers'] = [
+            ['name' => 'Иван Иванов', 'regalia' => 'Д.м.н., профессор', 'position' => 'Заведующий кафедрой', 'company' => 'Клиника «Пример»', 'photo' => 'https://example.com/storage/speakers/example.webp'],
+            ['name' => 'Пётр Петров', 'position' => 'Врач-гинеколог', 'company' => 'Клиника «Пример»'],
+        ];
         $sample = array_merge(
             $sample,
             $organization->variables()->whereNotNull('default_value')->where('default_value', '!=', '')->pluck('default_value', 'key')->all(),
