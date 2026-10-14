@@ -7,93 +7,25 @@ use App\Sender\Services\ApiKeyService;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\Yaml\Yaml;
+use Tests\Support\OpenApi;
 
 /**
- * Контрактные тесты публичного API Sender: документ docs/sender-api.openapi.yaml и реальные ответы не расходятся.
+ * Контрактные тесты публичного API Sender (сторона провайдера): документ docs/sender-api.openapi.yaml и реальные
+ * ответы не расходятся. Сторона потребителя проверяется в SenderConsumerContractTest.
  */
 function senderApiSpec(): array
 {
-    return Yaml::parseFile(base_path('docs/sender-api.openapi.yaml'));
+    return OpenApi::spec();
 }
 
-/**
- * Проверка значения по схеме OpenAPI: $ref, type (в том числе список типов), required, properties, enum, items.
- *
- * @return list<string> найденные расхождения
- */
-function senderSchemaErrors(mixed $value, array $schema, array $spec, string $path = '$'): array
+function senderSchemaErrors(mixed $value, array $schema, array $spec = [], string $path = '$'): array
 {
-    while (isset($schema['$ref'])) {
-        $resolved = $spec;
-
-        foreach (explode('/', ltrim($schema['$ref'], '#/')) as $part) {
-            $resolved = $resolved[$part];
-        }
-
-        $schema = $resolved;
-    }
-
-    $errors = [];
-    $types = (array) ($schema['type'] ?? []);
-
-    if ($types !== []) {
-        $actual = match (true) {
-            $value === null => 'null',
-            is_bool($value) => 'boolean',
-            is_int($value) => 'integer',
-            is_float($value) => 'number',
-            is_string($value) => 'string',
-            is_array($value) => array_is_list($value) ? 'array' : 'object',
-            default => 'unknown',
-        };
-
-        // пустой массив PHP одинаково может быть и списком, и объектом
-        $matches = in_array($actual, $types, true)
-            || ($actual === 'integer' && in_array('number', $types, true))
-            || ($value === [] && (in_array('object', $types, true) || in_array('array', $types, true)));
-
-        if (! $matches) {
-            return ["{$path}: ожидался тип ".implode('|', $types).", получен {$actual}"];
-        }
-    }
-
-    if (isset($schema['enum']) && ! in_array($value, $schema['enum'], true)) {
-        $errors[] = "{$path}: значение ".json_encode($value, JSON_UNESCAPED_UNICODE).' не входит в enum';
-    }
-
-    if (is_array($value) && ! array_is_list($value)) {
-        foreach ($schema['required'] ?? [] as $key) {
-            if (! array_key_exists($key, $value)) {
-                $errors[] = "{$path}: нет обязательного поля {$key}";
-            }
-        }
-
-        foreach ($schema['properties'] ?? [] as $key => $sub) {
-            if (array_key_exists($key, $value)) {
-                $errors = [...$errors, ...senderSchemaErrors($value[$key], $sub, $spec, "{$path}.{$key}")];
-            }
-        }
-    }
-
-    if (is_array($value) && array_is_list($value) && isset($schema['items'])) {
-        foreach ($value as $index => $item) {
-            $errors = [...$errors, ...senderSchemaErrors($item, $schema['items'], $spec, "{$path}[{$index}]")];
-        }
-    }
-
-    return $errors;
+    return OpenApi::errors($value, $schema, $path);
 }
 
 function senderResponseSchema(array $spec, string $path, string $method, int $status, string $mime = 'application/json'): array
 {
-    $response = $spec['paths'][$path][$method]['responses'][(string) $status] ?? null;
-    expect($response)->not->toBeNull("{$method} {$path}: ответ {$status} не описан в контракте");
-
-    while (isset($response['$ref'])) {
-        $response = $spec['components']['responses'][basename($response['$ref'])];
-    }
-
-    return $response['content'][$mime]['schema'] ?? [];
+    return OpenApi::responseSchema($path, $method, $status, $mime);
 }
 
 beforeEach(function (): void {
@@ -223,4 +155,37 @@ it('points the specification server at the address it was opened from', function
     $yaml = $this->get('http://sender.example.test/api/sender/v1/openapi.yaml')->assertOk()->getContent();
 
     expect(Yaml::parse($yaml)['servers'][0]['url'])->toBe('http://sender.example.test/api/sender/v1');
+});
+
+it('sends webhook events that match the documented event schemas', function (): void {
+    $this->app->instance(App\Sender\Support\PublicAddress::class, new class extends App\Sender\Support\PublicAddress
+    {
+        protected function addresses(string $host): array
+        {
+            return ['hooks.example.com' => ['93.184.216.34']][$host] ?? [];
+        }
+    });
+    Illuminate\Support\Facades\Http::fake(['hooks.example.com/*' => Illuminate\Support\Facades\Http::response('ok')]);
+    $this->organization->webhooks()->create(['url' => 'https://hooks.example.com/site', 'secret' => 'secret-1']);
+
+    app(App\Sender\Services\WebhookService::class)->dispatch(
+        $this->organization->id,
+        App\Sender\Models\Webhook::EVENT_UNSUBSCRIBED,
+        ['email' => 'anna@example.com', 'campaign_id' => null],
+    );
+
+    $captured = [];
+    Illuminate\Support\Facades\Http::assertSent(function ($request) use (&$captured): bool {
+        $captured[] = $request;
+
+        return true;
+    });
+
+    $request = $captured[0];
+    $schema = $this->spec['components']['schemas']['UnsubscribedEvent'];
+
+    expect(senderSchemaErrors($request->data(), $schema, $this->spec))->toBe([])
+        ->and($request->header('X-Sender-Event')[0])->toBe('recipient.unsubscribed')
+        ->and($request->header('X-Sender-Event-Id')[0])->toBe($request['id'])
+        ->and($request->header('X-Sender-Signature-V2')[0])->toStartWith('sha256=');
 });
