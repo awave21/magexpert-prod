@@ -19,6 +19,7 @@ use App\Sender\Http\Controllers\Admin\TemplateFolderController;
 use App\Sender\Http\Controllers\Admin\UserController;
 use App\Sender\Http\Controllers\Admin\VariableController;
 use App\Sender\Http\Controllers\Admin\WebhookController;
+use App\Sender\Http\Controllers\Api\ContactController as ApiContactController;
 use App\Sender\Http\Controllers\Api\ListContactController;
 use App\Sender\Http\Controllers\Api\ListController;
 use App\Sender\Http\Controllers\ConfirmSenderAddressController;
@@ -45,6 +46,7 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
         Route::post('messages', [MessageController::class, 'store']);
         Route::get('messages/{uuid}', [MessageController::class, 'show']);
         Route::put('subscriptions', [SubscriptionController::class, 'update']);
+        Route::delete('contacts/{email}', [ApiContactController::class, 'destroy']);
 
         // базы и подписчики для внешних систем (например, сайта), которые держат базу в актуальном состоянии
         Route::name('sender.api.')->group(function (): void {

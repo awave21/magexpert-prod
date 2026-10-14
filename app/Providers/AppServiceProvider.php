@@ -13,6 +13,7 @@ use App\Services\Assistant\DemoLibraryAssistant;
 use App\Services\Assistant\LibraryAssistant;
 use App\Services\Assistant\RagLibraryAssistant;
 use App\Services\Assistant\UnavailableLibraryAssistant;
+use App\Services\NewsletterConsentWithdrawal;
 use App\Services\NewsletterSubscribers;
 use App\Services\VkIdProvider;
 use Illuminate\Support\Facades\Event;
@@ -69,18 +70,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $users = User::query()
-                ->whereRaw('lower(email) = ?', [mb_strtolower($event->email)])
-                ->where('newsletter_consent', true);
-            $userIds = (clone $users)->pluck('id');
-
-            // массовое обновление не вызывает событий модели: согласие не отправляется обратно в Sender
-            $users->update(['newsletter_consent' => false, 'newsletter_withdrawn_at' => now()]);
-
-            // база «Пользователи MagExpert» узнаёт об отписке через API; отписку по ссылке это не вызывает повторно
-            if ($this->usersSyncEnabled()) {
-                $userIds->each(fn (int $id) => SyncUserToSender::dispatch($id, mb_strtolower($event->email)));
-            }
+            app(NewsletterConsentWithdrawal::class)->withdraw($event->email);
         });
 
         User::updated(function (User $user): void {

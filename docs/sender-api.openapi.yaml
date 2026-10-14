@@ -155,6 +155,24 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /contacts/{email}:
+    delete:
+      tags: [Contacts]
+      operationId: deleteContactEverywhere
+      summary: Убрать адрес из всех баз организации
+      description: |
+        Для права на удаление данных: адрес пропадает из всех баз, в том числе собираемых автоматически.
+        Операция идемпотентна: если адреса в базах нет, ответ тот же. Отправленные письма остаются в журнале,
+        блок-лист и отписки не меняются.
+      parameters:
+        - $ref: '#/components/parameters/Email'
+      responses:
+        '204':
+          description: Адреса больше нет в базах организации
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /lists:
     put:
       tags: [Lists]
@@ -305,6 +323,40 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+webhooks:
+  recipient.unsubscribed:
+    post:
+      tags: [Subscriptions]
+      operationId: webhookRecipientUnsubscribed
+      summary: Адрес отписался от рассылок
+      description: |
+        Sender отправляет событие на адрес вебхука, заданный в разделе «Вебхуки». Тело подписано HMAC-SHA256
+        секретом вебхука: заголовок `X-Sender-Signature: sha256=<hex>`. Заголовок `X-Sender-Event` содержит
+        название события. Сайт отвечает 2xx; ответ 401 означает неверную подпись.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnsubscribedEvent'
+      responses:
+        '204':
+          description: Событие принято
+  message.complained:
+    post:
+      tags: [Messages]
+      operationId: webhookMessageComplained
+      summary: Получатель пожаловался на письмо
+      description: Адрес автоматически отписывается и попадает в блок-лист. Подпись и ответы как у `recipient.unsubscribed`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComplainedEvent'
+      responses:
+        '204':
+          description: Событие принято
 components:
   securitySchemes:
     bearerAuth:
@@ -379,6 +431,51 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    UnsubscribedEvent:
+      type: object
+      required: [event, occurred_at, email]
+      properties:
+        event:
+          type: string
+          enum: [recipient.unsubscribed]
+        occurred_at:
+          type: string
+          format: date-time
+        email:
+          type: string
+          format: email
+        campaign_id:
+          type:
+            - integer
+            - 'null'
+    ComplainedEvent:
+      type: object
+      required: [event, occurred_at, message]
+      properties:
+        event:
+          type: string
+          enum: [message.complained]
+        occurred_at:
+          type: string
+          format: date-time
+        message:
+          type: object
+          required: [id, to, subject, status]
+          properties:
+            id:
+              type: string
+              format: uuid
+            to:
+              type: string
+              format: email
+            subject:
+              type: string
+            status:
+              type: string
+            campaign_id:
+              type:
+                - integer
+                - 'null'
     Problem:
       type: object
       description: Ошибка (RFC 9457) с полями, которые читают текущие клиенты

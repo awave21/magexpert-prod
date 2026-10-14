@@ -187,3 +187,18 @@ it('keeps the blocked message as a resource rather than an error', function (): 
         ->assertJsonPath('status', 'blocked')
         ->assertJsonStructure(['id', 'to', 'subject', 'error']);
 });
+
+it('removes an address from every list of the organization', function (): void {
+    $first = $this->organization->lists()->create(['name' => 'Первая']);
+    $second = $this->organization->lists()->create(['name' => 'Вторая']);
+    $first->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'anna@example.com']);
+    $second->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'anna@example.com']);
+    $second->contacts()->create(['organization_id' => $this->organization->id, 'email' => 'petr@example.com']);
+
+    $this->withToken($this->key)->deleteJson('/api/sender/v1/contacts/Anna@Example.com')->assertNoContent();
+
+    expect($this->organization->contacts()->pluck('email')->all())->toBe(['petr@example.com']);
+
+    // повторное удаление ничего не ломает
+    $this->withToken($this->key)->deleteJson('/api/sender/v1/contacts/anna@example.com')->assertNoContent();
+});

@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\PayKeeperWebhookController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\UserController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,5 +20,9 @@ Route::post('/webhook/paykeeper', [PayKeeperWebhookController::class, 'handleWeb
     ->middleware('verify.paykeeper.webhook')
     ->name('webhook.paykeeper');
 
-  // API для пользователей
+// События Sender (отписка, жалоба): подпись проверяется в контроллере
+Route::post('/webhooks/sender', \App\Http\Controllers\Webhooks\SenderWebhookController::class)
+    ->name('webhooks.sender');
+
+// API для пользователей
 Route::post('/users', [UserController::class, 'store']);
