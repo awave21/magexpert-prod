@@ -37,13 +37,28 @@ beforeEach(function () {
  */
 function fakeSenderApi(array $overrides = []): void
 {
+    $list = ['id' => 7, 'name' => 'Пользователи MagExpert', 'require_confirmation' => false];
+
     Http::fake($overrides + [
-        SENDER_API.'/lists' => Http::response(['data' => ['id' => 7, 'name' => 'Пользователи MagExpert', 'require_confirmation' => false]], 201),
+        // поиск базы по названию: она уже есть
+        SENDER_API.'/lists?*' => Http::response(['data' => [$list]]),
+        // создание базы
+        SENDER_API.'/lists' => Http::response(['data' => $list], 201),
         SENDER_API.'/lists/*/contacts/batch' => Http::response(['data' => ['created' => 1, 'updated' => 0, 'subscribed' => 1, 'pending' => 0, 'unsubscribed' => 0, 'invalid' => []]]),
-        SENDER_API.'/lists/*/contacts/*' => Http::response(null, 204),
-        SENDER_API.'/lists/*/contacts' => fn (Request $request) => Http::response(['data' => ['email' => $request['email'], 'status' => $request['subscribed'] ? 'subscribed' : 'unsubscribed', 'created' => true]], 201),
-        SENDER_API.'/subscriptions' => Http::response(['data' => []]),
+        // PUT /lists/{id}/contacts/{email} и DELETE того же адреса
+        SENDER_API.'/lists/*/contacts/*' => fn (Request $request) => $request->method() === 'DELETE'
+            ? Http::response(null, 204)
+            : Http::response(['data' => ['email' => rawurldecode(basename((string) parse_url($request->url(), PHP_URL_PATH))), 'status' => ($request->data()['subscribed'] ?? true) ? 'subscribed' : 'unsubscribed', 'created' => true]], 201),
+        SENDER_API.'/contacts/*/subscription' => fn (Request $request) => Http::response(['data' => ['email' => 'x@example.com', 'subscribed' => (bool) ($request->data()['subscribed'] ?? false)]]),
     ]);
+}
+
+/**
+ * Запрос на добавление или обновление подписчика (PUT /lists/{id}/contacts/{email}).
+ */
+function isContactUpsert(Request $request, int $listId = 7): bool
+{
+    return $request->method() === 'PUT' && str_starts_with($request->url(), SENDER_API."/lists/{$listId}/contacts/");
 }
 
 /**
@@ -77,7 +92,7 @@ function userWithProfile(array $attributes = []): User
     ]);
 }
 
-it('собирает контакт без телефона, пароля и токенов', function () {
+it('собирает анкету: базовые поля и атрибуты без пароля и токенов', function () {
     Queue::fake();
     $user = userWithProfile();
 
@@ -87,8 +102,9 @@ it('собирает контакт без телефона, пароля и т�
         'email' => 'anna@example.com',
         'name' => 'Петрова Анна Ивановна',
         'data' => [
-            'first_name' => 'Анна',
+            'phone' => '+79990000000',
             'city' => 'Москва',
+            'first_name' => 'Анна',
             'specialization' => 'Радиология',
             'company' => 'Клиника',
             'position' => 'Врач',
@@ -99,8 +115,7 @@ it('собирает контакт без телефона, пароля и т�
     ]);
 
     $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE);
-    expect($encoded)->not->toContain('79990000000')
-        ->and($encoded)->not->toContain('password')
+    expect($encoded)->not->toContain('password')
         ->and($encoded)->not->toContain('token');
 });
 
@@ -114,15 +129,20 @@ it('ставит задачу при создании пользователя �
 
     runPushedSyncJobs();
 
-    Http::assertSent(fn (Request $request) => $request->method() === 'PUT'
-        && $request->url() === SENDER_API.'/lists'
+    Http::assertSent(fn (Request $request) => $request->method() === 'GET'
+        && str_starts_with($request->url(), SENDER_API.'/lists?')
         && $request['name'] === 'Пользователи MagExpert'
         && $request->hasHeader('Authorization', 'Bearer test-key'));
     Http::assertSent(fn (Request $request) => $request->method() === 'PUT'
-        && $request->url() === SENDER_API.'/lists/7/contacts'
-        && $request['email'] === 'anna@example.com'
+        && isContactUpsert($request)
+        && str_ends_with($request->url(), '/contacts/anna%40example.com')
         && $request['subscribed'] === true
-        && ! array_key_exists('phone', $request->data()['data']));
+        // базовые поля анкеты уходят отдельными свойствами, остальное дополнительными атрибутами
+        && $request['phone'] === '+79990000000'
+        && $request['city'] === 'Москва'
+        && $request['attributes']['specialization'] === 'Радиология'
+        && ! array_key_exists('data', $request->data())
+        && ! array_key_exists('email', $request->data()));
 
     expect(Cache::get(SyncUserToSender::listCacheKey()))->toBe(7);
 });
@@ -165,15 +185,14 @@ it('при смене адреса удаляет старый контакт и
     runPushedSyncJobs();
 
     $calls = collect(Http::recorded())->map(fn (array $pair) => $pair[0]->method().' '.$pair[0]->url())
-        ->reject(fn (string $call) => str_ends_with($call, '/lists'))
+        ->reject(fn (string $call) => str_contains($call, '/lists?'))
         ->values()
         ->all();
 
     expect($calls)->toBe([
         'DELETE '.SENDER_API.'/lists/7/contacts/anna%40example.com',
-        'PUT '.SENDER_API.'/lists/7/contacts',
+        'PUT '.SENDER_API.'/lists/7/contacts/new%40example.com',
     ]);
-    Http::assertSent(fn (Request $request) => $request->method() === 'PUT' && ($request['email'] ?? null) === 'new@example.com');
 });
 
 it('удаляет контакт, когда пользователя удалили', function () {
@@ -186,7 +205,7 @@ it('удаляет контакт, когда пользователя удал�
     runPushedSyncJobs();
 
     Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === SENDER_API.'/lists/7/contacts/anna%40example.com');
-    Http::assertNotSent(fn (Request $request) => $request->url() === SENDER_API.'/lists/7/contacts');
+    Http::assertNotSent(fn (Request $request) => isContactUpsert($request));
 });
 
 it('снятая галочка рассылки передаётся как отписка', function () {
@@ -198,9 +217,9 @@ it('снятая галочка рассылки передаётся как о�
     $user->update(['newsletter_consent' => false]);
     runPushedSyncJobs();
 
-    Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/lists/7/contacts' && $request['subscribed'] === false);
+    Http::assertSent(fn (Request $request) => isContactUpsert($request) && $request['subscribed'] === false);
     // прежняя передача согласия (PUT subscriptions) по-прежнему работает
-    Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/subscriptions' && $request['subscribed'] === false);
+    Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/contacts/anna%40example.com/subscription' && $request['subscribed'] === false);
 });
 
 it('отписка по ссылке снимает галочку и обновляет базу без повторной отписки', function () {
@@ -223,7 +242,7 @@ it('отписка по ссылке снимает галочку и обнов
     Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/subscriptions'));
 
     runPushedSyncJobs();
-    Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/lists/7/contacts' && $request['subscribed'] === false);
+    Http::assertSent(fn (Request $request) => isContactUpsert($request) && $request['subscribed'] === false);
 });
 
 it('не передаёт обезличенный аккаунт, а старый адрес удаляет', function () {
@@ -236,7 +255,7 @@ it('не передаёт обезличенный аккаунт, а стары
     runPushedSyncJobs();
 
     Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && str_ends_with($request->url(), '/contacts/anna%40example.com'));
-    Http::assertNotSent(fn (Request $request) => $request->url() === SENDER_API.'/lists/7/contacts');
+    Http::assertNotSent(fn (Request $request) => isContactUpsert($request));
 });
 
 it('настроена на повторы с нарастающей паузой и схлопывание по пользователю', function () {
@@ -256,14 +275,14 @@ it('при 404 забывает ID базы, находит её заново и
     Cache::forever(SyncUserToSender::listCacheKey(), 3);
 
     fakeSenderApi([
-        SENDER_API.'/lists/3/contacts' => Http::response(['message' => 'Список не найден'], 404),
+        SENDER_API.'/lists/3/contacts/*' => Http::response(['message' => 'Список не найден'], 404),
     ]);
 
     app()->call([new SyncUserToSender($user->id, $user->email), 'handle']);
 
     expect(Cache::get(SyncUserToSender::listCacheKey()))->toBe(7);
-    Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/lists');
-    Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/lists/7/contacts');
+    Http::assertSent(fn (Request $request) => $request->method() === 'GET' && str_starts_with($request->url(), SENDER_API.'/lists?'));
+    Http::assertSent(fn (Request $request) => isContactUpsert($request));
 });
 
 it('при ошибке данных пишет предупреждение и не повторяет', function () {
@@ -272,7 +291,7 @@ it('при ошибке данных пишет предупреждение и 
     Log::spy();
 
     fakeSenderApi([
-        SENDER_API.'/lists/*/contacts' => Http::response(['message' => 'invalid', 'errors' => ['email' => ['Неверный адрес']]], 422),
+        SENDER_API.'/lists/*/contacts/*' => Http::response(['message' => 'invalid', 'errors' => ['email' => ['Неверный адрес']]], 422),
     ]);
 
     app()->call([new SyncUserToSender($user->id, $user->email), 'handle']);
@@ -287,7 +306,7 @@ it('повторяет запрос при 5xx и 429, потом отдаёт �
     config(['services.sender.users_list_id' => 7]);
 
     Http::fake([
-        SENDER_API.'/lists/7/contacts' => Http::sequence()
+        SENDER_API.'/lists/7/contacts/*' => Http::sequence()
             ->push(['message' => 'busy'], 429, ['Retry-After' => '2'])
             ->push(['message' => 'error'], 503)
             ->push(['message' => 'error'], 502),
@@ -301,7 +320,7 @@ it('повторяет запрос при 5xx и 429, потом отдаёт �
 });
 
 it('не повторяет запрос при неверном ключе', function () {
-    Http::fake([SENDER_API.'/lists' => Http::response(['message' => 'Unauthenticated.'], 401)]);
+    Http::fake([SENDER_API.'/lists?*' => Http::response(['message' => 'Unauthenticated.'], 401)]);
 
     expect(fn () => app(ContactSyncClient::class)->ensureList('Пользователи MagExpert'))
         ->toThrow(SenderApiException::class, 'API-ключ');
@@ -380,17 +399,16 @@ it('падает без повторов, если название занято
     Queue::fake();
     $user = userWithProfile();
 
+    // GET /lists?name= находит эту базу, а запись в неё Sender отклоняет: она собирается автоматически
     fakeSenderApi([
-        SENDER_API.'/lists' => Http::response(['message' => 'База с таким названием собирается автоматически, выберите другое название'], 409),
+        SENDER_API.'/lists/*/contacts/*' => Http::response(['message' => 'Эта база собирается автоматически, менять её через API нельзя'], 409),
     ]);
 
     $job = (new SyncUserToSender($user->id, $user->email))->withFakeQueueInteractions();
     app()->call([$job, 'handle']);
 
     $job->assertFailed();
-    Http::assertSentCount(1);
-    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/contacts'));
-    expect(Cache::get(SyncUserToSender::listCacheKey()))->toBeNull();
+    Http::assertSentCount(2);
 });
 
 it('sender:sync-users сообщает, что название базы занято автоматической базой', function () {
@@ -398,14 +416,12 @@ it('sender:sync-users сообщает, что название базы зан�
     userWithProfile();
 
     fakeSenderApi([
-        SENDER_API.'/lists' => Http::response(['message' => 'База с таким названием собирается автоматически, выберите другое название'], 409),
+        SENDER_API.'/lists/*/contacts/batch' => Http::response(['message' => 'Эта база собирается автоматически, менять её через API нельзя'], 409),
     ]);
 
     $this->artisan('sender:sync-users')
         ->expectsOutputToContain('собирается автоматически')
         ->assertFailed();
-
-    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/contacts'));
 });
 
 it('заглушка не пишет адреса пользователей в лог', function () {
@@ -457,7 +473,7 @@ it('передаёт тег мероприятия вместе с контак�
     runPushedSyncJobs();
 
     Http::assertSent(fn (Request $request) => $request->method() === 'PUT'
-        && $request->url() === SENDER_API.'/lists/7/contacts'
+        && isContactUpsert($request)
         && ($request->data()['tags'] ?? null) === ['школа']
         && $request['subscribed'] === false);
 });
@@ -487,7 +503,7 @@ it('ставит согласие на рассылку при регистра�
 
     runPushedSyncJobs();
 
-    Http::assertSent(fn (Request $request) => $request->url() === SENDER_API.'/lists/7/contacts'
+    Http::assertSent(fn (Request $request) => isContactUpsert($request)
         && $request['subscribed'] === true
         && ($request->data()['tags'] ?? null) === ['школа']);
 });

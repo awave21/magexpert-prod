@@ -27,11 +27,31 @@ info:
     Адрес и имя отправителя определяет шаблон в Sender. В запросе их передать нельзя: поля `from` и `from_name`
     игнорируются. Если у шаблона не задан адрес отправителя, письмо получает статус `blocked`.
 
-    ## Известные отступления, которые будут исправлены в `v2`
+    ## Анкета подписчика
 
-    - `PUT /lists` и `PUT /subscriptions` не адресуют ресурс в URL (идентификатор в теле).
-    - `PUT /lists/{list}/contacts` принимает email в теле, а `GET` и `DELETE` ждут его в пути.
-    - Недоступная для записи база даёт 409 в `PUT /lists` и 422 в операциях с контактами.
+    Базовые поля: `email` (обязательное), `name`, `phone`, `city`. Дополнительные необязательные атрибуты
+    передаются объектом `attributes`; они становятся переменными письма (`{{ specialization }}`) и полями базы.
+    Передан атрибут, значение сохраняется; не передан, остаётся прежним. Названия атрибутов: латиница в нижнем
+    регистре, цифры и `_`, до 50 символов; значения: строка, число, `true/false` или `null`. Базовые поля
+    в `attributes` передавать нельзя. Объект `data` принимается как прежний синоним `attributes`.
+    Телефон приводится к виду `+79991234567` (российские `8…` и `7…` переводятся в `+7…`).
+
+    ## Устаревшие методы
+
+    Помечены `deprecated: true` и возвращают заголовок `Deprecation: true`. Продолжают работать; замена указана
+    в описании метода.
+
+    | Устарел | Замена |
+    |---|---|
+    | `PUT /lists` | `GET /lists?name=` и `POST /lists` |
+    | `PUT /lists/{list}/contacts` | `PUT /lists/{list}/contacts/{email}` |
+    | `PUT /subscriptions` | `PUT /contacts/{email}/subscription` |
+
+    ## Известные отступления
+
+    - Ответы `POST /messages`, `GET /messages/{uuid}` и `PUT /subscriptions` без обёртки `data`; в новых методах
+      ответ всегда в `data`. Приведение к единому виду потребует `v2`.
+    - Недоступная для записи база даёт 409 в новых методах и 422 в устаревших операциях с контактами.
   contact:
     name: Sender
 servers:
@@ -134,9 +154,11 @@ paths:
   /subscriptions:
     put:
       tags: [Subscriptions]
+      deprecated: true
       operationId: setSubscription
-      summary: Согласен ли адрес получать рассылки
+      summary: Согласен ли адрес получать рассылки (устарел)
       description: |
+        Устарел: используйте `PUT /contacts/{email}/subscription`.
         Служебные письма (сброс пароля, регистрация) отписка не затрагивает. Отписанному адресу рассылки не
         отправляются.
       requestBody:
@@ -152,6 +174,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /contacts/{email}/subscription:
+    put:
+      tags: [Subscriptions]
+      operationId: setContactSubscription
+      summary: Согласие адреса на рассылки
+      description: |
+        Каноничный метод вместо `PUT /subscriptions`: адрес в пути. Служебные письма (сброс пароля, регистрация)
+        отписка не затрагивает; отписанному адресу рассылки не отправляются.
+      parameters:
+        - $ref: '#/components/parameters/Email'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetContactSubscription'
+      responses:
+        '200':
+          description: Состояние подписки после изменения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionEnvelope'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '422':
@@ -177,11 +229,66 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /lists:
+    get:
+      tags: [Lists]
+      operationId: listLists
+      summary: Базы организации
+      description: С параметром `name` возвращает только базу с таким названием (без учёта регистра и пробелов по краям).
+      parameters:
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
+      responses:
+        '200':
+          description: Список баз (может быть пустым)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags: [Lists]
+      operationId: createList
+      summary: Создать базу
+      description: Название занято, значит 409 и `list_id` существующей базы.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertList'
+      responses:
+        '201':
+          description: База создана
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
     put:
       tags: [Lists]
+      deprecated: true
       operationId: upsertList
-      summary: Найти базу по названию или создать
+      summary: Найти базу по названию или создать (устарел)
       description: |
+        Устарел: используйте `GET /lists?name=` и `POST /lists`.
         Название сравнивается без учёта регистра и пробелов по краям. База, которая собирается из источника
         автоматически, через API не меняется (409).
       requestBody:
@@ -211,12 +318,107 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /lists/{list}/contacts/{email}:
+    put:
+      tags: [Contacts]
+      operationId: putContact
+      summary: Добавить или обновить подписчика (анкета)
+      description: |
+        Каноничный метод: адрес в пути. Тело описывает анкету: базовые поля `name`, `phone`, `city` и необязательные
+        `attributes`. Теги **добавляются** к уже стоящим. Поле `subscribed` меняет согласие; не передано, остаётся
+        прежним. База, которая собирается автоматически, отвечает 409.
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+        - $ref: '#/components/parameters/Email'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactProfile'
+            example:
+              name: Анна Иванова
+              phone: '+79991234567'
+              city: Москва
+              attributes:
+                specialization: Гинеколог
+                company: Клиника «Пример»
+              subscribed: true
+              tags: [shkola-ginekologii, '2026-11-15']
+      responses:
+        '200':
+          description: Подписчик обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResultEnvelope'
+        '201':
+          description: Подписчик создан
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactResultEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    get:
+      tags: [Contacts]
+      operationId: getContact
+      summary: Подписчик базы
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+        - $ref: '#/components/parameters/Email'
+      responses:
+        '200':
+          description: Подписчик
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      tags: [Contacts]
+      operationId: deleteContact
+      summary: Удалить подписчика из базы
+      description: Отправленные подписчику письма остаются в журнале.
+      parameters:
+        - $ref: '#/components/parameters/ListId'
+        - $ref: '#/components/parameters/Email'
+      responses:
+        '204':
+          description: Подписчик удалён
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /lists/{list}/contacts:
     put:
       tags: [Contacts]
+      deprecated: true
       operationId: upsertContact
-      summary: Добавить или обновить подписчика
+      summary: Добавить или обновить подписчика (устарел)
       description: |
+        Устарел: используйте `PUT /lists/{list}/contacts/{email}`.
         Подписчик ищется по email. Теги **добавляются** к уже стоящим и ничего не затирают. Поле `subscribed`
         меняет согласие; если оно не передано, согласие остаётся как было.
       parameters:
@@ -278,46 +480,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BatchResultEnvelope'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-  /lists/{list}/contacts/{email}:
-    get:
-      tags: [Contacts]
-      operationId: getContact
-      summary: Подписчик базы
-      parameters:
-        - $ref: '#/components/parameters/ListId'
-        - $ref: '#/components/parameters/Email'
-      responses:
-        '200':
-          description: Подписчик
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ContactEnvelope'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-    delete:
-      tags: [Contacts]
-      operationId: deleteContact
-      summary: Удалить подписчика из базы
-      description: Отправленные подписчику письма остаются в журнале.
-      parameters:
-        - $ref: '#/components/parameters/ListId'
-        - $ref: '#/components/parameters/Email'
-      responses:
-        '204':
-          description: Подписчик удалён
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -599,6 +761,26 @@ components:
           format: email
         subscribed:
           type: boolean
+    SetContactSubscription:
+      type: object
+      required: [subscribed]
+      properties:
+        subscribed:
+          type: boolean
+    SubscriptionEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Subscription'
+    ListCollection:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/List'
     UpsertList:
       type: object
       required: [name]
@@ -643,29 +825,53 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/List'
-    UpsertContact:
+    ContactProfile:
       type: object
-      required: [email]
+      description: |
+        Анкета подписчика без адреса (адрес в пути). Базовые поля `name`, `phone`, `city`; дополнительные
+        необязательные атрибуты в `attributes`.
       properties:
-        email:
-          type: string
-          format: email
-          maxLength: 255
         name:
           type:
             - string
             - 'null'
           maxLength: 250
-        data:
+          description: Имя подписчика
+        phone:
+          type:
+            - string
+            - 'null'
+          pattern: '^\+?[0-9]{10,15}$'
+          description: |
+            Телефон: от 10 до 15 цифр, можно с ведущим `+`. Пробелы, скобки и дефисы убираются, российские
+            `8…` и `7…` приводятся к `+7…`.
+        city:
+          type:
+            - string
+            - 'null'
+          maxLength: 120
+          description: Город
+        attributes:
           type:
             - object
             - 'null'
           description: |
-            Поля подписчика. Ключ: латиница в нижнем регистре, цифры и `_`, начинается с буквы, до 50 символов.
-            Значение: строка, число, `true/false` или `null`.
+            Дополнительные необязательные атрибуты анкеты. Ключ: латиница в нижнем регистре, цифры и `_`,
+            начинается с буквы, до 50 символов; не больше 50 атрибутов. Значение: строка (до 1000 символов), число,
+            `true/false` или `null`. Базовые поля (`email`, `name`, `phone`, `city`) здесь передавать нельзя.
+            Переданные атрибуты заполняются; не переданные не меняются; значение `null` очищает атрибут.
+            Значения хранятся строками (`true` как `1`, `false` как `0`).
+          additionalProperties: true
+        data:
+          type:
+            - object
+            - 'null'
+          deprecated: true
+          description: Прежнее название `attributes`; принимается как синоним, `attributes` главнее.
           additionalProperties: true
         subscribed:
           type: boolean
+          description: Согласие на рассылки. Не передано, значит остаётся прежним.
         tags:
           type:
             - array
@@ -673,6 +879,17 @@ components:
           description: Теги добавляются к имеющимся
           items:
             $ref: '#/components/schemas/Tag'
+    UpsertContact:
+      description: 'Устаревший вид: анкета с адресом в теле (`PUT /lists/{list}/contacts` и пакетная загрузка).'
+      allOf:
+        - $ref: '#/components/schemas/ContactProfile'
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
     Tag:
       type: string
       maxLength: 120
@@ -702,7 +919,7 @@ components:
           $ref: '#/components/schemas/ContactResult'
     Contact:
       type: object
-      required: [email, name, data, tags, status, created_at, updated_at]
+      required: [email, name, phone, city, attributes, data, tags, status, created_at, updated_at]
       properties:
         email:
           type: string
@@ -711,8 +928,22 @@ components:
           type:
             - string
             - 'null'
+        phone:
+          type:
+            - string
+            - 'null'
+        city:
+          type:
+            - string
+            - 'null'
+        attributes:
+          type: object
+          description: Дополнительные атрибуты анкеты (без `phone` и `city`)
+          additionalProperties: true
         data:
           type: object
+          deprecated: true
+          description: Полный набор полей, включая `phone` и `city`; оставлен для совместимости
           additionalProperties: true
         tags:
           type: array

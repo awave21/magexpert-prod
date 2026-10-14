@@ -58,29 +58,36 @@ it('sends only requests that the contract describes and with valid bodies', func
     $api->send('event-registration', 'anna@example.com', ['first_name' => 'Анна', 'speakers' => [['name' => 'Иван Иванов']]], 'registration-1', 'outbox-uuid-12345');
     $api->setSubscription('anna@example.com', true);
     $listId = $api->ensureList('Пользователи MagExpert', 'Все пользователи сайта');
-    $api->upsertContact($listId, 'Anna@Example.com', 'Анна Иванова', ['city' => 'Москва', 'source' => 'magexpert'], true, ['shkola-ginekologii', '2026-11-15']);
-    $api->upsertContacts($listId, [['email' => 'petr@example.com', 'name' => null, 'data' => ['city' => 'Казань'], 'subscribed' => false]]);
+    $api->upsertContact($listId, 'Anna@Example.com', 'Анна Иванова', ['phone' => '+79991234567', 'city' => 'Москва', 'source' => 'magexpert'], true, ['shkola-ginekologii', '2026-11-15']);
+    $api->upsertContacts($listId, [['email' => 'petr@example.com', 'name' => null, 'data' => ['phone' => '+79990000000', 'city' => 'Казань'], 'subscribed' => false]]);
     $api->deleteContact($listId, 'anna@example.com');
     $api->deleteContactEverywhere('anna@example.com');
 
     expect($this->violations)->toBe([])
         ->and(array_keys($this->used))->toEqualCanonicalizing([
             'POST /messages',
-            'PUT /subscriptions',
-            'PUT /lists',
-            'PUT /lists/{list}/contacts',
+            'PUT /contacts/{email}/subscription',
+            'GET /lists',
+            'PUT /lists/{list}/contacts/{email}',
             'POST /lists/{list}/contacts/batch',
             'DELETE /lists/{list}/contacts/{email}',
             'DELETE /contacts/{email}',
         ]);
+
+    // сайт не пользуется устаревшими методами контракта
+    $deprecated = collect(OpenApi::spec()['paths'])->flatMap(fn (array $operations, string $path) => collect($operations)
+        ->filter(fn (array $operation): bool => ($operation['deprecated'] ?? false) === true)
+        ->keys()->map(fn (string $method): string => strtoupper($method).' '.$path))->all();
+
+    expect(array_intersect(array_keys($this->used), $deprecated))->toBe([]);
 });
 
 it('detects a field that the contract does not allow', function (): void {
-    // страховка самого теста: невалидный адрес в теле запроса должен быть замечен
-    app(SenderApi::class)->setSubscription('not-an-email', true);
+    // страховка самого теста: телефон не по контракту в теле запроса должен быть замечен
+    app(SenderApi::class)->upsertContact(1, 'anna@example.com', null, ['phone' => 'abc'], true);
 
     expect($this->violations)->not->toBe([])
-        ->and($this->violations[0])->toContain('email');
+        ->and($this->violations[0])->toContain('phone');
 });
 
 it('reads the contract responses without losing the fields the site depends on', function (): void {

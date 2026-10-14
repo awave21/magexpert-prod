@@ -186,7 +186,8 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
     }
 
     /**
-     * Контакт для Sender. Только то, что нужно для писем и сегментов: без телефона, пароля, токенов и даты рождения.
+     * Анкета для Sender. Базовые поля: email, name, phone, city; остальное дополнительные атрибуты (писем и сегментов).
+     * Без пароля, токенов и даты рождения.
      *
      * @return array{email: string, name: string|null, data: array<string, string|null>, subscribed: bool}
      */
@@ -198,8 +199,9 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
             'email' => mb_strtolower(trim((string) $user->email)),
             'name' => $value($user->full_name),
             'data' => [
-                'first_name' => $value($user->first_name),
+                'phone' => $value($user->phone),
                 'city' => $value($user->city),
+                'first_name' => $value($user->first_name),
                 'specialization' => $value($user->specialization),
                 'company' => $value($user->company),
                 'position' => $value($user->position),

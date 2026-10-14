@@ -79,6 +79,11 @@ final class OpenApi
     {
         $schema = self::resolve($schema);
         $errors = [];
+
+        foreach ($schema['allOf'] ?? [] as $part) {
+            $errors = [...$errors, ...self::errors($value, $part, $path)];
+        }
+
         $types = (array) ($schema['type'] ?? []);
 
         if ($types !== []) {

@@ -35,6 +35,7 @@ use App\Sender\Http\Middleware\AssignRequestId;
 use App\Sender\Http\Middleware\AuthenticateApiKey;
 use App\Sender\Http\Middleware\AuthenticateUser;
 use App\Sender\Http\Middleware\AuthorizeRole;
+use App\Sender\Http\Middleware\DeprecatedRoute;
 use App\Sender\Http\Middleware\ForceJsonResponse;
 use App\Sender\Http\Middleware\RecordAuditLog;
 use App\Sender\Mcp\Http\AuthenticateMcpToken;
@@ -53,13 +54,17 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
     Route::middleware([AssignRequestId::class, ForceJsonResponse::class, ApiProblemResponse::class, AuthenticateApiKey::class, 'throttle:sender-api'])->group(function (): void {
         Route::post('messages', [MessageController::class, 'store']);
         Route::get('messages/{uuid}', [MessageController::class, 'show']);
-        Route::put('subscriptions', [SubscriptionController::class, 'update']);
+        Route::put('subscriptions', [SubscriptionController::class, 'update'])->middleware(DeprecatedRoute::class);
+        Route::put('contacts/{email}/subscription', [SubscriptionController::class, 'updateForContact']);
         Route::delete('contacts/{email}', [ApiContactController::class, 'destroy']);
 
         // базы и подписчики для внешних систем (например, сайта), которые держат базу в актуальном состоянии
         Route::name('sender.api.')->group(function (): void {
-            Route::put('lists', [ListController::class, 'upsert'])->name('lists.upsert');
-            Route::put('lists/{list}/contacts', [ListContactController::class, 'upsert'])->whereNumber('list')->name('contacts.upsert');
+            Route::get('lists', [ListController::class, 'index'])->name('lists.index');
+            Route::post('lists', [ListController::class, 'store'])->name('lists.store');
+            Route::put('lists', [ListController::class, 'upsert'])->middleware(DeprecatedRoute::class)->name('lists.upsert');
+            Route::put('lists/{list}/contacts/{email}', [ListContactController::class, 'put'])->whereNumber('list')->name('contacts.put');
+            Route::put('lists/{list}/contacts', [ListContactController::class, 'upsert'])->middleware(DeprecatedRoute::class)->whereNumber('list')->name('contacts.upsert');
             Route::post('lists/{list}/contacts/batch', [ListContactController::class, 'batch'])->whereNumber('list')->name('contacts.batch');
             Route::get('lists/{list}/contacts/{email}', [ListContactController::class, 'show'])->whereNumber('list')->name('contacts.show');
             Route::delete('lists/{list}/contacts/{email}', [ListContactController::class, 'destroy'])->whereNumber('list')->name('contacts.destroy');

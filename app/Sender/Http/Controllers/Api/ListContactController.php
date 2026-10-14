@@ -32,6 +32,20 @@ class ListContactController extends Controller
     }
 
     /**
+     * Канонический адрес подписчика: PUT /lists/{list}/contacts/{email}. Создаёт (201 + Location) или обновляет (200).
+     * База, которая собирается автоматически, отвечает 409.
+     */
+    public function put(UpsertContactRequest $request, int $list, string $email): JsonResponse
+    {
+        $model = $this->writableList($request, $list, 409);
+        $result = $this->service->upsert($model, $request->validated());
+
+        return response()->json(['data' => $result], $result['created'] ? 201 : 200, $result['created']
+            ? ['Location' => url("/api/sender/v1/lists/{$list}/contacts/".rawurlencode($result['email']))]
+            : []);
+    }
+
+    /**
      * Корректные строки применяются, ошибочные возвращаются в invalid с номером строки (с нуля) — пакет из-за них не отклоняется.
      */
     public function batch(BatchContactsRequest $request, int $list): JsonResponse
@@ -66,9 +80,16 @@ class ListContactController extends Controller
     {
         $contact = $this->contact($this->list($request, $list), $email);
 
+        $data = (array) ($contact->data ?? []);
+        $base = ['phone', 'city'];
+
         return response()->json(['data' => [
             'email' => $contact->email,
             'name' => $contact->name,
+            'phone' => $data['phone'] ?? null,
+            'city' => $data['city'] ?? null,
+            // дополнительные атрибуты без базовых полей; data оставлено прежним (полный набор) для совместимости
+            'attributes' => array_diff_key($data, array_flip($base)) ?: (object) [],
             'data' => $contact->data ?: (object) [],
             'tags' => $contact->tags ?? [],
             'status' => ContactUpsertService::status($contact),
@@ -99,10 +120,10 @@ class ListContactController extends Controller
         return $model;
     }
 
-    private function writableList(Request $request, int $list): ContactList
+    private function writableList(Request $request, int $list, int $syncedStatus = 422): ContactList
     {
         $model = $this->list($request, $list);
-        abort_if($model->isSynced(), 422, self::SYNCED);
+        abort_if($model->isSynced(), $syncedStatus, self::SYNCED);
 
         return $model;
     }

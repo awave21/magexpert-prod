@@ -71,8 +71,8 @@ it('sets the subscription and removes an address from every base through the con
     $api->deleteContactEverywhere('Anna@Example.com');
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
-        && $request->url() === 'https://sender.test/api/sender/v1/subscriptions'
-        && $request->data() === ['email' => 'anna@example.com', 'subscribed' => false]);
+        && $request->url() === 'https://sender.test/api/sender/v1/contacts/anna%40example.com/subscription'
+        && $request->data() === ['subscribed' => false]);
     Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE'
         && $request->url() === 'https://sender.test/api/sender/v1/contacts/anna%40example.com');
 });
@@ -90,8 +90,51 @@ it('forwards the request id of the current request to Sender', function (): void
     app(SenderApi::class)->setSubscription('anna@example.com', true);
     app(SenderApi::class)->send('welcome', 'anna@example.com', [], null, 'outbox-uuid-12345');
 
-    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/subscriptions')
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/subscription')
         && $request->hasHeader('X-Request-Id', 'site-req-12345678'));
     Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/messages')
         && $request->hasHeader('X-Request-Id', 'outbox-uuid-12345'));
+});
+
+it('finds a list by name and creates it only when it does not exist', function (): void {
+    Http::fake([
+        'sender.test/api/sender/v1/lists?*' => Http::sequence()
+            ->push(['data' => []])
+            ->push(['data' => [['id' => 9, 'name' => 'Пользователи MagExpert']]]),
+        'sender.test/api/sender/v1/lists' => Http::response(['data' => ['id' => 9]], 201),
+    ]);
+
+    $api = app(SenderApi::class);
+
+    expect($api->ensureList('Пользователи MagExpert', 'Описание'))->toBe(9)
+        ->and($api->ensureList('Пользователи MagExpert'))->toBe(9);
+
+    Http::assertSentCount(3);
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+        && $request->url() === 'https://sender.test/api/sender/v1/lists'
+        && $request->data() === ['name' => 'Пользователи MagExpert', 'description' => 'Описание']);
+});
+
+it('takes the list created by a parallel request when the name is already taken', function (): void {
+    Http::fake([
+        'sender.test/api/sender/v1/lists?*' => Http::sequence()
+            ->push(['data' => []])
+            ->push(['data' => [['id' => 5, 'name' => 'Пользователи MagExpert']]]),
+        'sender.test/api/sender/v1/lists' => Http::response(['message' => 'База с таким названием уже есть', 'list_id' => 5], 409),
+    ]);
+
+    expect(app(SenderApi::class)->ensureList('Пользователи MagExpert'))->toBe(5);
+});
+
+it('splits the profile into base fields and attributes', function (): void {
+    Http::fake(['sender.test/*' => Http::response(['data' => ['email' => 'anna@example.com', 'status' => 'subscribed', 'created' => true]], 201)]);
+
+    app(SenderApi::class)->upsertContact(7, 'Anna@Example.com', 'Анна', ['phone' => '+79991234567', 'city' => 'Москва', 'specialization' => 'Гинеколог'], true, ['a']);
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
+        && $request->url() === 'https://sender.test/api/sender/v1/lists/7/contacts/anna%40example.com'
+        && $request->data() === [
+            'name' => 'Анна', 'phone' => '+79991234567', 'city' => 'Москва',
+            'attributes' => ['specialization' => 'Гинеколог'], 'subscribed' => true, 'tags' => ['a'],
+        ]);
 });

@@ -8,6 +8,7 @@ use App\Sender\Models\Organization;
 use App\Sender\Services\ContactUpsertService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 /**
@@ -27,6 +28,41 @@ class ListController extends Controller
         abort_if($list->isSynced(), 409, self::SYNCED);
 
         return response()->json(['data' => self::present($list)], $created ? 201 : 200);
+    }
+
+    /**
+     * Базы организации; с ?name= только база с таким названием (без учёта регистра и пробелов по краям).
+     */
+    public function index(Request $request): JsonResponse
+    {
+        /** @var Organization $organization */
+        $organization = $request->attributes->get('sender_organization');
+        $name = $request->query('name');
+
+        $lists = $organization->lists()->orderBy('id')->get()
+            ->when(is_string($name) && $name !== '', fn ($all) => $all->filter(fn (ContactList $list): bool => mb_strtolower(trim($list->name)) === mb_strtolower(trim($name))))
+            ->values();
+
+        return response()->json(['data' => $lists->map(fn (ContactList $list): array => self::present($list))->all()]);
+    }
+
+    /**
+     * Создаёт базу (201 + Location). Название занято, значит 409 и ID существующей базы в list_id.
+     */
+    public function store(UpsertListRequest $request, ContactUpsertService $service): JsonResponse
+    {
+        /** @var Organization $organization */
+        $organization = $request->attributes->get('sender_organization');
+        [$list, $created] = $service->findOrCreateList($organization, $request->validated('name'), $request->validated('description'));
+
+        if (! $created) {
+            return response()->json([
+                'message' => 'База с таким названием уже есть',
+                'list_id' => $list->id,
+            ], 409);
+        }
+
+        return response()->json(['data' => self::present($list)], 201, ['Location' => url('/api/sender/v1/lists/'.$list->id)]);
     }
 
     /**

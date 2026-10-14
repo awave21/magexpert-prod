@@ -42,19 +42,66 @@ class SenderApi implements ContactSyncClient, SenderClient, SubscriptionClient
         return str_ends_with($url, '/api/sender/v1') ? $url : $url.'/api/sender/v1';
     }
 
+    /**
+     * База по названию: ищется через GET /lists?name=, нет такой, создаётся через POST /lists.
+     * Если её только что создал параллельный запрос (409), берётся она.
+     */
     public function ensureList(string $name, ?string $description = null): int
     {
-        $response = $this->call('put', '/lists', array_filter(['name' => $name, 'description' => $description], fn ($value) => $value !== null));
+        if (($id = $this->findListId($name)) !== null) {
+            return $id;
+        }
 
-        return (int) $response->json('data.id');
+        try {
+            $response = $this->call('post', '/lists', array_filter(['name' => $name, 'description' => $description], fn ($value) => $value !== null));
+
+            return (int) $response->json('data.id');
+        } catch (SenderApiException $exception) {
+            // 409: название уже занято. Это либо параллельно созданная база, либо база, которую Sender собирает сам
+            if ($exception->status === 409 && ($id = $this->findListId($name)) !== null) {
+                return $id;
+            }
+
+            throw $exception;
+        }
+    }
+
+    private function findListId(string $name): ?int
+    {
+        $lists = (array) $this->call('get', '/lists', ['name' => $name])->json('data');
+
+        return isset($lists[0]['id']) ? (int) $lists[0]['id'] : null;
+    }
+
+    /**
+     * Анкета подписчика: базовые поля phone и city из $data уходят отдельными свойствами,
+     * остальное дополнительными атрибутами (attributes).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function profile(?string $name, array $data): array
+    {
+        $profile = ['name' => $name];
+
+        foreach (['phone', 'city'] as $base) {
+            if (array_key_exists($base, $data)) {
+                $profile[$base] = $data[$base];
+                unset($data[$base]);
+            }
+        }
+
+        if ($data !== []) {
+            $profile['attributes'] = $data;
+        }
+
+        return $profile;
     }
 
     public function upsertContact(int $listId, string $email, ?string $name, array $data, bool $subscribed, array $tags = []): string
     {
-        $response = $this->call('put', "/lists/{$listId}/contacts", [
-            'email' => mb_strtolower($email),
-            'name' => $name,
-            'data' => $data,
+        $response = $this->call('put', "/lists/{$listId}/contacts/".rawurlencode(mb_strtolower($email)), [
+            ...$this->profile($name, $data),
             'subscribed' => $subscribed,
             ...($tags === [] ? [] : ['tags' => array_values($tags)]),
         ]);
@@ -64,7 +111,14 @@ class SenderApi implements ContactSyncClient, SenderClient, SubscriptionClient
 
     public function upsertContacts(int $listId, array $contacts): array
     {
-        $data = (array) $this->call('post', "/lists/{$listId}/contacts/batch", ['contacts' => array_values($contacts)], 60)->json('data');
+        $rows = array_map(function (array $contact): array {
+            $profile = $this->profile($contact['name'] ?? null, (array) ($contact['data'] ?? []));
+            unset($contact['name'], $contact['data']);
+
+            return ['email' => mb_strtolower((string) $contact['email']), ...$profile, ...array_diff_key($contact, ['email' => 1])];
+        }, array_values($contacts));
+
+        $data = (array) $this->call('post', "/lists/{$listId}/contacts/batch", ['contacts' => $rows], 60)->json('data');
 
         return [
             'created' => (int) ($data['created'] ?? 0),
@@ -108,7 +162,7 @@ class SenderApi implements ContactSyncClient, SenderClient, SubscriptionClient
 
     public function setSubscription(string $email, bool $subscribed): void
     {
-        $this->call('put', '/subscriptions', ['email' => mb_strtolower($email), 'subscribed' => $subscribed]);
+        $this->call('put', '/contacts/'.rawurlencode(mb_strtolower($email)).'/subscription', ['subscribed' => $subscribed]);
     }
 
     public function deleteContactEverywhere(string $email): void
