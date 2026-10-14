@@ -263,7 +263,10 @@ it('sends a test email from the first verified domain', function (): void {
     $this->withToken($this->token)->postJson(adminApi()."/templates/{$template->id}/test", ['to' => 'me@example.com'])
         ->assertUnprocessable();
 
-    $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'verified_at' => now(), 'dkim_selector' => 'mail']);
+    $domain = $this->organization->domains()->create(['domain' => 'mag-expert.ru', 'verification_token' => 't', 'status' => 'verified', 'verified_at' => now(), 'dkim_selector' => 'mail']);
+    $sender = $this->organization->senderAddresses()->create(['domain_id' => $domain->id, 'email' => 'noreply@mag-expert.ru', 'name' => 'MagExpert']);
+    $sender->forceFill(['confirmed_at' => now()])->save();
+    $template->update(['sender_address_id' => $sender->id]);
 
     $this->withToken($this->token)->postJson(adminApi()."/templates/{$template->id}/test", ['to' => 'Me@Example.com', 'data' => ['name' => 'Анна']])
         ->assertCreated()

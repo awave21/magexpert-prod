@@ -34,8 +34,6 @@ class MessageService
         Organization $organization,
         Template $template,
         string $to,
-        ?string $fromEmail = null,
-        ?string $fromName = null,
         array $data = [],
         ?Campaign $campaign = null,
     ): Message {
@@ -47,7 +45,7 @@ class MessageService
         // а если её в письме нет, она добавляется внизу автоматически (SendMessageJob)
         $data['unsubscribe_url'] = SenderUi::url('unsubscribe/'.$uuid);
 
-        [$fromEmail, $fromName, $domain, $sender] = $this->sender($organization, $template, $fromEmail, $fromName);
+        [$fromEmail, $fromName, $domain, $sender] = $this->sender($organization, $template);
 
         $message = $organization->messages()->make([
             'uuid' => $uuid,
@@ -91,8 +89,8 @@ class MessageService
     /**
      * Письмо с просьбой подтвердить подписку. Текст собирается в коде (SubscriptionConfirmationLetter),
      * письмо попадает в журнал и уходит через очередь рассылок, без учёта открытий и переходов.
-     * Отправитель — подтверждённый адрес организации на подтверждённом домене, иначе noreply@ её домена,
-     * иначе общий адрес Sender. Адрес в блок-листе (в том числе отписавшийся) письмо не получит.
+     * Отправитель — подтверждённый адрес организации на подтверждённом домене, иначе noreply@ её домена.
+     * Нет подтверждённого домена — письмо блокируется. Адрес в блок-листе (в том числе отписавшийся) письмо не получит.
      */
     public function sendSubscriptionConfirmation(Organization $organization, Contact $contact): Message
     {
@@ -119,6 +117,12 @@ class MessageService
             'status' => Message::STATUS_QUEUED,
             'data' => $data,
         ]);
+
+        if ($fromEmail === '') {
+            $message->fill(['status' => Message::STATUS_BLOCKED, 'error' => 'Нет подтверждённого домена: письмо с подтверждением подписки отправить не с чего'])->save();
+
+            return $message;
+        }
 
         $suppressed = Suppression::query()->where('organization_id', $organization->id)->where('email', $to)->value('reason');
 
@@ -155,7 +159,7 @@ class MessageService
             return ['noreply@'.$verified->first()->domain, $organization->name, $verified->first()];
         }
 
-        return [Str::lower((string) config('sender.client.from_address')), (string) config('sender.client.from_name') ?: $organization->name, null];
+        return ['', null, null];
     }
 
     /**
@@ -177,7 +181,7 @@ class MessageService
         $template = $campaign->template;
         $defaults = $this->defaults($organization);
 
-        [$fromEmail, $fromName, $domain, $sender] = $this->sender($organization, $template, null, null);
+        [$fromEmail, $fromName, $domain, $sender] = $this->sender($organization, $template);
         $senderReason = $this->senderBlockReason($domain, $fromEmail, $sender);
 
         $suppressed = Suppression::query()
@@ -325,15 +329,16 @@ class MessageService
     }
 
     /**
-     * Настройки отправителя в шаблоне главнее значений из запроса: приложению достаточно передать шаблон.
+     * Отправитель письма определяется только шаблоном: приложению достаточно передать шаблон.
+     * Нет адреса в шаблоне, значит письмо блокируется (senderBlockReason), запасного адреса нет.
      *
      * @return array{0: string, 1: string|null, 2: Domain|null, 3: SenderAddress|null}
      */
-    private function sender(Organization $organization, Template $template, ?string $fromEmail, ?string $fromName): array
+    private function sender(Organization $organization, Template $template): array
     {
         $sender = $template->senderAddress;
-        $fromEmail = Str::lower(trim((string) ($sender?->email ?: $fromEmail)));
-        $fromName = $sender?->name ?: $fromName;
+        $fromEmail = Str::lower(trim((string) $sender?->email));
+        $fromName = $sender?->name;
 
         $domain = $organization->domains()
             ->where('domain', Str::after($fromEmail, '@'))
@@ -345,7 +350,7 @@ class MessageService
     private function senderBlockReason(?Domain $domain, string $fromEmail, ?SenderAddress $sender): ?string
     {
         if ($fromEmail === '') {
-            return 'Не указан адрес отправителя: задайте его в настройках шаблона';
+            return 'У шаблона не задан адрес отправителя: укажите его в настройках шаблона';
         }
 
         if ($sender !== null && ! $sender->isConfirmed()) {

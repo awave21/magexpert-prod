@@ -127,8 +127,6 @@ class TemplateController extends Controller
             $organization,
             $model,
             $request->string('to')->toString(),
-            'noreply@'.$domain->domain,
-            $organization->name,
             (array) $request->validated('data', []),
         );
 

@@ -29,8 +29,6 @@ class MessageController extends Controller
             $organization,
             $template,
             $request->string('to')->toString(),
-            $request->input('from'),
-            $request->input('from_name'),
             $request->input('data', []),
         );
 

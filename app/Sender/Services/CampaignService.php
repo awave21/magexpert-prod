@@ -378,8 +378,6 @@ class CampaignService
             $campaign->organization,
             $campaign->template,
             $to,
-            $domain !== null ? 'noreply@'.$domain->domain : null,
-            $campaign->organization->name,
             [...$data, 'campaign_test' => true, 'unsubscribe_url' => SenderUi::url('unsubscribe/'.Str::uuid())],
         );
     }

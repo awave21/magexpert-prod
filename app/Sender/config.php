@@ -24,8 +24,9 @@ return [
         'organization' => env('SENDER_ORGANIZATION', 'magexpert'),
         'url' => env('SENDER_API_URL'),
         'api_key' => env('SENDER_API_KEY'),
-        'from_address' => env('SENDER_FROM_ADDRESS', 'noreply@mag-expert.ru'),
-        'from_name' => env('SENDER_FROM_NAME', 'МедАльянсГрупп Expert'),
+        // отправитель служебных писем задаётся в шаблоне Sender; этот адрес — только для системного письма подтверждения адреса
+        'system_from_address' => env('SENDER_SYSTEM_FROM_ADDRESS', 'noreply@mag-expert.ru'),
+        'system_from_name' => env('SENDER_SYSTEM_FROM_NAME', 'Sender'),
         // какой шаблон отправлять для каждого письма сайта: ключ шаблона (алиас) или его ID из Sender
         'templates' => [
             'welcome' => env('SENDER_TEMPLATE_WELCOME', 'welcome'),

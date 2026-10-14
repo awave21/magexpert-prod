@@ -143,9 +143,7 @@ class SenderMailService
             $result = $this->client->send(
                 $template,
                 $to,
-                (string) config('sender.client.from_address'),
-                config('sender.client.from_name'),
-                $data,
+                data: $data,
             );
         } catch (Throwable $exception) {
             Log::error('Sender: не удалось отправить письмо', [

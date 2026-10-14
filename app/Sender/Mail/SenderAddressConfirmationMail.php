@@ -14,7 +14,7 @@ class SenderAddressConfirmationMail extends Mailable
 
     public function build(): self
     {
-        return $this->from((string) config('sender.client.from_address'), 'Sender')
+        return $this->from((string) config('sender.client.system_from_address'), (string) config('sender.client.system_from_name'))
             ->subject('Подтвердите адрес отправителя '.$this->address->email)
             ->html($this->letter);
     }

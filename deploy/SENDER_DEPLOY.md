@@ -33,8 +33,8 @@ npm --prefix sender-ui ci && npm --prefix sender-ui run build
 SENDER_DB_DATABASE=magexpert_sender
 SENDER_CLIENT_DRIVER=local
 SENDER_ORGANIZATION=magexpert
-SENDER_FROM_ADDRESS=noreply@mag-expert.ru
-SENDER_FROM_NAME="МедАльянсГрупп Expert"
+SENDER_SYSTEM_FROM_ADDRESS=noreply@mag-expert.ru
+SENDER_SYSTEM_FROM_NAME="МедАльянсГрупп Expert"
 SENDER_SERVER_IP=62.217.181.42
 SENDER_MAIL_HOST=mail.mag-expert.ru
 ```

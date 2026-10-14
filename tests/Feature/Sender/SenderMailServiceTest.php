@@ -15,9 +15,9 @@ beforeEach(function (): void {
         /** @var list<string> */
         public array $rejected = [];
 
-        public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+        public function send(string $template, string $to, array $data = []): array
         {
-            $this->calls[] = compact('template', 'to', 'from', 'fromName', 'data');
+            $this->calls[] = compact('template', 'to', 'data');
 
             return ['id' => 'abc', 'status' => in_array($template, $this->rejected, true) ? 'failed' : $this->status, 'error' => null];
         }
@@ -39,8 +39,7 @@ it('sends a password reset link without a password', function (): void {
             'user_email' => 'user@example.com',
             'reset_url' => 'https://mag-expert.ru/reset-password/token',
             'expires_in' => 60,
-        ])
-        ->and($this->client->calls[0]['from'])->toBe(config('sender.client.from_address'));
+        ]);
 });
 
 it('sends an api registration email', function (): void {
@@ -92,7 +91,7 @@ it('returns false when the sender rejects the message', function (): void {
 it('returns false instead of throwing when the client fails', function (): void {
     $service = new SenderMailService(new class implements SenderClient
     {
-        public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+        public function send(string $template, string $to, array $data = []): array
         {
             throw new RuntimeException('Sender недоступен');
         }

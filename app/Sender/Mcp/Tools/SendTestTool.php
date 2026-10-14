@@ -75,8 +75,6 @@ class SendTestTool implements Tool
             $ctx->organization,
             $template,
             $ctx->user->email,
-            'noreply@'.$domain->domain,
-            $ctx->organization->name,
             $this->variables->sampleData($ctx->organization, is_array($args['data'] ?? null) ? $args['data'] : []),
         );
 

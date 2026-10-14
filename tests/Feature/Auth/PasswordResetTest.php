@@ -145,7 +145,7 @@ test('письмо со ссылкой уходит через Sender по св�
     {
         public array $calls = [];
 
-        public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+        public function send(string $template, string $to, array $data = []): array
         {
             $this->calls[] = compact('template', 'to', 'data');
 

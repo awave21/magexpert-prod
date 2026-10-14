@@ -23,7 +23,7 @@ class HttpSenderClient implements SenderClient, SubscriptionClient
             ->throw();
     }
 
-    public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+    public function send(string $template, string $to, array $data = []): array
     {
         $response = Http::withToken((string) config('sender.client.api_key'))
             ->acceptJson()
@@ -31,8 +31,6 @@ class HttpSenderClient implements SenderClient, SubscriptionClient
             ->post(rtrim((string) config('sender.client.url'), '/').'/api/sender/v1/messages', [
                 'template' => $template,
                 'to' => $to,
-                'from' => $from,
-                'from_name' => $fromName,
                 'data' => $data,
             ]);
 

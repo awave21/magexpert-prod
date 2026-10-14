@@ -11,7 +11,7 @@ test('new users can register and get a welcome email', function () {
     {
         public array $calls = [];
 
-        public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+        public function send(string $template, string $to, array $data = []): array
         {
             $this->calls[] = compact('template', 'to', 'data');
 
@@ -42,7 +42,7 @@ test('new users can register and get a welcome email', function () {
 test('registration completes even if the welcome email fails', function () {
     $this->app->instance(App\Sender\Contracts\SenderClient::class, new class implements App\Sender\Contracts\SenderClient
     {
-        public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+        public function send(string $template, string $to, array $data = []): array
         {
             throw new RuntimeException("Шаблон Sender 'welcome' не найден");
         }

@@ -24,12 +24,20 @@ beforeEach(function (): void {
         'dkim_selector' => 'mail',
     ]);
 
+    $this->senderAddress = $this->organization->senderAddresses()->create([
+        'domain_id' => $this->domain->id,
+        'email' => 'noreply@mag-expert.ru',
+        'name' => 'МедАльянсГрупп Expert',
+    ]);
+    $this->senderAddress->forceFill(['confirmed_at' => now()])->save();
+
     $this->template = $this->organization->templates()->create([
         'slug' => 'event-registration',
         'name' => 'Регистрация на мероприятие',
         'subject' => 'Вы записаны: {{ event }}',
         'body_html' => '<p>Здравствуйте, {{ name }}!</p>',
         'body_text' => 'Здравствуйте, {{ name }}!',
+        'sender_address_id' => $this->senderAddress->id,
     ]);
 });
 
@@ -66,7 +74,7 @@ it('queues a message from a verified domain', function (): void {
     Queue::fake();
 
     $message = app(MessageService::class)->send(
-        $this->organization, $this->template, 'User@Example.com', 'noreply@mag-expert.ru', 'MagExpert',
+        $this->organization, $this->template, 'User@Example.com',
         ['name' => 'Анна', 'event' => 'Вебинар'],
     );
 
@@ -82,7 +90,7 @@ it('blocks a message from an unverified domain', function (): void {
     $this->domain->update(['status' => Domain::STATUS_PENDING]);
 
     $message = app(MessageService::class)->send(
-        $this->organization, $this->template, 'user@example.com', 'noreply@mag-expert.ru',
+        $this->organization, $this->template, 'user@example.com',
     );
 
     expect($message->status)->toBe(Message::STATUS_BLOCKED)
@@ -91,15 +99,44 @@ it('blocks a message from an unverified domain', function (): void {
     Queue::assertNothingPushed();
 });
 
-it('blocks a message from an unknown domain', function (): void {
+it('takes the sender from the template', function (): void {
     Queue::fake();
 
-    $message = app(MessageService::class)->send(
-        $this->organization, $this->template, 'user@example.com', 'noreply@other.ru',
-    );
+    $message = app(MessageService::class)->send($this->organization, $this->template, 'user@example.com');
+
+    expect($message->status)->toBe(Message::STATUS_QUEUED)
+        ->and($message->from_email)->toBe('noreply@mag-expert.ru')
+        ->and($message->from_name)->toBe('МедАльянсГрупп Expert');
+});
+
+it('blocks a message when the template has no sender address', function (): void {
+    Queue::fake();
+    $this->template->update(['sender_address_id' => null]);
+
+    $message = app(MessageService::class)->send($this->organization, $this->template->refresh(), 'user@example.com');
 
     expect($message->status)->toBe(Message::STATUS_BLOCKED)
-        ->and($message->domain_id)->toBeNull();
+        ->and($message->error)->toContain('не задан адрес отправителя');
+
+    Queue::assertNothingPushed();
+});
+
+it('ignores from and from_name sent through the api', function (): void {
+    Queue::fake();
+    $key = (new ApiKeyService)->create($this->organization, 'MagExpert app')['plain'];
+
+    $this->withToken($key)->postJson('/api/sender/v1/messages', [
+        'template' => 'event-registration',
+        'to' => 'user@example.com',
+        'from' => 'evil@other.ru',
+        'from_name' => 'Evil',
+        'data' => ['name' => 'Анна', 'event' => 'Вебинар', 'from' => 'evil@other.ru'],
+    ])->assertAccepted();
+
+    $message = $this->organization->messages()->latest('id')->first();
+
+    expect($message->from_email)->toBe('noreply@mag-expert.ru')
+        ->and($message->from_name)->toBe('МедАльянсГрупп Expert');
 });
 
 it('blocks a message to a suppressed address', function (): void {
@@ -111,7 +148,7 @@ it('blocks a message to a suppressed address', function (): void {
     ]);
 
     $message = app(MessageService::class)->send(
-        $this->organization, $this->template, 'user@example.com', 'noreply@mag-expert.ru',
+        $this->organization, $this->template, 'user@example.com',
     );
 
     expect($message->status)->toBe(Message::STATUS_BLOCKED)
@@ -208,7 +245,7 @@ it('still sends service mail to an address that unsubscribed from campaigns', fu
     ]);
 
     $message = app(MessageService::class)->send(
-        $this->organization, $this->template, 'user@example.com', 'noreply@mag-expert.ru',
+        $this->organization, $this->template, 'user@example.com',
     );
 
     expect($message->status)->toBe(Message::STATUS_QUEUED);

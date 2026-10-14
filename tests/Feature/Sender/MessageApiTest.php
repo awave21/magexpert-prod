@@ -11,18 +11,22 @@ beforeEach(function (): void {
 
     $this->organization = Organization::create(['name' => 'MagExpert', 'slug' => 'magexpert']);
 
-    $this->organization->domains()->create([
+    $domain = $this->organization->domains()->create([
         'domain' => 'mag-expert.ru',
         'verification_token' => 'token',
         'status' => Domain::STATUS_VERIFIED,
         'dkim_selector' => 'mail',
     ]);
 
+    $sender = $this->organization->senderAddresses()->create(['domain_id' => $domain->id, 'email' => 'noreply@mag-expert.ru', 'name' => 'MagExpert']);
+    $sender->forceFill(['confirmed_at' => now()])->save();
+
     $this->organization->templates()->create([
         'slug' => 'welcome',
         'name' => 'Приветствие',
         'subject' => 'Добро пожаловать, {{ name }}',
         'body_html' => '<p>Привет, {{ name }}</p>',
+        'sender_address_id' => $sender->id,
     ]);
 
     $this->key = (new ApiKeyService)->create($this->organization, 'tests')['plain'];
@@ -30,7 +34,6 @@ beforeEach(function (): void {
     $this->payload = [
         'template' => 'welcome',
         'to' => 'user@example.com',
-        'from' => 'noreply@mag-expert.ru',
         'data' => ['name' => 'Анна'],
     ];
 });
@@ -72,13 +75,27 @@ it('returns 404 for an unknown template', function (): void {
         ->assertNotFound();
 });
 
-it('returns 422 when the sender domain is not allowed', function (): void {
+it('returns 422 when the template has no sender address', function (): void {
+    Queue::fake();
+    $this->organization->templates()->where('slug', 'welcome')->update(['sender_address_id' => null]);
+
+    $this->withToken($this->key)
+        ->postJson('/api/sender/v1/messages', $this->payload)
+        ->assertUnprocessable()
+        ->assertJsonPath('status', 'blocked');
+});
+
+it('ignores the sender passed in the request', function (): void {
     Queue::fake();
 
     $this->withToken($this->key)
-        ->postJson('/api/sender/v1/messages', [...$this->payload, 'from' => 'noreply@other.ru'])
-        ->assertUnprocessable()
-        ->assertJsonPath('status', 'blocked');
+        ->postJson('/api/sender/v1/messages', [...$this->payload, 'from' => 'evil@other.ru', 'from_name' => 'Evil'])
+        ->assertAccepted();
+
+    $message = $this->organization->messages()->latest('id')->first();
+
+    expect($message->from_email)->toBe('noreply@mag-expert.ru')
+        ->and($message->from_name)->toBe('MagExpert');
 });
 
 it('does not show messages of another organization', function (): void {

@@ -20,7 +20,7 @@ class LocalSenderClient implements SenderClient, SubscriptionClient
         private readonly SubscriptionService $subscriptions,
     ) {}
 
-    public function send(string $template, string $to, string $from, ?string $fromName = null, array $data = []): array
+    public function send(string $template, string $to, array $data = []): array
     {
         $organization = $this->organization();
 
@@ -30,7 +30,7 @@ class LocalSenderClient implements SenderClient, SubscriptionClient
             throw new RuntimeException("Шаблон Sender '{$template}' не найден");
         }
 
-        $message = $this->messages->send($organization, $templateModel, $to, $from, $fromName, $data);
+        $message = $this->messages->send($organization, $templateModel, $to, $data);
 
         return $this->payload($message);
     }
