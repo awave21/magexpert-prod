@@ -5,16 +5,15 @@ namespace App\Providers;
 use App\Jobs\SyncUserToBitrix24;
 use App\Jobs\SyncUserToSender;
 use App\Models\User;
-use App\Sender\Client\HttpContactSyncClient;
-use App\Sender\Contracts\SubscriptionClient;
-use App\Sender\Events\RecipientUnsubscribed;
-use App\Sender\Services\SubscriberSources;
 use App\Services\Assistant\DemoLibraryAssistant;
 use App\Services\Assistant\LibraryAssistant;
 use App\Services\Assistant\RagLibraryAssistant;
 use App\Services\Assistant\UnavailableLibraryAssistant;
-use App\Services\NewsletterConsentWithdrawal;
-use App\Services\NewsletterSubscribers;
+use App\Services\Sender\ContactSyncClient;
+use App\Services\Sender\LogContactSyncClient;
+use App\Services\Sender\SenderApi;
+use App\Services\Sender\SenderClient;
+use App\Services\Sender\SubscriptionClient;
 use App\Services\VkIdProvider;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -32,8 +31,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // база «Пользователи сайта» в Sender
-        $this->app->tag([NewsletterSubscribers::class], SubscriberSources::TAG);
+        // Sender: письма, согласие на рассылку и базы только через публичный API (docs/sender-api.openapi.yaml)
+        $this->app->bind(SenderClient::class, SenderApi::class);
+        $this->app->bind(SubscriptionClient::class, SenderApi::class);
+        // без адреса и ключа API база пользователей лишь пишет в лог, ничего не отправляя
+        $this->app->bind(ContactSyncClient::class, fn () => SenderApi::configured()
+            ? app(SenderApi::class)
+            : app(LogContactSyncClient::class));
 
         // ИИ-помощник кабинета: rag — поиск по документам библиотеки, demo — тестовые ответы (не в продакшене)
         $this->app->bind(LibraryAssistant::class, fn (): LibraryAssistant => match (true) {
@@ -60,19 +64,11 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Галочка «Письма о мероприятиях» и отписка в Sender — одно и то же согласие:
-     * отписка по ссылке из письма снимает галочку, а переключение галочки сообщается в Sender.
+     * Галочка «Письма о мероприятиях» и отписка в Sender — одно и то же согласие: переключение галочки
+     * сообщается в Sender через API, а отписка по ссылке из письма приходит вебхуком (SenderWebhookController).
      */
     private function syncNewsletterConsentWithSender(): void
     {
-        Event::listen(function (RecipientUnsubscribed $event): void {
-            if ($event->organizationSlug !== config('sender.client.organization')) {
-                return;
-            }
-
-            app(NewsletterConsentWithdrawal::class)->withdraw($event->email);
-        });
-
         User::updated(function (User $user): void {
             if (! $user->wasChanged('newsletter_consent') || blank($user->email)) {
                 return;
@@ -140,11 +136,11 @@ class AppServiceProvider extends ServiceProvider
      */
     private function usersSyncEnabled(): bool
     {
-        if (! config('sender.client.users_sync')) {
+        if (! config('services.sender.users_sync')) {
             return false;
         }
 
-        if (HttpContactSyncClient::configured()) {
+        if (SenderApi::configured()) {
             return true;
         }
 

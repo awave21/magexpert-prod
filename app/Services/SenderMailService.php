@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\User;
-use App\Sender\Contracts\SenderClient;
+use App\Services\Sender\SenderClient;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -66,14 +66,25 @@ class SenderMailService
         $custom = trim((string) $event->letter_draft_id);
 
         if ($custom !== '') {
-            if ($this->send($custom, $user->email, $data)) {
+            if ($this->send($custom, $user->email, $data, $this->registrationKey($event, $user, $custom))) {
                 return true;
             }
 
             Log::warning('Sender: шаблон мероприятия не принят, отправляем стандартное письмо', ['event_id' => $event->id, 'template' => $custom]);
         }
 
-        return $this->send($this->template('event_registration'), $user->email, $data);
+        $template = $this->template('event_registration');
+
+        return $this->send($template, $user->email, $data, $this->registrationKey($event, $user, $template));
+    }
+
+    /**
+     * Ключ идемпотентности письма о регистрации: повтор запроса (обрыв сети, повтор задачи) не отправит второе письмо.
+     * Ключ суточный: осознанная повторная регистрация на другой день письмо получит.
+     */
+    private function registrationKey(Event $event, User $user, string $template): string
+    {
+        return 'event-registration:'.$event->id.':'.$user->id.':'.$template.':'.now()->format('Y-m-d');
     }
 
     /**
@@ -134,19 +145,20 @@ class SenderMailService
      */
     private function template(string $email): string
     {
-        return (string) config('sender.client.templates.'.$email);
+        return (string) config('services.sender.templates.'.$email);
     }
 
     /**
      * @param  array<string, mixed>  $data
      */
-    private function send(string $template, string $to, array $data): bool
+    private function send(string $template, string $to, array $data, ?string $idempotencyKey = null): bool
     {
         try {
             $result = $this->client->send(
                 $template,
                 $to,
                 data: $data,
+                idempotencyKey: $idempotencyKey,
             );
         } catch (Throwable $exception) {
             Log::error('Sender: не удалось отправить письмо', [

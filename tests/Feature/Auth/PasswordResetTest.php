@@ -2,7 +2,7 @@
 
 use App\Models\User;
 use App\Notifications\ResetPasswordLink;
-use App\Sender\Contracts\SenderClient;
+use App\Services\Sender\SenderClient;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 
@@ -145,7 +145,7 @@ test('письмо со ссылкой уходит через Sender по св�
     {
         public array $calls = [];
 
-        public function send(string $template, string $to, array $data = []): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
         {
             $this->calls[] = compact('template', 'to', 'data');
 

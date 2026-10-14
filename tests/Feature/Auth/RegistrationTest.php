@@ -7,18 +7,18 @@ test('registration screen can be rendered', function () {
 });
 
 test('new users can register and get a welcome email', function () {
-    $client = new class implements App\Sender\Contracts\SenderClient
+    $client = new class implements App\Services\Sender\SenderClient
     {
         public array $calls = [];
 
-        public function send(string $template, string $to, array $data = []): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
         {
             $this->calls[] = compact('template', 'to', 'data');
 
             return ['id' => 'x', 'status' => 'queued', 'error' => null];
         }
     };
-    $this->app->instance(App\Sender\Contracts\SenderClient::class, $client);
+    $this->app->instance(App\Services\Sender\SenderClient::class, $client);
 
     $response = $this->post('/register', [
         'first_name' => 'Анна',
@@ -40,9 +40,9 @@ test('new users can register and get a welcome email', function () {
 });
 
 test('registration completes even if the welcome email fails', function () {
-    $this->app->instance(App\Sender\Contracts\SenderClient::class, new class implements App\Sender\Contracts\SenderClient
+    $this->app->instance(App\Services\Sender\SenderClient::class, new class implements App\Services\Sender\SenderClient
     {
-        public function send(string $template, string $to, array $data = []): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
         {
             throw new RuntimeException("Шаблон Sender 'welcome' не найден");
         }

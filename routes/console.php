@@ -2,7 +2,7 @@
 
 use App\Models\AssistantQuestion;
 use App\Models\LibraryDocumentOpen;
-use App\Sender\Client\HttpContactSyncClient;
+use App\Services\Sender\SenderApi;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -20,4 +20,4 @@ Schedule::command('sender:sync-users')
     ->dailyAt('03:30')
     ->withoutOverlapping()
     ->onOneServer()
-    ->when(fn (): bool => (bool) config('sender.client.users_sync') && HttpContactSyncClient::configured());
+    ->when(fn (): bool => (bool) config('services.sender.users_sync') && SenderApi::configured());

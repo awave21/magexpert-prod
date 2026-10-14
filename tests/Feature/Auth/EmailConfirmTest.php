@@ -1,15 +1,15 @@
 <?php
 
 use App\Models\User;
-use App\Sender\Contracts\SenderClient;
 use App\Services\EmailConfirmation;
+use App\Services\Sender\SenderClient;
 
 beforeEach(function (): void {
     $this->sent = new class implements SenderClient
     {
         public array $calls = [];
 
-        public function send(string $template, string $to, array $data = []): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
         {
             $this->calls[] = compact('template', 'to', 'data');
 

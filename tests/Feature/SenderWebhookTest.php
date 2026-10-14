@@ -15,7 +15,7 @@ function senderWebhook(array $payload, ?string $secret = 'topsecret', ?string $s
 }
 
 beforeEach(function (): void {
-    config(['services.sender.webhook_secret' => 'topsecret', 'sender.client.users_sync' => false]);
+    config(['services.sender.webhook_secret' => 'topsecret', 'services.sender.users_sync' => false]);
 });
 
 it('withdraws the newsletter consent when Sender reports an unsubscribe', function (): void {

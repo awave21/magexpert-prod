@@ -2,7 +2,7 @@
 
 use App\Models\Event;
 use App\Models\User;
-use App\Sender\Contracts\SenderClient;
+use App\Services\Sender\SenderClient;
 use App\Services\SenderMailService;
 
 beforeEach(function (): void {
@@ -15,9 +15,9 @@ beforeEach(function (): void {
         /** @var list<string> */
         public array $rejected = [];
 
-        public function send(string $template, string $to, array $data = []): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
         {
-            $this->calls[] = compact('template', 'to', 'data');
+            $this->calls[] = compact('template', 'to', 'data', 'idempotencyKey');
 
             return ['id' => 'abc', 'status' => in_array($template, $this->rejected, true) ? 'failed' : $this->status, 'error' => null];
         }
@@ -91,7 +91,7 @@ it('returns false when the sender rejects the message', function (): void {
 it('returns false instead of throwing when the client fails', function (): void {
     $service = new SenderMailService(new class implements SenderClient
     {
-        public function send(string $template, string $to, array $data = []): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
         {
             throw new RuntimeException('Sender недоступен');
         }
@@ -110,7 +110,7 @@ it('sends a welcome email after sign-up without a password', function (): void {
 });
 
 it('uses the template id or alias from the config', function (): void {
-    config(['sender.client.templates.welcome' => '42']);
+    config(['services.sender.templates.welcome' => '42']);
 
     $this->service->sendWelcomeEmail(new User(['first_name' => 'Анна', 'email' => 'a@b.ru']));
 
@@ -216,4 +216,16 @@ it('sends the event letter by its own template id or alias and falls back to the
 
     expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue()
         ->and(array_column($this->client->calls, 'template'))->toBe(['event-registration']);
+});
+
+it('sends the registration letter with a daily idempotency key', function (): void {
+    $event = Event::make(['title' => 'Школа', 'slug' => 'school', 'format' => 'online', 'is_archived' => false, 'is_paid' => false, 'show_price' => false]);
+    $event->id = 63;
+    $event->setRelation('speakers', collect());
+    $user = User::make(['first_name' => 'Анна', 'email' => 'anna@example.com']);
+    $user->id = 7;
+
+    $this->service->sendEventRegistrationEmail($event, $user);
+
+    expect($this->client->calls[0]['idempotencyKey'])->toBe('event-registration:63:7:event-registration:'.now()->format('Y-m-d'));
 });

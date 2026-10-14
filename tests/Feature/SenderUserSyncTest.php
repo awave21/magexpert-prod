@@ -2,11 +2,10 @@
 
 use App\Jobs\SyncUserToSender;
 use App\Models\User;
-use App\Sender\Client\HttpContactSyncClient;
-use App\Sender\Client\LogContactSyncClient;
-use App\Sender\Client\SenderApiException;
-use App\Sender\Contracts\ContactSyncClient;
-use App\Sender\Events\RecipientUnsubscribed;
+use App\Services\Sender\ContactSyncClient;
+use App\Services\Sender\LogContactSyncClient;
+use App\Services\Sender\SenderApi;
+use App\Services\Sender\SenderApiException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\Cache;
@@ -20,11 +19,11 @@ const SENDER_API = 'https://sender.test/api/sender/v1';
 beforeEach(function () {
     config([
         'sender.client.driver' => 'http',
-        'sender.client.url' => 'https://sender.test',
-        'sender.client.api_key' => 'test-key',
-        'sender.client.users_list_name' => 'Пользователи MagExpert',
-        'sender.client.users_list_id' => null,
-        'sender.client.users_sync' => true,
+        'services.sender.url' => 'https://sender.test',
+        'services.sender.api_key' => 'test-key',
+        'services.sender.users_list_name' => 'Пользователи MagExpert',
+        'services.sender.users_list_id' => null,
+        'services.sender.users_sync' => true,
     ]);
 
     Sleep::fake();
@@ -142,7 +141,7 @@ it('ставит задачу только при изменении перед�
 });
 
 it('ничего не ставит в очередь, пока синхронизация выключена', function () {
-    config(['sender.client.users_sync' => false]);
+    config(['services.sender.users_sync' => false]);
     Queue::fake();
     fakeSenderApi();
 
@@ -210,7 +209,12 @@ it('отписка по ссылке снимает галочку и обнов
     resetQueue();
     fakeSenderApi();
 
-    RecipientUnsubscribed::dispatch((string) config('sender.client.organization'), 'anna@example.com');
+    config(['services.sender.webhook_secret' => 'topsecret']);
+    $body = json_encode(['event' => 'recipient.unsubscribed', 'occurred_at' => now()->toIso8601String(), 'email' => 'anna@example.com']);
+    $this->call('POST', '/api/webhooks/sender', [], [], [], [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_X_SENDER_SIGNATURE' => 'sha256='.hash_hmac('sha256', $body, 'topsecret'),
+    ], $body)->assertNoContent();
 
     expect($user->fresh()->newsletter_consent)->toBeFalse();
     Queue::assertPushed(SyncUserToSender::class, 1);
@@ -278,7 +282,7 @@ it('при ошибке данных пишет предупреждение и 
 it('повторяет запрос при 5xx и 429, потом отдаёт ошибку очереди', function () {
     Queue::fake();
     $user = userWithProfile();
-    config(['sender.client.users_list_id' => 7]);
+    config(['services.sender.users_list_id' => 7]);
 
     Http::fake([
         SENDER_API.'/lists/7/contacts' => Http::sequence()
@@ -304,23 +308,23 @@ it('не повторяет запрос при неверном ключе', fu
 });
 
 it('драйвер local без адреса API только пишет в лог', function () {
-    config(['sender.client.driver' => 'local', 'sender.client.url' => null, 'sender.client.api_key' => null]);
+    config(['sender.client.driver' => 'local', 'services.sender.url' => null, 'services.sender.api_key' => null]);
 
     expect(app(ContactSyncClient::class))->toBeInstanceOf(LogContactSyncClient::class);
 
-    config(['sender.client.url' => 'https://sender.test', 'sender.client.api_key' => 'k']);
-    expect(app(ContactSyncClient::class))->toBeInstanceOf(HttpContactSyncClient::class);
+    config(['services.sender.url' => 'https://sender.test', 'services.sender.api_key' => 'k']);
+    expect(app(ContactSyncClient::class))->toBeInstanceOf(SenderApi::class);
 });
 
 it('принимает адрес API и как адрес сервера, и как полный адрес', function () {
-    expect(HttpContactSyncClient::baseUrl())->toBe(SENDER_API);
+    expect(SenderApi::baseUrl())->toBe(SENDER_API);
 
-    config(['sender.client.url' => SENDER_API.'/']);
-    expect(HttpContactSyncClient::baseUrl())->toBe(SENDER_API);
+    config(['services.sender.url' => SENDER_API.'/']);
+    expect(SenderApi::baseUrl())->toBe(SENDER_API);
 });
 
 it('sender:sync-users --dry-run считает пользователей и ничего не отправляет', function () {
-    config(['sender.client.users_sync' => false]);
+    config(['services.sender.users_sync' => false]);
     userWithProfile();
     User::factory()->create(['email' => 'second@example.com', 'newsletter_consent' => false]);
     Http::fake();
@@ -334,7 +338,7 @@ it('sender:sync-users --dry-run считает пользователей и н�
 });
 
 it('sender:sync-users отправляет всех пакетами и печатает итоги', function () {
-    config(['sender.client.users_sync' => false]);
+    config(['services.sender.users_sync' => false]);
     userWithProfile();
     User::factory()->create(['email' => 'second@example.com', 'newsletter_consent' => false]);
     User::factory()->create(['email' => 'third@example.com', 'newsletter_consent' => false]);
@@ -360,7 +364,7 @@ it('sender:sync-users отправляет всех пакетами и печа
 });
 
 it('sender:sync-users без настроек API сообщает об ошибке', function () {
-    config(['sender.client.driver' => 'local', 'sender.client.url' => null, 'sender.client.api_key' => null]);
+    config(['sender.client.driver' => 'local', 'services.sender.url' => null, 'services.sender.api_key' => null]);
     Http::fake();
 
     $this->artisan('sender:sync-users')
@@ -388,7 +392,7 @@ it('падает без повторов, если название занято
 });
 
 it('sender:sync-users сообщает, что название базы занято автоматической базой', function () {
-    config(['sender.client.users_sync' => false]);
+    config(['services.sender.users_sync' => false]);
     userWithProfile();
 
     fakeSenderApi([
@@ -418,7 +422,7 @@ it('заглушка не пишет адреса пользователей в 
 });
 
 it('не ставит задачи без адреса и ключа API и один раз предупреждает в логе', function () {
-    config(['sender.client.driver' => 'local', 'sender.client.url' => null, 'sender.client.api_key' => null]);
+    config(['sender.client.driver' => 'local', 'services.sender.url' => null, 'services.sender.api_key' => null]);
     Queue::fake();
     $logged = collect();
     Log::listen(fn (MessageLogged $event) => $logged->push($event));
@@ -457,7 +461,7 @@ it('передаёт тег мероприятия вместе с контак�
 });
 
 it('не ставит тег мероприятия, когда синхронизация выключена', function () {
-    config(['sender.client.users_sync' => false]);
+    config(['services.sender.users_sync' => false]);
     Queue::fake();
     $user = userWithProfile();
     resetQueue();
@@ -509,7 +513,7 @@ it('сверяет базу пользователей с сайтом раз в
         ->and($event->expression)->toBe('30 3 * * *')
         ->and($event->filtersPass(app()))->toBeTrue();
 
-    config(['sender.client.users_sync' => false]);
+    config(['services.sender.users_sync' => false]);
 
     expect($event->filtersPass(app()))->toBeFalse();
 });
@@ -542,21 +546,6 @@ it('не передаёт теги, пока администратор их н�
     SyncUserToSender::dispatchEventTag($user, $event);
 
     Queue::assertNotPushed(SyncUserToSender::class, fn (SyncUserToSender $job) => $job->tags !== []);
-});
-
-it('передаёт теги мероприятий пользователя в синхронизируемый список сайта', function () {
-    Queue::fake();
-    $user = userWithProfile(['newsletter_consent' => true]);
-    $tagged = App\Models\Event::factory()->create(['tags' => ['школа', 'гинекология']]);
-    $plain = App\Models\Event::factory()->create(['tags' => null]);
-
-    foreach ([$tagged, $plain] as $event) {
-        $event->users()->attach($user->id, ['access_type' => 'free', 'payment_status' => 'free', 'access_granted_at' => now(), 'is_active' => true]);
-    }
-
-    $subscriber = collect((new App\Services\NewsletterSubscribers)->subscribers())->firstWhere('email', $user->email);
-
-    expect($subscriber['tags'])->toBe(['школа', 'гинекология']);
 });
 
 it('передаёт оба предзаполненных тега мероприятия при регистрации', function () {

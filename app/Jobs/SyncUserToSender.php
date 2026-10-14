@@ -4,10 +4,10 @@ namespace App\Jobs;
 
 use App\Models\Event;
 use App\Models\User;
-use App\Sender\Client\HttpContactSyncClient;
-use App\Sender\Client\SenderApiException;
-use App\Sender\Contracts\ContactSyncClient;
-use App\Sender\Models\Contact;
+use App\Services\Sender\ContactSyncClient;
+use App\Services\Sender\SenderApi;
+use App\Services\Sender\SenderApiException;
+use App\Support\EventTags;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -152,7 +152,7 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
      */
     public static function eventTags(Event $event): array
     {
-        return Contact::normalizeTags((array) $event->tags);
+        return EventTags::normalize((array) $event->tags);
     }
 
     /**
@@ -162,7 +162,7 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
      */
     public static function dispatchEventTag(User $user, Event $event): void
     {
-        if (! config('sender.client.users_sync') || ! HttpContactSyncClient::configured() || ! self::syncable($user)) {
+        if (! config('services.sender.users_sync') || ! SenderApi::configured() || ! self::syncable($user)) {
             return;
         }
 
@@ -225,7 +225,7 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
      */
     public static function resolveListId(ContactSyncClient $client): int
     {
-        $configured = (int) config('sender.client.users_list_id');
+        $configured = (int) config('services.sender.users_list_id');
 
         if ($configured > 0) {
             return $configured;
@@ -237,7 +237,7 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
             return $cached;
         }
 
-        $listId = $client->ensureList((string) config('sender.client.users_list_name'), self::LIST_DESCRIPTION);
+        $listId = $client->ensureList((string) config('services.sender.users_list_name'), self::LIST_DESCRIPTION);
 
         if ($listId > 0) {
             Cache::forever(self::listCacheKey(), $listId);
@@ -256,6 +256,6 @@ class SyncUserToSender implements ShouldBeUniqueUntilProcessing, ShouldQueue
      */
     public static function listCacheKey(): string
     {
-        return 'sender.users_list_id.'.md5(config('sender.client.url').'|'.config('sender.client.users_list_name'));
+        return 'sender.users_list_id.'.md5(config('services.sender.url').'|'.config('services.sender.users_list_name'));
     }
 }

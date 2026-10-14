@@ -59,9 +59,25 @@ return [
     ],
 
     // ИИ-помощник в кабинете: rag — поиск по документам библиотеки; demo — тестовые ответы (в продакшене не включается)
+    // Sender: сайт работает с ним только через публичный API (docs/sender-api.openapi.yaml)
     'sender' => [
+        'url' => env('SENDER_API_URL'),
+        'api_key' => env('SENDER_API_KEY'),
         // секрет вебхука Sender: им подписано тело событий отписки и жалоб
         'webhook_secret' => env('SENDER_WEBHOOK_SECRET'),
+        // база «Пользователи MagExpert»: сайт держит её в актуальном виде через API
+        'users_sync' => (bool) env('SENDER_USERS_SYNC', false),
+        'users_list_name' => env('SENDER_USERS_LIST_NAME', 'Пользователи MagExpert'),
+        'users_list_id' => env('SENDER_USERS_LIST_ID'),
+        // какой шаблон отправлять для каждого письма сайта: ключ (алиас) шаблона или его ID в Sender
+        'templates' => [
+            'welcome' => env('SENDER_TEMPLATE_WELCOME', 'welcome'),
+            'email_confirmation' => env('SENDER_TEMPLATE_EMAIL_CONFIRMATION', 'email-confirmation'),
+            'password_reset' => env('SENDER_TEMPLATE_PASSWORD_RESET', 'password-reset'),
+            'password_reset_link' => env('SENDER_TEMPLATE_PASSWORD_RESET_LINK', 'password-reset-link'),
+            'event_registration' => env('SENDER_TEMPLATE_EVENT_REGISTRATION', 'event-registration'),
+            'api_registration' => env('SENDER_TEMPLATE_API_REGISTRATION', 'api-registration'),
+        ],
     ],
 
     'assistant' => [

@@ -4,9 +4,9 @@ namespace App\Console\Commands;
 
 use App\Jobs\SyncUserToSender;
 use App\Models\User;
-use App\Sender\Client\HttpContactSyncClient;
-use App\Sender\Client\SenderApiException;
-use App\Sender\Contracts\ContactSyncClient;
+use App\Services\Sender\ContactSyncClient;
+use App\Services\Sender\SenderApi;
+use App\Services\Sender\SenderApiException;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -34,14 +34,14 @@ class SenderSyncUsers extends Command
         }
 
         $total = $this->users()->count();
-        $listName = (string) config('sender.client.users_list_name');
+        $listName = (string) config('services.sender.users_list_name');
 
         if ($this->option('dry-run')) {
             return $this->dryRun($total, $listName, $chunk);
         }
 
-        if (! $client instanceof HttpContactSyncClient || ! HttpContactSyncClient::configured()) {
-            $this->error('Sender API не настроен: укажите SENDER_CLIENT_DRIVER=http, SENDER_API_URL и SENDER_API_KEY. База пользователей обновляется только через API Sender.');
+        if (! $client instanceof SenderApi || ! SenderApi::configured()) {
+            $this->error('Sender API не настроен: укажите SENDER_API_URL и SENDER_API_KEY. База пользователей обновляется только через API Sender.');
 
             return self::FAILURE;
         }

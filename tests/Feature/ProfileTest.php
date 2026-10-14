@@ -81,17 +81,16 @@ test('deleting the account anonymizes the user instead of erasing their records'
 });
 
 test('deleting the account removes the address from sender bases', function () {
-    $this->migrateSenderDatabase();
-    config(['sender.client.organization' => 'magexpert']);
-    $organization = App\Sender\Models\Organization::create(['name' => 'MagExpert', 'slug' => 'magexpert']);
-    $list = $organization->lists()->create(['name' => 'Врачи']);
-    $list->contacts()->create(['organization_id' => $organization->id, 'email' => 'anna@example.com']);
-    $list->contacts()->create(['organization_id' => $organization->id, 'email' => 'other@example.com']);
+    config(['services.sender.url' => 'https://sender.test', 'services.sender.api_key' => 'test-key']);
+    Illuminate\Support\Facades\Http::fake(['sender.test/*' => Illuminate\Support\Facades\Http::response(null, 204)]);
 
     $user = User::factory()->create(['email' => 'Anna@Example.com']);
     $this->actingAs($user)->delete('/profile', ['password' => 'password'])->assertRedirect('/');
 
-    expect($list->contacts()->pluck('email')->all())->toBe(['other@example.com']);
+    // адрес уходит в Sender одним запросом контракта: DELETE /contacts/{email}
+    Illuminate\Support\Facades\Http::assertSent(fn (Illuminate\Http\Client\Request $request): bool => $request->method() === 'DELETE'
+        && $request->url() === 'https://sender.test/api/sender/v1/contacts/anna%40example.com'
+        && $request->hasHeader('Authorization', 'Bearer test-key'));
 });
 
 test('correct password must be provided to delete account', function () {

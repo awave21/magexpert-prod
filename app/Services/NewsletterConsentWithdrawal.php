@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\SyncUserToSender;
 use App\Models\User;
+use App\Services\Sender\SenderApi;
 
 /**
  * Человек отписался от рассылок (по ссылке из письма или пожаловался на спам): снимаем галочку
@@ -24,7 +25,7 @@ class NewsletterConsentWithdrawal
         $users->update(['newsletter_consent' => false, 'newsletter_withdrawn_at' => now()]);
 
         // база «Пользователи MagExpert» узнаёт об отписке через API; отписку по ссылке это не вызывает повторно
-        if (config('sender.client.users_sync') && filled(config('sender.client.url')) && filled(config('sender.client.api_key'))) {
+        if (config('services.sender.users_sync') && SenderApi::configured()) {
             $userIds->each(fn (int $id) => SyncUserToSender::dispatch($id, $email));
         }
     }

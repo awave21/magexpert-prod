@@ -2,7 +2,7 @@
 
 use App\Models\SocialAccount;
 use App\Models\User;
-use App\Sender\Contracts\SenderClient;
+use App\Services\Sender\SenderClient;
 use App\Services\SocialAccounts;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
@@ -14,7 +14,7 @@ beforeEach(function (): void {
     {
         public array $calls = [];
 
-        public function send(string $template, string $to, array $data = []): array
+        public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
         {
             $this->calls[] = compact('template', 'to');
 

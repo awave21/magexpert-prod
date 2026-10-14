@@ -236,9 +236,9 @@ class Event extends Model
         $tag = mb_strtolower(trim((string) $value));
         $tag = (string) preg_replace('/[^\p{L}\p{N} _.:,\-()\/+]/u', '-', $tag);
         $tag = (string) preg_replace('/^[^\p{L}\p{N}]+/u', '', $tag);
-        $tag = rtrim(mb_substr($tag, 0, \App\Sender\Models\Contact::TAG_MAX_LENGTH));
+        $tag = rtrim(mb_substr($tag, 0, \App\Support\EventTags::MAX_LENGTH));
 
-        return preg_match(\App\Sender\Models\Contact::TAG_PATTERN, $tag) === 1 ? $tag : null;
+        return preg_match(\App\Support\EventTags::PATTERN, $tag) === 1 ? $tag : null;
     }
 
     /**

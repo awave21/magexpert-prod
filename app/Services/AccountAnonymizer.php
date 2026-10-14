@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Sender\Models\Organization;
+use App\Services\Sender\SenderApi;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -58,12 +58,7 @@ class AccountAnonymizer
     private function forgetInSender(string $email): void
     {
         try {
-            Organization::query()
-                ->where('slug', config('sender.client.organization'))
-                ->first()
-                ?->contacts()
-                ->where('email', $email)
-                ->delete();
+            app(SenderApi::class)->deleteContactEverywhere($email);
         } catch (Throwable $exception) {
             Log::warning('Sender: не удалось убрать адрес удалённого аккаунта из баз', ['error' => $exception->getMessage()]);
         }
