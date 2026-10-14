@@ -155,6 +155,11 @@ it('posts signed events to webhooks that want them', function (): void {
         return $request->url() === 'https://hooks.example.com/all'
             && $request->header('X-Sender-Event')[0] === 'message.delivered'
             && $request->header('X-Sender-Signature')[0] === 'sha256='.hash_hmac('sha256', $body, 'secret-1')
+            // подпись со временем и id события: получатель отбрасывает перехваченные и повторные запросы
+            && $request->header('X-Sender-Signature-V2')[0] === 'sha256='.hash_hmac('sha256', $request->header('X-Sender-Timestamp')[0].'.'.$body, 'secret-1')
+            && abs(time() - (int) $request->header('X-Sender-Timestamp')[0]) < 5
+            && $request->header('X-Sender-Event-Id')[0] === $request['id']
+            && Str::isUuid($request['id'])
             && $request['message']['id'] === $message->uuid;
     });
     expect($all->fresh()->last_status)->toBe(200);

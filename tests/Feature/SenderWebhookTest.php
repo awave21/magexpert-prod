@@ -2,15 +2,18 @@
 
 use App\Models\User;
 
-function senderWebhook(array $payload, ?string $secret = 'topsecret', ?string $signature = null)
+function senderWebhook(array $payload, ?string $secret = 'topsecret', ?string $signature = null, ?int $timestamp = null)
 {
+    $payload += ['id' => (string) Illuminate\Support\Str::uuid()];
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE);
-    $signature ??= 'sha256='.hash_hmac('sha256', $body, (string) $secret);
+    $timestamp ??= time();
+    $signature ??= 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, (string) $secret);
 
     return test()->call('POST', '/api/webhooks/sender', [], [], [], [
         'CONTENT_TYPE' => 'application/json',
         'HTTP_ACCEPT' => 'application/json',
-        'HTTP_X_SENDER_SIGNATURE' => $signature,
+        'HTTP_X_SENDER_TIMESTAMP' => (string) $timestamp,
+        'HTTP_X_SENDER_SIGNATURE_V2' => $signature,
     ], $body);
 }
 
@@ -57,6 +60,30 @@ it('rejects a wrong or missing signature and an unset secret', function (): void
 
     config(['services.sender.webhook_secret' => null]);
     senderWebhook($payload, secret: '')->assertUnauthorized();
+
+    expect($user->fresh()->newsletter_consent)->toBeTrue();
+});
+
+it('rejects a request whose timestamp is too old even with a valid signature', function (): void {
+    $user = User::factory()->create(['email' => 'anna@example.com', 'newsletter_consent' => true]);
+
+    senderWebhook(['event' => 'recipient.unsubscribed', 'email' => 'anna@example.com'], timestamp: time() - 3600)
+        ->assertUnauthorized();
+
+    expect($user->fresh()->newsletter_consent)->toBeTrue();
+});
+
+it('processes an event with the same id only once', function (): void {
+    $user = User::factory()->create(['email' => 'anna@example.com', 'newsletter_consent' => true]);
+    $payload = ['id' => 'evt-1', 'event' => 'recipient.unsubscribed', 'email' => 'anna@example.com'];
+
+    senderWebhook($payload)->assertNoContent();
+    expect($user->fresh()->newsletter_consent)->toBeFalse();
+
+    // человек снова согласился; проигранный запрос с тем же id не должен снять согласие заново
+    User::query()->whereKey($user->id)->update(['newsletter_consent' => true]);
+
+    senderWebhook($payload)->assertNoContent();
 
     expect($user->fresh()->newsletter_consent)->toBeTrue();
 });

@@ -210,10 +210,12 @@ it('отписка по ссылке снимает галочку и обнов
     fakeSenderApi();
 
     config(['services.sender.webhook_secret' => 'topsecret']);
-    $body = json_encode(['event' => 'recipient.unsubscribed', 'occurred_at' => now()->toIso8601String(), 'email' => 'anna@example.com']);
+    $body = json_encode(['id' => 'evt-sync-1', 'event' => 'recipient.unsubscribed', 'occurred_at' => now()->toIso8601String(), 'email' => 'anna@example.com']);
+    $timestamp = time();
     $this->call('POST', '/api/webhooks/sender', [], [], [], [
         'CONTENT_TYPE' => 'application/json',
-        'HTTP_X_SENDER_SIGNATURE' => 'sha256='.hash_hmac('sha256', $body, 'topsecret'),
+        'HTTP_X_SENDER_TIMESTAMP' => (string) $timestamp,
+        'HTTP_X_SENDER_SIGNATURE_V2' => 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, 'topsecret'),
     ], $body)->assertNoContent();
 
     expect($user->fresh()->newsletter_consent)->toBeFalse();

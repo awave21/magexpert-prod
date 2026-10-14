@@ -330,9 +330,18 @@ webhooks:
       operationId: webhookRecipientUnsubscribed
       summary: Адрес отписался от рассылок
       description: |
-        Sender отправляет событие на адрес вебхука, заданный в разделе «Вебхуки». Тело подписано HMAC-SHA256
-        секретом вебхука: заголовок `X-Sender-Signature: sha256=<hex>`. Заголовок `X-Sender-Event` содержит
-        название события. Сайт отвечает 2xx; ответ 401 означает неверную подпись.
+        Sender отправляет событие на адрес вебхука, заданный в разделе «Вебхуки». Заголовки запроса:
+
+        - `X-Sender-Event`: название события;
+        - `X-Sender-Event-Id`: идентификатор события, один на все повторные доставки (совпадает с полем `id` тела);
+        - `X-Sender-Timestamp`: время отправки, секунды Unix;
+        - `X-Sender-Signature-V2: sha256=<hex>`: HMAC-SHA256 секретом вебхука от строки `{timestamp}.{тело}`;
+        - `X-Sender-Signature: sha256=<hex>`: прежняя подпись только тела (оставлена для совместимости, для новых
+          получателей не рекомендуется).
+
+        Получатель обязан проверить подпись V2, отклонить запрос, если время старше 5 минут, и не обрабатывать
+        повторно событие с уже виденным `id`. Ответ 2xx подтверждает приём; иначе Sender повторяет доставку
+        через 1, 5, 15 и 60 минут.
       requestBody:
         required: true
         content:
@@ -433,8 +442,12 @@ components:
   schemas:
     UnsubscribedEvent:
       type: object
-      required: [event, occurred_at, email]
+      required: [id, event, occurred_at, email]
       properties:
+        id:
+          type: string
+          format: uuid
+          description: Идентификатор события; один на все повторные доставки
         event:
           type: string
           enum: [recipient.unsubscribed]
@@ -450,8 +463,12 @@ components:
             - 'null'
     ComplainedEvent:
       type: object
-      required: [event, occurred_at, message]
+      required: [id, event, occurred_at, message]
       properties:
+        id:
+          type: string
+          format: uuid
+          description: Идентификатор события; один на все повторные доставки
         event:
           type: string
           enum: [message.complained]

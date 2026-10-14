@@ -14,7 +14,9 @@ use RuntimeException;
 use Throwable;
 
 /**
- * POST события на вебхук. Заголовок X-Sender-Signature: sha256=HMAC тела секретом вебхука.
+ * POST события на вебхук. Заголовки:
+ * X-Sender-Event, X-Sender-Event-Id (один на все повторы), X-Sender-Timestamp,
+ * X-Sender-Signature-V2: sha256=HMAC("{timestamp}.{тело}") и прежний X-Sender-Signature: sha256=HMAC(тело).
  * Ответ не 2xx — повтор через 1, 5, 15 и 60 минут.
  */
 class SendWebhookJob implements ShouldQueue
@@ -54,12 +56,16 @@ class SendWebhookJob implements ShouldQueue
         }
 
         $body = (string) json_encode($this->payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $timestamp = time();
 
         try {
             $response = Http::timeout(10)
                 ->withoutRedirecting()
                 ->withHeaders([
                     'X-Sender-Event' => (string) $this->payload['event'],
+                    'X-Sender-Event-Id' => (string) ($this->payload['id'] ?? ''),
+                    'X-Sender-Timestamp' => (string) $timestamp,
+                    'X-Sender-Signature-V2' => $webhooks->signatureV2($body, $webhook->secret, $timestamp),
                     'X-Sender-Signature' => $webhooks->signature($body, $webhook->secret),
                 ])
                 ->withBody($body, 'application/json')
