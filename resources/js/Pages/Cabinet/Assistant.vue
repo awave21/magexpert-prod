@@ -37,9 +37,14 @@ const canAsk = computed(() => props.available);
 const trimmed = computed(() => question.value.trim());
 const canSend = computed(() => canAsk.value && !pending.value && trimmed.value.length >= 3 && trimmed.value.length <= MAX_LENGTH);
 
+// на десктопе переписка прокручивается внутри окна чата, на телефоне и планшете — вместе со страницей
 const scrollDown = async () => {
     await nextTick();
-    scroller.value?.scrollTo({ top: scroller.value.scrollHeight, behavior: 'smooth' });
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+        scroller.value?.scrollTo({ top: scroller.value.scrollHeight, behavior: 'smooth' });
+    } else {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    }
 };
 
 const resize = () => {
@@ -88,8 +93,9 @@ const ask = async (text) => {
         Object.assign(messages.value[messages.value.length - 1], { status: 'error', text: errorText(error) });
     } finally {
         pending.value = false;
+        // фокус без прокрутки: иначе браузер прерывает плавную прокрутку к ответу
+        input.value?.focus({ preventScroll: true });
         scrollDown();
-        input.value?.focus();
     }
 };
 
@@ -140,11 +146,13 @@ const onKeydown = (event) => {
             </button>
         </header>
 
-        <!-- Чат -->
-        <section class="cab-panel flex h-[calc(100dvh-140px)] min-h-[560px] flex-col overflow-hidden lg:h-[calc(100vh-250px)]">
-            <div ref="scroller" class="flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8">
+        <!-- Чат: на десктопе окно своей высоты с прокруткой внутри; на телефоне и планшете без вложенной прокрутки —
+             переписка растёт вместе со страницей, поле вопроса прилипает к низу над нижним меню -->
+        <!-- на телефоне окно чата на всю ширину экрана: без боковых отступов страницы и рамки -->
+        <section class="cab-panel -mx-4 flex flex-col !rounded-none border-x-0 sm:mx-0 sm:!rounded-[26px] sm:border-x lg:h-[calc(100vh-250px)] lg:overflow-hidden">
+            <div ref="scroller" class="px-4 py-6 sm:px-8 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
                 <!-- Пустое состояние -->
-                <div v-if="!messages.length" class="mx-auto flex min-h-full max-w-[720px] flex-col items-center justify-center gap-7 py-6 text-center">
+                <div v-if="!messages.length" class="mx-auto flex min-h-[40vh] max-w-[720px] lg:min-h-full flex-col items-center justify-center gap-7 py-6 text-center">
                     <span class="relative flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-brandblue to-brandblue-dark text-white shadow-[0_14px_30px_-14px_#3f6596]">
                         <SparklesIcon class="h-8 w-8" aria-hidden="true" />
                     </span>
@@ -215,7 +223,7 @@ const onKeydown = (event) => {
             </div>
 
             <!-- Поле вопроса -->
-            <div class="border-t border-gray-100 bg-white/80 px-4 pb-4 pt-3 sm:px-8 dark:border-gray-700 dark:bg-gray-800/80">
+            <div class="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 border-t sm:rounded-b-[26px] border-gray-100 bg-white/95 px-4 pb-4 pt-3 backdrop-blur sm:px-8 lg:static lg:rounded-none lg:bg-white/80 lg:backdrop-blur-none dark:border-gray-700 dark:bg-gray-800/95 lg:dark:bg-gray-800/80">
                 <form class="mx-auto flex max-w-[760px] flex-col gap-2" @submit.prevent="ask()">
                     <label for="assistant-question" class="sr-only">Ваш вопрос</label>
                     <div

@@ -17,8 +17,18 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
-// подтверждать телефон предлагаем, только когда Яндекс действительно отдаёт номер
-const phoneCheck = computed(() => (page.props.phoneProviders ?? []).includes('yandex'));
+// подтверждать телефон предлагаем, только когда провайдер действительно отдаёт номер (доступ к телефону включён у Яндекса или VK ID);
+// через VK ID подтверждают и Одноклассники, и Mail.ru
+const phoneProviders = computed(() => page.props.phoneProviders ?? []);
+const phoneCheck = computed(() => phoneProviders.value.length > 0);
+const phoneWays = computed(() => [
+    ...(phoneProviders.value.includes('yandex') ? [{ key: 'yandex', label: 'Яндекс ID', badge: 'Я', color: 'bg-[#FC3F1D]', href: route('social.link', 'yandex') }] : []),
+    ...(phoneProviders.value.includes('vkid') ? [
+        { key: 'vk', label: 'ВКонтакте', badge: 'VK', color: 'bg-[#0077FF]', href: route('social.link', { provider: 'vkid', via: 'vkid' }) },
+        { key: 'ok', label: 'Одноклассники', badge: 'ОК', color: 'bg-[#EE8208]', href: route('social.link', { provider: 'vkid', via: 'ok_ru' }) },
+        { key: 'mail', label: 'Mail.ru', badge: '@', color: 'bg-[#005FF9]', href: route('social.link', { provider: 'vkid', via: 'mail_ru' }) },
+    ] : []),
+]);
 // итог последней попытки подтверждения (приходит один раз после возврата с Яндекса)
 const phoneResult = computed(() => page.props.flash?.phone_result ?? null);
 const moving = ref(false);
@@ -51,12 +61,8 @@ const doneCount = computed(() => 1 + Number(props.setup.email_verified) + Number
 const setupDone = computed(() => doneCount.value === totalSteps.value);
 
 // По умолчанию «Доступно»; «Предстоящие» — только если доступного пока нет, а предстоящее есть.
-const tab = ref(props.available.length || !props.upcoming.length ? 'available' : 'upcoming');
-const tabs = [
-    { key: 'available', label: 'Доступно' },
-    { key: 'upcoming', label: 'Предстоящие' },
-];
-const shown = computed(() => (tab.value === 'upcoming' ? props.upcoming : props.available));
+// без деления на «Доступно» и «Предстоящие»: сначала ближайшие, потом прошедшие; дата видна на карточке
+const shown = computed(() => [...props.upcoming, ...props.available].slice(0, 6));
 
 const libQuery = ref('');
 const searchLibrary = () => {
@@ -167,10 +173,20 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                             <span class="flex min-w-0 flex-[1_1_160px] flex-col">
                                 <span class="font-bold">Подтвердите телефон</span>
                                 <span v-if="phoneResult && !phoneResult.ok" class="text-[13px] font-semibold" :class="phoneResult.move ? 'text-gray-800 dark:text-gray-100' : 'text-[#b4361c]'" role="alert">{{ phoneResult.text }}</span>
-                                <span v-else class="text-[13px] text-gray-500">Номером из Яндекс ID, без СМС. Откроется Яндекс и сразу вернёт сюда</span>
+                                <span v-else class="text-[13px] text-gray-500">Номером из аккаунта, без СМС. Выберите, где у вас указан телефон: сервис откроется и сразу вернёт сюда</span>
                             </span>
                             <button v-if="phoneResult?.move" type="button" class="cab-btn !min-h-10 !px-4 !text-[13px]" :disabled="moving" @click="moveHere">{{ moving ? 'Переносим…' : 'Перенести сюда и подтвердить' }}</button>
-                            <a v-else :href="route('social.link', 'yandex')" class="cab-btn !min-h-10 !px-4 !text-[13px]">Подтвердить</a>
+                            <div v-else class="flex w-full flex-wrap gap-2" role="group" aria-label="Подтвердить телефон через">
+                                <a
+                                    v-for="way in phoneWays"
+                                    :key="way.key"
+                                    :href="way.href"
+                                    class="cab-btn-ghost !min-h-10 !gap-2 !px-3.5 !text-[13px]"
+                                >
+                                    <span class="grid h-5 w-5 shrink-0 place-items-center rounded-md text-[10px] font-bold text-white" :class="way.color" aria-hidden="true">{{ way.badge }}</span>
+                                    {{ way.label }}
+                                </a>
+                            </div>
                         </div>
                         <div v-if="!setup.profile_filled" class="cab-panel flex flex-wrap items-center gap-3.5 !rounded-3xl p-4">
                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brandblue-soft text-brandblue-dark"><UserIcon class="h-6 w-6" aria-hidden="true" /></span>
@@ -190,24 +206,12 @@ const year = (date) => (date ? String(date).slice(0, 4) : '');
                             <span class="cab-eyebrow">Доступ</span>
                             <h2 id="events-title" class="font-display text-[30px] font-medium leading-9">Мои доступы</h2>
                         </div>
-                        <div role="tablist" aria-label="Мои доступы" class="inline-flex gap-1 rounded-full border border-gray-200 bg-white p-1.5 dark:border-gray-700 dark:bg-gray-900">
-                            <button
-                                v-for="t in tabs"
-                                :key="t.key"
-                                type="button"
-                                role="tab"
-                                :aria-selected="tab === t.key ? 'true' : 'false'"
-                                class="cab-focus min-h-11 rounded-full px-5 text-[15px] font-bold transition"
-                                :class="tab === t.key ? 'bg-brandblue text-white' : 'text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-800'"
-                                @click="tab = t.key"
-                            >{{ t.label }}</button>
-                        </div>
                     </div>
                     <div v-if="shown.length" class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-5 gap-y-6">
                         <EventCard v-for="event in shown" :key="event.id" :event="event" />
                     </div>
                     <div v-else class="cab-panel flex flex-col items-center gap-3 p-8 text-center">
-                        <span class="font-display text-[22px] font-medium">{{ tab === 'available' ? 'Пока ничего нет' : 'Предстоящих мероприятий нет' }}</span>
+                        <span class="font-display text-[22px] font-medium">Пока ничего нет</span>
                         <span class="text-sm text-gray-500">Выберите мероприятие в каталоге — после регистрации или оплаты оно появится здесь.</span>
                         <Link :href="route('events.index', { filter: 'all' })" class="cab-btn">Открыть каталог</Link>
                     </div>

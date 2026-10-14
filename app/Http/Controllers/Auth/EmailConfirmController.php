@@ -9,19 +9,24 @@ use App\Services\SenderMailService;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * Подтверждение email по ссылке из письма «Добро пожаловать» и повторная отправка ссылки из кабинета.
  */
 class EmailConfirmController extends Controller
 {
-    public function confirm(Request $request, int $id, string $hash, EmailConfirmation $confirmation): RedirectResponse
+    /**
+     * Переход по ссылке из письма: адрес подтверждается и показывается страница «Почта подтверждена».
+     * Входить на сайт для этого не нужно.
+     */
+    public function confirm(Request $request, int $id, string $hash, EmailConfirmation $confirmation): Response
     {
-        $target = $request->user() ? route('dashboard') : route('login');
         $user = User::query()->find($id);
 
         if ($user === null || ! $request->hasValidSignature() || ! $confirmation->matches($user, $hash)) {
-            return redirect($target)->with('error', 'Ссылка подтверждения устарела или неверна. Отправьте новую из личного кабинета.');
+            return Inertia::render('Auth/EmailConfirmed', ['confirmed' => false]);
         }
 
         if (! $user->hasVerifiedEmail()) {
@@ -29,7 +34,7 @@ class EmailConfirmController extends Controller
             event(new Verified($user));
         }
 
-        return redirect($target)->with('message', $request->user() ? 'Email подтверждён. Спасибо!' : 'Email подтверждён. Войдите в аккаунт.');
+        return Inertia::render('Auth/EmailConfirmed', ['confirmed' => true]);
     }
 
     public function resend(Request $request, SenderMailService $mail): RedirectResponse

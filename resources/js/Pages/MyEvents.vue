@@ -11,25 +11,14 @@ const props = defineProps({
 
 const live = computed(() => props.events.find((event) => event.is_live));
 
-// «Доступно»: идущий эфир и всё прошедшее (сначала с записью, внутри — от новых к старым). «Предстоящие»: ещё не начавшиеся.
-const byDateDesc = (a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '');
-const groups = computed(() => ({
-    available: [
-        ...props.events.filter((event) => event.is_live),
-        ...props.events.filter((event) => event.is_past && event.has_recording).sort(byDateDesc),
-        ...props.events.filter((event) => event.is_past && !event.has_recording).sort(byDateDesc),
-    ],
-    upcoming: props.events
-        .filter((event) => !event.is_past && !event.is_live)
-        .sort((a, b) => `${a.start_date ?? '9999'} ${a.start_time ?? ''}`.localeCompare(`${b.start_date ?? '9999'} ${b.start_time ?? ''}`)),
-}));
-
-// По умолчанию «Доступно»; «Предстоящие» — только если доступного пока нет, а предстоящее есть.
-const tabs = [
-    { key: 'available', label: 'Доступно' },
-    { key: 'upcoming', label: 'Предстоящие' },
-];
-const tab = ref(groups.value.available.length || !groups.value.upcoming.length ? 'available' : 'upcoming');
+// Всё сразу, без деления на «Доступно» и «Предстоящие»: идущий эфир, затем ближайшие, затем прошедшие (от новых к старым).
+// Когда было или будет — видно по дате на карточке.
+const startsAt = (event) => `${event.start_date ?? '9999-12-31'} ${event.start_time ?? ''}`;
+const ordered = computed(() => [
+    ...props.events.filter((event) => event.is_live),
+    ...props.events.filter((event) => !event.is_past && !event.is_live).sort((a, b) => startsAt(a).localeCompare(startsAt(b))),
+    ...props.events.filter((event) => event.is_past && !event.is_live).sort((a, b) => startsAt(b).localeCompare(startsAt(a))),
+]);
 
 const chips = [
     { key: 'all', label: 'Все' },
@@ -38,7 +27,17 @@ const chips = [
 ];
 const chip = ref('all');
 
-const shown = computed(() => groups.value[tab.value].filter((event) => {
+// типы мероприятий (вебинары, мастер-классы, конференции…): фильтр показываем, только если у пользователя их больше одного
+const PLURAL = { 'Вебинар': 'Вебинары', 'Конференция': 'Конференции', 'Курс': 'Курсы', 'Мастер-класс': 'Мастер-классы', 'Семинар': 'Семинары', 'Мероприятие': 'Другие' };
+const types = computed(() => {
+    const counts = new Map();
+    props.events.forEach((event) => event.type && counts.set(event.type, (counts.get(event.type) ?? 0) + 1));
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([type, count]) => ({ key: type, label: PLURAL[type] ?? type, count }));
+});
+const type = ref('all');
+
+const shown = computed(() => ordered.value.filter((event) => {
+    if (type.value !== 'all' && event.type !== type.value) return false;
     if (chip.value === 'paid') return event.access === 'paid' || event.access === 'pending';
     if (chip.value === 'free') return event.access === 'free' || event.access === 'request';
     return true;
@@ -69,19 +68,16 @@ const shown = computed(() => groups.value[tab.value].filter((event) => {
         </Link>
 
         <div class="flex flex-wrap items-center justify-between gap-4">
-            <div role="tablist" aria-label="Период" class="inline-flex max-w-full gap-1 overflow-x-auto rounded-full border border-gray-200 bg-white p-1.5 dark:border-gray-700 dark:bg-gray-900">
+            <div v-if="types.length > 1" role="group" aria-label="Тип мероприятия" class="flex flex-wrap gap-2">
                 <button
-                    v-for="t in tabs"
+                    v-for="t in [{ key: 'all', label: 'Все типы', count: events.length }, ...types]"
                     :key="t.key"
                     type="button"
-                    role="tab"
-                    :aria-selected="tab === t.key ? 'true' : 'false'"
-                    class="cab-focus min-h-11 shrink-0 rounded-full px-5 text-[15px] font-bold transition"
-                    :class="tab === t.key ? 'bg-brandblue text-white' : 'text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-800'"
-                    @click="tab = t.key"
-                >
-                    {{ t.label }}<span class="ml-1.5 opacity-70">{{ groups[t.key].length }}</span>
-                </button>
+                    :aria-pressed="type === t.key ? 'true' : 'false'"
+                    class="cab-focus min-h-10 rounded-full border px-4 text-sm font-bold transition"
+                    :class="type === t.key ? 'border-brandblue-dark bg-brandblue-soft text-brandblue-dark' : 'border-gray-200 bg-white text-gray-900 hover:border-brandblue dark:border-gray-700 dark:bg-gray-900 dark:text-white'"
+                    @click="type = t.key"
+                >{{ t.label }}<span class="ml-1.5 opacity-60">{{ t.count }}</span></button>
             </div>
             <div role="group" aria-label="Доступ" class="flex flex-wrap gap-2">
                 <button

@@ -21,11 +21,11 @@ const dateLabel = computed(() => {
     if (!props.event.start_date) {
         return 'Дата уточняется';
     }
-    const date = new Date(`${props.event.start_date}T00:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-    return props.event.is_past ? (props.event.has_recording ? `Запись · ${date}` : `Прошло · ${date}`) : date;
+    // просто дата: когда было или когда будет; у предстоящего — со временем
+    const start = new Date(`${props.event.start_date}T00:00:00`);
+    const date = start.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', ...(start.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) });
+    return !props.event.is_past && props.event.start_time ? `${date}, ${props.event.start_time}` : date;
 });
-
-const meta = computed(() => [dateLabel.value, props.event.format].filter(Boolean).join(' · '));
 
 const badge = computed(() => ({
     paid: { text: 'Оплачено', cls: 'cab-chip-ok' },
@@ -43,7 +43,11 @@ const badge = computed(() => ({
             <span v-if="event.type" class="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-extrabold text-brandblue-dark">
                 <span v-if="event.is_live" class="cab-live mr-1.5 !h-2 !w-2 align-middle"></span>{{ event.type }}
             </span>
-            <span class="absolute bottom-3.5 left-3.5 text-[12.5px] font-bold text-white">{{ meta }}</span>
+            <!-- дата и формат на плашке: белый текст прямо по картинке на светлых фото не читается -->
+            <span class="absolute bottom-3 left-3 flex max-w-[calc(100%-4.5rem)] flex-wrap gap-1.5">
+                <span class="rounded-full bg-white/95 px-3 py-1.5 text-xs font-extrabold text-gray-900">{{ dateLabel }}</span>
+                <span v-if="event.format" class="rounded-full bg-white/95 px-3 py-1.5 text-xs font-extrabold text-gray-900">{{ event.format }}</span>
+            </span>
             <span v-if="!locked" class="absolute bottom-3 right-3 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-brandblue transition group-hover:scale-110">
                 <PlayIcon class="ml-0.5 h-4 w-4" aria-hidden="true" />
             </span>

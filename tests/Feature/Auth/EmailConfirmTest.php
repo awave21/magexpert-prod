@@ -3,6 +3,9 @@
 use App\Models\User;
 use App\Services\EmailConfirmation;
 use App\Services\Sender\SenderClient;
+use Illuminate\Auth\Events\Verified;
+use Illuminate\Support\Facades\Event;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
     $this->sent = new class implements SenderClient
@@ -33,23 +36,33 @@ it('confirms the email by the link even without logging in', function (): void {
     $user = User::factory()->unverified()->create();
     $url = app(EmailConfirmation::class)->url($user);
 
-    $this->get($url)->assertRedirect(route('login'))->assertSessionHas('message', 'Email подтверждён. Войдите в аккаунт.');
+    Event::fake([Verified::class]);
 
-    expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
+    // без входа: сразу страница «Почта подтверждена», а не страница входа
+    $this->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page->component('Auth/EmailConfirmed')->where('confirmed', true));
+
+    expect($user->fresh()->hasVerifiedEmail())->toBeTrue()
+        ->and($this->isAuthenticated())->toBeFalse();
+    Event::assertDispatched(Verified::class);
+
+    // повторный переход по той же ссылке тоже показывает, что почта подтверждена
+    $this->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page->where('confirmed', true));
 });
 
 it('rejects a forged, expired or outdated link', function (): void {
     $user = User::factory()->unverified()->create(['email' => 'old@example.com']);
     $url = app(EmailConfirmation::class)->url($user);
 
-    $this->get($url.'x')->assertSessionHas('error');
+    $failed = fn (Assert $page) => $page->component('Auth/EmailConfirmed')->where('confirmed', false);
+
+    $this->get($url.'x')->assertOk()->assertInertia($failed);
 
     $this->travel(8)->days();
-    $this->get($url)->assertSessionHas('error');
+    $this->get($url)->assertOk()->assertInertia($failed);
     $this->travelBack();
 
     $user->update(['email' => 'new@example.com']);
-    $this->get($url)->assertSessionHas('error');
+    $this->get($url)->assertOk()->assertInertia($failed);
 
     expect($user->fresh()->hasVerifiedEmail())->toBeFalse();
 });

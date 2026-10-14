@@ -50,6 +50,12 @@ class SocialAccounts
             ['provider_user_id' => $profile['id'], 'email' => ($profile['email'] ?? '') ?: null],
         );
 
+        // провайдер, которому доверяем почту, отдал тот же адрес, что в аккаунте: почта подтверждена им, письмо не нужно
+        if ($user->email_verified_at === null && in_array($profile['provider'], self::TRUSTED_EMAIL, true)
+            && filled($profile['email'] ?? null) && mb_strtolower($profile['email']) === mb_strtolower((string) $user->email)) {
+            $user->markEmailAsVerified();
+        }
+
         return true;
     }
 

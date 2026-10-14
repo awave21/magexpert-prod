@@ -209,6 +209,20 @@ it('takes a verified phone from yandex for a new account', function (): void {
         ->and($user->phone_verified_at)->not->toBeNull();
 });
 
+it('confirms the email when the linked yandex account has the same address, and only then', function (string $provider, string $email, bool $confirmed): void {
+    $user = User::factory()->unverified()->create(['email' => 'Anna@Example.com']);
+    fakeSocialUser($provider, ['id' => '801', 'first_name' => 'Анна'], $email);
+
+    $this->actingAs($user)->from(route('dashboard'))->get("/auth/{$provider}/link");
+    $this->get("/auth/{$provider}/callback?code=x&device_id=d");
+
+    expect($user->fresh()->hasVerifiedEmail())->toBe($confirmed);
+})->with([
+    'yandex, same address' => ['yandex', 'anna@example.com', true],
+    'yandex, other address' => ['yandex', 'other@yandex.ru', false],
+    'vk does not confirm email' => ['vkid', 'anna@example.com', false],
+]);
+
 it('links vk from the profile and confirms the matching phone', function (): void {
     $user = User::factory()->create(['phone' => '8 999 123-45-67']);
     fakeSocialUser('vkid', ['id' => '701', 'first_name' => 'Анна', 'phone' => '79991234567'], 'anna-vk@mail.ru');
