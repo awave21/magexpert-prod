@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Event;
+use App\Models\MailOutbox;
 use App\Models\User;
 use App\Services\Sender\SenderClient;
 use App\Services\SenderMailService;
@@ -23,7 +24,8 @@ beforeEach(function (): void {
         }
     };
 
-    $this->service = new SenderMailService($this->client);
+    $this->app->instance(SenderClient::class, $this->client);
+    $this->service = new SenderMailService;
 });
 
 it('sends a password reset link without a password', function (): void {
@@ -33,7 +35,7 @@ it('sends a password reset link without a password', function (): void {
 
     expect($sent)->toBeTrue()
         ->and($this->client->calls[0]['template'])->toBe('password-reset-link')
-        ->and($this->client->calls[0]['to'])->toBe('User@Example.com')
+        ->and($this->client->calls[0]['to'])->toBe('user@example.com')
         ->and($this->client->calls[0]['data'])->toBe([
             'first_name' => 'Анна',
             'user_email' => 'user@example.com',
@@ -104,14 +106,20 @@ it('does not send a set-password link to an existing user', function (): void {
     expect(array_keys($this->client->calls[0]['data']))->not->toContain('set_password_url', 'password', 'is_new_user');
 });
 
-it('returns false when the sender rejects the message', function (): void {
+it('keeps a rejected letter in the outbox as failed instead of losing it silently', function (): void {
     $this->client->status = 'blocked';
 
-    expect($this->service->sendApiRegistrationEmail(User::factory()->create()))->toBeFalse();
+    expect($this->service->sendApiRegistrationEmail(User::factory()->create()))->toBeTrue();
+
+    $entry = MailOutbox::query()->latest('id')->first();
+
+    expect($entry->status)->toBe(MailOutbox::STATUS_FAILED)
+        ->and($entry->last_error)->toBe('blocked')
+        ->and($entry->data)->not->toHaveKey('set_password_url');
 });
 
-it('returns false instead of throwing when the client fails', function (): void {
-    $service = new SenderMailService(new class implements SenderClient
+it('keeps the letter pending in the outbox when the client throws', function (): void {
+    $this->app->instance(SenderClient::class, new class implements SenderClient
     {
         public function send(string $template, string $to, array $data = [], ?string $idempotencyKey = null): array
         {
@@ -119,7 +127,41 @@ it('returns false instead of throwing when the client fails', function (): void 
         }
     });
 
-    expect($service->sendApiRegistrationEmail(User::factory()->create()))->toBeFalse();
+    expect($this->service->sendApiRegistrationEmail(User::factory()->create()))->toBeTrue();
+
+    // очередь sync не умеет повторять: после исчерпания попыток письмо помечено failed, но записано и видно в журнале
+    $entry = MailOutbox::query()->latest('id')->first();
+
+    expect($entry)->not->toBeNull()
+        ->and($entry->last_error)->toContain('Sender недоступен');
+});
+
+it('writes the letter to the outbox with the context and links it to the Sender message', function (): void {
+    $user = User::factory()->create(['email' => 'anna@example.com']);
+
+    $this->service->sendWelcomeEmail($user);
+
+    $entry = MailOutbox::query()->latest('id')->first();
+
+    expect($entry->status)->toBe(MailOutbox::STATUS_SENT)
+        ->and($entry->to_email)->toBe('anna@example.com')
+        ->and($entry->user_id)->toBe($user->id)
+        ->and($entry->context)->toBe(['kind' => 'welcome', 'user_id' => $user->id])
+        ->and($entry->sender_message_id)->toBe('abc')
+        ->and($entry->sent_at)->not->toBeNull();
+});
+
+it('does not create a second outbox record or letter for the same registration', function (): void {
+    $event = Event::make(['title' => 'Школа', 'slug' => 'school', 'format' => 'online', 'is_archived' => false, 'is_paid' => false, 'show_price' => false]);
+    $event->id = 63;
+    $event->setRelation('speakers', collect());
+    $user = User::factory()->create();
+
+    $this->service->sendEventRegistrationEmail($event, $user);
+    $this->service->sendEventRegistrationEmail($event, $user);
+
+    expect(MailOutbox::query()->count())->toBe(1)
+        ->and($this->client->calls)->toHaveCount(1);
 });
 
 it('sends a welcome email after sign-up without a password', function (): void {
@@ -219,24 +261,24 @@ it('sends the event letter by its own template id or alias and falls back to the
         'title' => 'Школа', 'slug' => 'school', 'format' => 'online', 'is_archived' => false, 'is_paid' => false, 'show_price' => false,
         'letter_draft_id' => 'draft-12',
     ]);
+    $event->id = 63;
     $event->setRelation('speakers', collect());
-    $user = User::make(['first_name' => 'Анна', 'email' => 'anna@example.com']);
 
-    expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue()
+    expect($this->service->sendEventRegistrationEmail($event, User::factory()->create()))->toBeTrue()
         ->and(array_column($this->client->calls, 'template'))->toBe(['draft-12']);
 
     // такого шаблона в Sender нет: письмо не теряется, уходит стандартное
     $this->client->calls = [];
     $this->client->rejected = ['draft-12'];
 
-    expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue()
+    expect($this->service->sendEventRegistrationEmail($event, User::factory()->create()))->toBeTrue()
         ->and(array_column($this->client->calls, 'template'))->toBe(['draft-12', 'event-registration']);
 
     // без своего шаблона — сразу стандартное
     $this->client->calls = [];
     $event->letter_draft_id = null;
 
-    expect($this->service->sendEventRegistrationEmail($event, $user))->toBeTrue()
+    expect($this->service->sendEventRegistrationEmail($event, User::factory()->create()))->toBeTrue()
         ->and(array_column($this->client->calls, 'template'))->toBe(['event-registration']);
 });
 

@@ -10,7 +10,7 @@ interface SenderClient
 {
     /**
      * @param  array<string, mixed>  $data  переменные шаблона
-     * @return array{id: string|null, status: string, error: string|null}
+     * @return array{id: string|null, status: string, error: string|null, http?: int}
      *
      * @throws SenderApiException если API не настроен или Sender недоступен
      */

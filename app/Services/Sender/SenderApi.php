@@ -97,6 +97,7 @@ class SenderApi implements ContactSyncClient, SenderClient, SubscriptionClient
             'id' => $response->json('id'),
             'status' => $accepted || $blocked ? (string) $response->json('status', 'queued') : 'failed',
             'error' => $accepted ? null : (string) ($response->json('error') ?? $response->json('detail') ?? $response->json('message') ?? 'HTTP '.$response->status()),
+            'http' => $response->status(),
         ];
     }
 

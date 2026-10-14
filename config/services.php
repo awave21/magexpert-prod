@@ -69,6 +69,10 @@ return [
         'users_sync' => (bool) env('SENDER_USERS_SYNC', false),
         'users_list_name' => env('SENDER_USERS_LIST_NAME', 'Пользователи MagExpert'),
         'users_list_id' => env('SENDER_USERS_LIST_ID'),
+        // ключи данных письма, которые стираются из исходящих сразу после отправки: пароли и одноразовые ссылки
+        'redact_keys' => ['password', 'set_password_url', 'reset_url', 'verify_url'],
+        // сколько дней хранятся отправленные письма в исходящих
+        'outbox_days' => (int) env('SENDER_OUTBOX_DAYS', 30),
         // какой шаблон отправлять для каждого письма сайта: ключ (алиас) шаблона или его ID в Sender
         'templates' => [
             'welcome' => env('SENDER_TEMPLATE_WELCOME', 'welcome'),

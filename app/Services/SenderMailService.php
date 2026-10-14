@@ -2,20 +2,24 @@
 
 namespace App\Services;
 
+use App\Jobs\DeliverOutboxMail;
 use App\Models\Event;
+use App\Models\MailOutbox;
 use App\Models\User;
-use App\Services\Sender\SenderClient;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Служебные письма сайта через собственный сервис рассылок (Sender).
+ * Служебные письма сайта через сервис рассылок (Sender).
+ *
+ * Письмо не отправляется в запросе пользователя: оно записывается в исходящие (MailOutbox) вместе с действием
+ * и уходит из очереди с повторами (DeliverOutboxMail). Поэтому недоступность Sender письмо не теряет, а методы
+ * возвращают true, когда письмо принято к отправке.
  */
 class SenderMailService
 {
-    public function __construct(private readonly SenderClient $client) {}
-
     public function sendEventRegistrationEmail(Event $event, User $user, bool $isNewUser = false): bool
     {
         $event->loadMissing('speakers');
@@ -64,20 +68,19 @@ class SenderMailService
             ]))))->implode('; '),
         ], fn ($value): bool => $value !== null && $value !== '' && $value !== false);
 
-        // у мероприятия может быть свой шаблон: ID или алиас из Sender; нет такого — уходит стандартное письмо
+        // у мероприятия может быть свой шаблон (ID или алиас из Sender); не принят, значит уходит стандартное письмо
+        $standard = $this->template('event_registration');
         $custom = trim((string) $event->letter_draft_id);
+        $template = $custom !== '' ? $custom : $standard;
 
-        if ($custom !== '') {
-            if ($this->send($custom, $user->email, $data, $this->registrationKey($event, $user, $custom))) {
-                return true;
-            }
-
-            Log::warning('Sender: шаблон мероприятия не принят, отправляем стандартное письмо', ['event_id' => $event->id, 'template' => $custom]);
-        }
-
-        $template = $this->template('event_registration');
-
-        return $this->send($template, $user->email, $data, $this->registrationKey($event, $user, $template));
+        return $this->send(
+            $template,
+            $user->email,
+            $data,
+            $this->registrationKey($event, $user, $template),
+            ['kind' => 'event_registration', 'event_id' => $event->id, 'user_id' => $user->id],
+            $custom !== '' && $custom !== $standard ? $standard : null,
+        );
     }
 
     /**
@@ -99,7 +102,7 @@ class SenderMailService
             'user_email' => strtolower($user->email),
             'reset_url' => $resetUrl,
             'expires_in' => $expiresInMinutes,
-        ]);
+        ], null, ['kind' => 'password_reset', 'user_id' => $user->id]);
     }
 
     /**
@@ -117,7 +120,7 @@ class SenderMailService
             'site_url' => url('/'),
             // кнопка «Подтвердить email» в письме показывается только тем, у кого он ещё не подтверждён
             'verify_url' => $user->exists && ! $user->hasVerifiedEmail() ? app(EmailConfirmation::class)->url($user) : null,
-        ], fn ($value): bool => $value !== null && $value !== ''));
+        ], fn ($value): bool => $value !== null && $value !== ''), null, ['kind' => 'welcome', 'user_id' => $user->id]);
     }
 
     /**
@@ -129,7 +132,7 @@ class SenderMailService
             'first_name' => (string) $user->first_name,
             'user_email' => strtolower($user->email),
             'verify_url' => app(EmailConfirmation::class)->url($user),
-        ]);
+        ], null, ['kind' => 'email_confirmation', 'user_id' => $user->id]);
     }
 
     /**
@@ -145,7 +148,7 @@ class SenderMailService
             'set_password_url' => $link->url($user),
             'set_password_expires_in' => $link->expiresInMinutes(),
             'generated_at' => now()->format('d.m.Y H:i'),
-        ]);
+        ], null, ['kind' => 'api_registration', 'user_id' => $user->id]);
     }
 
     /**
@@ -157,34 +160,54 @@ class SenderMailService
     }
 
     /**
+     * Записывает письмо в исходящие и ставит доставку в очередь.
+     *
      * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $context  чем вызвано письмо (для поиска в поддержке): kind, event_id, user_id
      */
-    private function send(string $template, string $to, array $data, ?string $idempotencyKey = null): bool
+    private function send(string $template, string $to, array $data, ?string $idempotencyKey = null, array $context = [], ?string $fallbackTemplate = null): bool
     {
+        $uuid = (string) Str::uuid();
+
         try {
-            $result = $this->client->send(
-                $template,
-                $to,
-                data: $data,
-                idempotencyKey: $idempotencyKey,
+            $entry = MailOutbox::query()->firstOrCreate(
+                ['idempotency_key' => $idempotencyKey ?? 'mail:'.$uuid],
+                [
+                    'uuid' => $uuid,
+                    'template' => $template,
+                    'fallback_template' => $fallbackTemplate,
+                    'to_email' => mb_strtolower(trim($to)),
+                    'data' => $data,
+                    'status' => MailOutbox::STATUS_PENDING,
+                    'user_id' => $context['user_id'] ?? null,
+                    'context' => $context === [] ? null : $context,
+                ],
             );
         } catch (Throwable $exception) {
-            Log::error('Sender: не удалось отправить письмо', [
-                'template' => $template,
-                'email' => $to,
-                'error' => $exception->getMessage(),
-            ]);
+            Log::error('Sender: не удалось записать письмо в исходящие', ['template' => $template, 'error' => $exception->getMessage()]);
 
             return false;
         }
 
-        $accepted = in_array($result['status'], ['queued', 'sending', 'sent'], true);
-
-        if (! $accepted) {
-            Log::warning('Sender: письмо не принято', ['template' => $template, 'email' => $to, 'result' => $result]);
+        // повтор того же действия (двойной клик, повторный запрос) не создаёт второго письма
+        if ($entry->wasRecentlyCreated) {
+            $this->dispatchDelivery($entry);
         }
 
-        return $accepted;
+        return true;
+    }
+
+    /**
+     * Доставка идёт из очереди. Сбой самой постановки (например, очередь недоступна) письма не теряет:
+     * запись остаётся pending, её подберёт mail:outbox-retry.
+     */
+    private function dispatchDelivery(MailOutbox $entry): void
+    {
+        try {
+            DeliverOutboxMail::dispatch($entry->id)->afterCommit();
+        } catch (Throwable $exception) {
+            Log::warning('Sender: письмо записано, но доставка не поставлена в очередь', ['outbox_id' => $entry->id, 'error' => $exception->getMessage()]);
+        }
     }
 
     /**

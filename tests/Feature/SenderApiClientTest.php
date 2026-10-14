@@ -14,7 +14,7 @@ it('sends a letter by the contract without a sender', function (): void {
 
     $result = app(SenderApi::class)->send('event-registration', 'anna@example.com', ['first_name' => 'Анна']);
 
-    expect($result)->toBe(['id' => 'uuid-1', 'status' => 'queued', 'error' => null]);
+    expect($result)->toBe(['id' => 'uuid-1', 'status' => 'queued', 'error' => null, 'http' => 202]);
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
         && $request->url() === 'https://sender.test/api/sender/v1/messages'
@@ -34,14 +34,14 @@ it('reports a blocked letter with its reason', function (): void {
     Http::fake(['sender.test/*' => Http::response(['id' => 'uuid-2', 'status' => 'blocked', 'error' => 'У шаблона не задан адрес отправителя'], 422)]);
 
     expect(app(SenderApi::class)->send('welcome', 'anna@example.com'))
-        ->toBe(['id' => 'uuid-2', 'status' => 'blocked', 'error' => 'У шаблона не задан адрес отправителя']);
+        ->toBe(['id' => 'uuid-2', 'status' => 'blocked', 'error' => 'У шаблона не задан адрес отправителя', 'http' => 422]);
 });
 
 it('reports an error response as failed with the problem detail', function (): void {
     Http::fake(['sender.test/*' => Http::response(['type' => 'about:blank', 'title' => 'Not Found', 'status' => 404, 'detail' => 'Шаблон не найден', 'message' => 'Шаблон не найден'], 404, ['Content-Type' => 'application/problem+json'])]);
 
     expect(app(SenderApi::class)->send('missing', 'anna@example.com'))
-        ->toBe(['id' => null, 'status' => 'failed', 'error' => 'Шаблон не найден']);
+        ->toBe(['id' => null, 'status' => 'failed', 'error' => 'Шаблон не найден', 'http' => 404]);
 });
 
 it('does not retry a letter sent without an Idempotency-Key', function (): void {

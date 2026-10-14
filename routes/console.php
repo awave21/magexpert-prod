@@ -16,6 +16,9 @@ Schedule::command('model:prune', ['--model' => [AssistantQuestion::class, Librar
 
 // раз в сутки база «Пользователи MagExpert» в Sender сверяется с сайтом целиком: правки профиля уходят сразу,
 // это страховка на случай пропущенной задачи или недоступного Sender. Только если синхронизация включена.
+Schedule::command('mail:outbox-retry')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('mail:outbox-prune')->dailyAt('04:30')->withoutOverlapping();
+
 Schedule::command('sender:sync-users')
     ->dailyAt('03:30')
     ->withoutOverlapping()
