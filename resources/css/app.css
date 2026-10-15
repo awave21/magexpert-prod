@@ -161,3 +161,15 @@
   .admin-fade-in { animation: none; }
   [data-admin] * { transition-duration: 0.01ms !important; }
 }
+
+/* Админка: правило темы выше отключало анимацию размеров и цветов у элементов с transition-*.
+   Возвращаем: меню, контент и кнопка сворачивания плавно меняют размеры, hover-цвета снова анимируются */
+html .admin-anim,
+html.theme-transition .admin-anim {
+  transition-property: width, left, padding, margin, max-height, opacity, transform, background-color, border-color, color, fill, box-shadow;
+  transition-duration: 300ms;
+  transition-timing-function: ease-in-out;
+}
+.theme-transition [data-admin] [class*="transition-colors"] {
+  transition-property: background-color, border-color, color, fill, stroke;
+}

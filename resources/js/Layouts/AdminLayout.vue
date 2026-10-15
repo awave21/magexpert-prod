@@ -5,19 +5,15 @@
     >
         <!-- Боковая панель (фиксированная на больших экранах), плавно сворачивается до иконок -->
         <aside
-            class="fixed inset-y-0 left-0 z-20 overflow-hidden transition-[width] duration-300 ease-in-out max-lg:hidden"
+            class="admin-anim fixed inset-y-0 left-0 z-20 overflow-hidden transition-[width] duration-300 ease-in-out max-lg:hidden"
             :class="adminStore.isSidebarCollapsed ? 'w-[72px]' : 'w-64'"
         >
             <nav class="flex h-full min-h-0 w-full flex-col" aria-label="Главное меню">
-                <!-- Шапка: логотип и кнопка свернуть/развернуть сверху, всегда на виду -->
-                <div
-                    class="flex gap-2 p-3 transition-all duration-300"
-                    :class="adminStore.isSidebarCollapsed ? 'flex-col items-center' : 'flex-row items-center'"
-                >
+                <!-- Шапка: логотип; кнопка свернуть/развернуть висит на краю меню сверху -->
+                <div class="flex items-center p-3">
                     <Link
                         :href="route('welcome')"
-                        class="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-sm font-semibold text-zinc-950 dark:text-white"
-                        :class="adminStore.isSidebarCollapsed ? 'flex-none' : ''"
+                        class="flex min-w-0 items-center gap-3 rounded-lg p-1 text-sm font-semibold text-zinc-950 dark:text-white"
                         title="Открыть сайт"
                     >
                         <img
@@ -26,36 +22,23 @@
                             alt="MAG Expert"
                         />
                         <span
-                            class="truncate whitespace-nowrap transition-all duration-300"
-                            :class="adminStore.isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'"
+                            class="admin-anim truncate whitespace-nowrap transition-opacity duration-300 ease-in-out"
+                            :class="adminStore.isSidebarCollapsed ? 'opacity-0' : 'opacity-100'"
                         >MAG Expert</span>
                     </Link>
-                    <button
-                        type="button"
-                        class="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
-                        :title="adminStore.isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
-                        :aria-label="adminStore.isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
-                        :aria-expanded="!adminStore.isSidebarCollapsed"
-                        @click="adminStore.toggleSidebar"
-                    >
-                        <ChevronDoubleLeftIcon
-                            class="size-5 transition-transform duration-300"
-                            :class="adminStore.isSidebarCollapsed ? 'rotate-180' : ''"
-                        />
-                    </button>
                 </div>
 
                 <div class="px-3">
                     <button
                         type="button"
-                        class="flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-lg px-3.5 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        class="admin-anim flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-lg px-3.5 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
                         :title="adminStore.isSidebarCollapsed ? 'Быстрый поиск (Ctrl+K)' : undefined"
                         aria-label="Быстрый поиск"
                         @click="adminStore.openCommandPalette"
                     >
                         <MagnifyingGlassIcon class="size-5 shrink-0 fill-zinc-500 dark:fill-zinc-400" />
                         <span
-                            class="flex flex-1 items-center justify-between whitespace-nowrap transition-opacity duration-300"
+                            class="admin-anim flex flex-1 items-center justify-between whitespace-nowrap transition-opacity duration-300"
                             :class="adminStore.isSidebarCollapsed ? 'opacity-0' : 'opacity-100'"
                         >
                             Быстрый поиск
@@ -68,14 +51,14 @@
                     <template v-for="group in menuGroups" :key="group.title || 'root'">
                         <p
                             v-if="group.title"
-                            class="overflow-hidden whitespace-nowrap px-3.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 transition-all duration-300"
+                            class="admin-anim overflow-hidden whitespace-nowrap px-3.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 transition-all duration-300"
                             :class="adminStore.isSidebarCollapsed ? 'max-h-0 pb-0 pt-0 opacity-0' : 'max-h-10 pb-1 pt-4 opacity-100'"
                         >
                             {{ group.title }}
                         </p>
                         <div
                             v-if="group.title"
-                            class="mx-3 border-t border-zinc-950/10 transition-all duration-300 dark:border-white/10"
+                            class="admin-anim mx-3 border-t border-zinc-950/10 transition-all duration-300 dark:border-white/10"
                             :class="adminStore.isSidebarCollapsed ? 'my-3 opacity-100' : 'my-0 opacity-0'"
                             aria-hidden="true"
                         ></div>
@@ -83,7 +66,7 @@
                             <li v-for="item in group.items" :key="item.routeName">
                                 <Link
                                     :href="route(item.routeName)"
-                                    class="flex items-center gap-3 overflow-hidden rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150"
+                                    class="admin-anim flex items-center gap-3 overflow-hidden rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150"
                                     :class="isActive(item)
                                         ? 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/15 dark:text-white'
                                         : 'text-zinc-700 hover:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-800'"
@@ -96,7 +79,7 @@
                                         :class="isActive(item) ? 'fill-brandblue-dark dark:fill-brandblue' : 'fill-zinc-500 dark:fill-zinc-400'"
                                     />
                                     <span
-                                        class="truncate whitespace-nowrap transition-opacity duration-300"
+                                        class="admin-anim truncate whitespace-nowrap transition-opacity duration-300"
                                         :class="adminStore.isSidebarCollapsed ? 'opacity-0' : 'opacity-100'"
                                     >{{ item.name }}</span>
                                 </Link>
@@ -106,6 +89,22 @@
                 </div>
             </nav>
         </aside>
+
+        <!-- Кнопка свернуть/развернуть: сверху на краю меню, едет вместе с его шириной -->
+        <button
+            type="button"
+            class="admin-anim fixed top-5 z-30 flex size-7 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition-[left,color,background-color,box-shadow] duration-300 ease-in-out hover:bg-brandblue-soft hover:text-brandblue-dark hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue max-lg:hidden dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-white"
+            :class="adminStore.isSidebarCollapsed ? 'left-[58px]' : 'left-[242px]'"
+            :title="adminStore.isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
+            :aria-label="adminStore.isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
+            :aria-expanded="!adminStore.isSidebarCollapsed"
+            @click="adminStore.toggleSidebar"
+        >
+            <ChevronDoubleLeftIcon
+                class="admin-anim size-4 transition-transform duration-300 ease-in-out"
+                :class="adminStore.isSidebarCollapsed ? 'rotate-180' : ''"
+            />
+        </button>
 
         <!-- Верхняя навигация (видима на мобильных) -->
         <header
@@ -398,7 +397,7 @@
 
         <!-- Основное содержимое -->
         <main
-            class="flex flex-1 flex-col pb-2 transition-[padding] duration-200 lg:min-w-0 lg:pr-2"
+            class="admin-anim flex flex-1 flex-col pb-2 transition-[padding] duration-300 ease-in-out lg:min-w-0 lg:pr-2"
             :class="adminStore.isSidebarCollapsed ? 'lg:pl-[72px]' : 'lg:pl-64'"
         >
             <!-- Верхняя панель: где я, создать, уведомления, аккаунт -->
