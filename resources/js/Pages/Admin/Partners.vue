@@ -46,7 +46,7 @@
             </thead>
             <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
               <tr v-for="partner in partners.data" :key="`partner-${partner.id}`" class="group cursor-pointer transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50" @click="editPartner(partner)">
-                <td class="whitespace-nowrap px-3 py-3.5">
+                <td class="px-3 py-3.5">
                   <div class="flex items-center">
                     <div class="size-12 sm:size-16 flex-shrink-0 overflow-hidden rounded-lg">
                       <img v-if="partner.logo_url" :src="partner.logo_url" :alt="partner.name" class="size-full bg-white object-contain p-1" />
@@ -54,9 +54,9 @@
                         <BuildingOfficeIcon class="size-8" />
                       </div>
                     </div>
-                    <div class="ml-3 sm:ml-4">
-                      <Link :href="route('admin.partners.edit', partner.id)" class="block text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>{{ partner.name }}</Link>
-                      <div class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">{{ partner.description }}</div>
+                    <div class="ml-3 min-w-0 max-w-2xl sm:ml-4">
+                      <Link :href="route('admin.partners.edit', partner.id)" class="block [overflow-wrap:anywhere] text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>{{ partner.name }}</Link>
+                      <div class="mt-0.5 line-clamp-2 [overflow-wrap:anywhere] text-xs text-zinc-500 dark:text-zinc-400">{{ partner.description }}</div>
                     </div>
                   </div>
                 </td>

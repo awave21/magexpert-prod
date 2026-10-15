@@ -59,9 +59,9 @@
                         <DocumentIcon class="size-8" />
                       </div>
                     </div>
-                    <div class="ml-3 sm:ml-4">
-                      <Link :href="route('admin.medical-library.edit', item.id)" class="block text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>{{ item.title }}</Link>
-                      <div class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">{{ item.description }}</div>
+                    <div class="ml-3 min-w-0 max-w-2xl sm:ml-4">
+                      <Link :href="route('admin.medical-library.edit', item.id)" class="block [overflow-wrap:anywhere] text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>{{ item.title }}</Link>
+                      <div class="mt-0.5 line-clamp-2 [overflow-wrap:anywhere] text-xs text-zinc-500 dark:text-zinc-400">{{ item.description }}</div>
                     </div>
                   </div>
                 </td>

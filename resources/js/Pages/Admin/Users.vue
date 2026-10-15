@@ -96,7 +96,7 @@
               :class="canOpen(user) ? 'cursor-pointer' : ''"
               @click="openUser(user)"
             >
-              <td class="whitespace-nowrap px-3 py-3.5">
+              <td class="px-3 py-3.5">
                 <div class="flex items-center">
                   <div class="size-8 sm:size-10 flex-shrink-0">
                     <UserAvatar 
@@ -106,10 +106,10 @@
                       shape="square" 
                     />
                   </div>
-                  <div class="ml-3 sm:ml-4">
+                  <div class="ml-3 min-w-0 max-w-2xl sm:ml-4">
                     <Link v-if="canOpen(user)" :href="route('admin.users.show', user.id)" class="block text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>{{ user.full_name || 'Пользователь' }}</Link>
                     <div v-else class="text-sm font-medium text-zinc-900 dark:text-white">{{ user.full_name || 'Пользователь' }}</div>
-                    <div class="md:hidden text-xs text-zinc-500 dark:text-zinc-400">{{ user.email }}</div>
+                    <div class="text-xs text-zinc-500 [overflow-wrap:anywhere] md:hidden dark:text-zinc-400">{{ user.email }}</div>
                   </div>
                 </div>
               </td>

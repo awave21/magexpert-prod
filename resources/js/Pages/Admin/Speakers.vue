@@ -85,7 +85,7 @@
           </thead>
           <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
             <tr v-for="speaker in speakers.data" :key="speaker.id" class="group cursor-pointer transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50" @click="editSpeaker(speaker)">
-              <td class="whitespace-nowrap px-3 py-3.5">
+              <td class="px-3 py-3.5">
                 <div class="flex items-center">
                   <div class="size-8 sm:size-10 flex-shrink-0 overflow-hidden rounded-lg">
                     <img v-if="speaker.photo" :src="speaker.photo" :alt="speaker.full_name" class="size-full object-cover" />
@@ -95,11 +95,11 @@
                       </svg>
                     </div>
                   </div>
-                  <div class="ml-3 sm:ml-4">
-                    <Link :href="route('admin.speakers.edit', speaker.id)" class="block text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>
+                  <div class="ml-3 min-w-0 max-w-2xl sm:ml-4">
+                    <Link :href="route('admin.speakers.edit', speaker.id)" class="block [overflow-wrap:anywhere] text-sm font-semibold text-zinc-900 group-hover:underline dark:text-white" @click.stop>
                       {{ speaker.full_name }}
                     </Link>
-                    <div class="lg:hidden text-xs text-zinc-500 dark:text-zinc-400">
+                    <div class="[overflow-wrap:anywhere] text-xs text-zinc-500 lg:hidden dark:text-zinc-400">
                       <span v-if="speaker.position">{{ speaker.position }}</span>
                       <span v-if="speaker.position && speaker.company">, </span>
                       <span v-if="speaker.company">{{ speaker.company }}</span>
