@@ -7,6 +7,8 @@ use App\Models\MedicalLibrary;
 use App\Models\Role;
 use App\Models\Speaker;
 use App\Models\User;
+use App\Services\AdminAnalytics;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,8 +18,10 @@ class AdminController extends Controller
     /**
      * Отображает главную страницу админки.
      */
-    public function index(): Response
+    public function index(Request $request, AdminAnalytics $analytics): Response
     {
+        $period = AdminAnalytics::normalizePeriod($request->integer('period', AdminAnalytics::DEFAULT_PERIOD));
+
         // Статистика по ролям остаётся: на неё опираются другие экраны и тесты
         $stats = [
             'users_count' => User::count(),
@@ -36,6 +40,7 @@ class AdminController extends Controller
         return Inertia::render('Admin/Index', [
             'stats' => $stats,
             'overview' => $this->overview(),
+            'analytics' => $analytics->forPeriod($period),
             'upcoming' => $this->upcomingEvents(),
             'latestRegistrations' => $this->latestRegistrations(),
             'user' => auth()->user()->load('roles'),
