@@ -11,7 +11,7 @@
       class="bg-white dark:bg-zinc-900 dark:text-white rounded-lg border border-zinc-200 dark:border-zinc-700"
     />
     <p v-if="hint" class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ hint }}</p>
-    <p v-if="error" class="mt-1 text-sm text-brandcoral dark:text-brandcoral">{{ error }}</p>
+    <p v-if="error" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
   </div>
   
 </template>

@@ -26,7 +26,7 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <label for="lib-date" :class="c.label">Дата публикации <span class="text-red-500">*</span></label>
-                    <input id="lib-date" v-model="form.publication_date" type="date" :class="c.input" />
+                    <DateInput id="lib-date" v-model="form.publication_date" />
                     <p v-if="form.errors.publication_date" :class="c.error">{{ form.errors.publication_date }}</p>
                 </div>
                 <div>
@@ -43,21 +43,26 @@
 
         <section :class="c.box">
             <h3 :class="c.boxTitle">Файл и обложка</h3>
-            <div>
-                <span :class="c.label">Файл <span class="text-red-500">*</span></span>
-                <div v-if="currentFile" class="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
-                    <span class="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{{ currentFile.name }}</span>
-                    <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть</a>
-                    <button type="button" class="font-medium text-zinc-700 hover:underline dark:text-zinc-300" @click="replaceFile">Заменить</button>
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div>
+                    <span :class="c.label">Файл <span class="text-red-500">*</span></span>
+                    <div v-if="currentFile" class="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
+                        <span class="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{{ currentFile.name }}</span>
+                        <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть</a>
+                        <button type="button" class="font-medium text-zinc-700 hover:underline dark:text-zinc-300" @click="replaceFile">Заменить</button>
+                    </div>
+                    <label v-else :class="c.fileButton">
+                        <input ref="fileInput" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" class="sr-only" @change="pickFile" />
+                        Выбрать файл
+                    </label>
+                    <p :class="c.hint">
+                        PDF, Word, Excel или PowerPoint до 20 МБ.
+                        <button v-if="isEdit && !currentFile" type="button" class="font-medium text-blue-600 hover:underline dark:text-blue-400" @click="keepExisting = true">Оставить прежний файл</button>
+                    </p>
+                    <p v-if="form.errors.file" :class="c.error">{{ form.errors.file }}</p>
                 </div>
-                <input v-else ref="fileInput" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" :class="[c.input, 'py-1.5']" @change="pickFile" />
-                <p :class="c.hint">
-                    PDF, Word, Excel или PowerPoint до 20 МБ.
-                    <button v-if="isEdit && !currentFile" type="button" class="font-medium text-blue-600 hover:underline dark:text-blue-400" @click="keepExisting = true">Оставить прежний файл</button>
-                </p>
-                <p v-if="form.errors.file" :class="c.error">{{ form.errors.file }}</p>
+                <ImageUpload label="Обложка" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
             </div>
-            <ImageUpload label="Обложка" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
         </section>
     </AdminFormPage>
 </template>
@@ -69,6 +74,7 @@ import { useToast } from "vue-toastification";
 import AdminFormPage from "@/Components/Admin/AdminFormPage.vue";
 import ImageUpload from "@/Components/Form/ImageUpload.vue";
 import * as c from "@/Components/Admin/formClasses.js";
+import DateInput from "@/Components/Form/DateInput.vue";
 
 const props = defineProps({
     item: { type: Object, default: null },

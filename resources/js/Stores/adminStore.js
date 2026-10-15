@@ -8,6 +8,8 @@ export const useAdminStore = defineStore('admin', () => {
 
   // состояние как ref
   const isMobileMenuOpen = ref(false);
+  const isSidebarCollapsed = ref(localStorage.getItem('adminSidebarCollapsed') === 'true');
+  const isCommandPaletteOpen = ref(false);
   const darkMode = ref(false);
   const notifications = ref([]);
   const isNotificationDrawerOpen = ref(false);
@@ -63,6 +65,19 @@ export const useAdminStore = defineStore('admin', () => {
     document.body.classList.remove('overflow-hidden');
   }
   
+  function toggleSidebar() {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value;
+    localStorage.setItem('adminSidebarCollapsed', isSidebarCollapsed.value ? 'true' : 'false');
+  }
+
+  function openCommandPalette() {
+    isCommandPaletteOpen.value = true;
+  }
+
+  function closeCommandPalette() {
+    isCommandPaletteOpen.value = false;
+  }
+
   function toggleDarkMode() {
     darkMode.value = !darkMode.value;
     localStorage.setItem('darkMode', darkMode.value ? 'true' : 'false');
@@ -371,6 +386,8 @@ export const useAdminStore = defineStore('admin', () => {
   return {
     // состояние
     isMobileMenuOpen,
+    isSidebarCollapsed,
+    isCommandPaletteOpen,
     darkMode,
     notifications,
     isNotificationDrawerOpen,
@@ -383,6 +400,9 @@ export const useAdminStore = defineStore('admin', () => {
     // действия с мобильным меню и темой
     toggleMobileMenu,
     closeMobileMenu,
+    toggleSidebar,
+    openCommandPalette,
+    closeCommandPalette,
     toggleDarkMode,
     initDarkMode,
     

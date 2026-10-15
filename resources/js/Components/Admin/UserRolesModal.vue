@@ -24,7 +24,7 @@
                   'bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200': role.name === 'user'
                 }"
               >
-                {{ role.name }}
+                {{ roleLabels[role.name] ?? role.name }}
               </span>
             </InputLabel>
             <p v-if="role.description" class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
@@ -63,8 +63,9 @@ import { ref, computed, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import InputLabel from '@/Components/InputLabel.vue';
 import Checkbox from '@/Components/Checkbox.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
+import PrimaryButton from '@/Components/Admin/AdminPrimaryButton.vue';
+import { roleLabels } from '@/Components/Admin/roleLabels.js';
+import SecondaryButton from '@/Components/Admin/AdminSecondaryButton.vue';
 import SlideOverModal from '@/Components/Modal/SlideOverModal.vue';
 
 const props = defineProps({

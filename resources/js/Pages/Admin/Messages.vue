@@ -1,14 +1,18 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import Pagination from '@/Components/Pagination.vue';
+import SelectInput from '@/Components/Form/SelectInput.vue';
+import { input, pill, pillOn } from '@/Components/Admin/formClasses.js';
 
 const props = defineProps({
     events: { type: Array, default: () => [] },
     history: { type: Object, required: true },
 });
+
+const eventOptions = computed(() => props.events.map((event) => ({ value: event.id, text: eventLabel(event) })));
 
 const form = useForm({
     audience: 'all',
@@ -82,47 +86,48 @@ const eventLabel = (event) => (event.date ? `${new Date(`${event.date}T00:00:00`
                         <label
                             v-for="a in audiences"
                             :key="a.value"
-                            class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm"
-                            :class="form.audience === a.value ? 'border-zinc-900 bg-zinc-50 dark:border-white dark:bg-zinc-800' : 'border-zinc-200 dark:border-zinc-700'"
+                            :class="[pill, form.audience === a.value ? pillOn : '']"
                         >
-                            <input v-model="form.audience" type="radio" name="audience" :value="a.value" class="text-zinc-900" />
-                            <span class="text-zinc-900 dark:text-white">{{ a.label }}</span>
+                            <input v-model="form.audience" type="radio" name="audience" :value="a.value" class="sr-only" />
+                            {{ a.label }}
                         </label>
                     </div>
                     <p v-if="form.errors.audience" class="text-sm text-red-600">{{ form.errors.audience }}</p>
                 </fieldset>
 
                 <div v-if="form.audience === 'event'" class="flex flex-col gap-1.5">
-                    <label for="event_id" class="text-sm font-medium text-zinc-900 dark:text-white">Мероприятие</label>
-                    <select id="event_id" v-model="form.event_id" class="rounded-lg border-zinc-300 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
-                        <option value="">Выберите мероприятие</option>
-                        <option v-for="event in events" :key="event.id" :value="event.id">{{ eventLabel(event) }}</option>
-                    </select>
+                    <SelectInput
+                        id="event_id"
+                        v-model="form.event_id"
+                        :options="eventOptions"
+                        label="Мероприятие"
+                        placeholder="Выберите мероприятие"
+                    />
                     <p v-if="form.errors.event_id" class="text-sm text-red-600">{{ form.errors.event_id }}</p>
                 </div>
 
                 <div v-if="form.audience === 'user'" class="flex flex-col gap-1.5">
                     <label for="email" class="text-sm font-medium text-zinc-900 dark:text-white">Email пользователя</label>
-                    <input id="email" v-model="form.email" type="email" class="rounded-lg border-zinc-300 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" placeholder="doctor@mail.ru" />
+                    <input id="email" v-model="form.email" type="email" :class="input" placeholder="doctor@mail.ru" />
                     <p v-if="form.errors.email" class="text-sm text-red-600">{{ form.errors.email }}</p>
                 </div>
 
                 <div class="flex flex-col gap-1.5">
                     <label for="title" class="text-sm font-medium text-zinc-900 dark:text-white">Заголовок</label>
-                    <input id="title" v-model="form.title" maxlength="120" class="rounded-lg border-zinc-300 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" placeholder="Мастер-класс 24 октября" />
+                    <input id="title" v-model="form.title" maxlength="120" :class="input" placeholder="Мастер-класс 24 октября" />
                     <p v-if="form.errors.title" class="text-sm text-red-600">{{ form.errors.title }}</p>
                 </div>
 
                 <div class="flex flex-col gap-1.5">
                     <label for="message" class="text-sm font-medium text-zinc-900 dark:text-white">Текст</label>
-                    <textarea id="message" v-model="form.message" maxlength="500" rows="4" class="rounded-lg border-zinc-300 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" placeholder="Начало в 10:00 МСК, ссылка на трансляцию — в разделе «Мероприятия»"></textarea>
+                    <textarea id="message" v-model="form.message" maxlength="500" rows="4" :class="input" placeholder="Начало в 10:00 МСК, ссылка на трансляцию — в разделе «Мероприятия»"></textarea>
                     <div class="flex justify-between text-xs text-zinc-500"><span>Коротко и по делу: сообщение показывается в маленьком окне.</span><span>{{ form.message.length }}/500</span></div>
                     <p v-if="form.errors.message" class="text-sm text-red-600">{{ form.errors.message }}</p>
                 </div>
 
                 <div class="flex flex-col gap-1.5">
                     <label for="url" class="text-sm font-medium text-zinc-900 dark:text-white">Ссылка <span class="font-normal text-zinc-500">— необязательно</span></label>
-                    <input id="url" v-model="form.url" class="rounded-lg border-zinc-300 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" placeholder="/my-events" />
+                    <input id="url" v-model="form.url" :class="input" placeholder="/my-events" />
                     <p class="text-xs text-zinc-500">Страница сайта, куда перейдёт человек по нажатию. Только адреса этого сайта, начиная с «/».</p>
                     <p v-if="form.errors.url" class="text-sm text-red-600">{{ form.errors.url }}</p>
                 </div>
@@ -157,28 +162,28 @@ const eventLabel = (event) => (event.date ? `${new Date(`${event.date}T00:00:00`
 
         <section class="mt-10">
             <h2 class="mb-4 text-xl font-semibold text-zinc-800 dark:text-white">История</h2>
-            <div v-if="history.data.length" class="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <div v-if="history.data.length" class="overflow-x-auto">
                 <table class="w-full min-w-[720px] text-sm">
-                    <thead class="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-800">
+                    <thead class="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-zinc-800">
                         <tr>
-                            <th class="px-4 py-3 font-medium">Когда</th>
-                            <th class="px-4 py-3 font-medium">Сообщение</th>
-                            <th class="px-4 py-3 font-medium">Кому</th>
-                            <th class="px-4 py-3 text-right font-medium">Получили</th>
-                            <th class="px-4 py-3 font-medium">Отправил</th>
+                            <th class="px-3 py-2.5 font-medium">Когда</th>
+                            <th class="px-3 py-2.5 font-medium">Сообщение</th>
+                            <th class="px-3 py-2.5 font-medium">Кому</th>
+                            <th class="px-3 py-2.5 text-right font-medium">Получили</th>
+                            <th class="px-3 py-2.5 font-medium">Отправил</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="item in history.data" :key="item.id" class="border-t border-zinc-100 align-top dark:border-zinc-800">
-                            <td class="whitespace-nowrap px-4 py-3 text-zinc-500">{{ formatDate(item.created_at) }}</td>
-                            <td class="px-4 py-3">
+                        <tr v-for="item in history.data" :key="item.id" class="border-b border-zinc-100 align-top last:border-0 dark:border-zinc-800/70">
+                            <td class="whitespace-nowrap px-3 py-3.5 text-zinc-500">{{ formatDate(item.created_at) }}</td>
+                            <td class="px-3 py-3.5">
                                 <div class="font-medium text-zinc-900 dark:text-white">{{ item.title }}</div>
                                 <div class="line-clamp-2 text-zinc-500">{{ item.message }}</div>
                                 <div v-if="item.url" class="text-xs text-zinc-400">{{ item.url }}</div>
                             </td>
-                            <td class="px-4 py-3 text-zinc-700 dark:text-zinc-300">{{ audienceLabel(item) }}</td>
-                            <td class="px-4 py-3 text-right tabular-nums text-zinc-900 dark:text-white">{{ item.recipients_count }}</td>
-                            <td class="px-4 py-3 text-zinc-500">{{ item.sender || '—' }}</td>
+                            <td class="px-3 py-3.5 text-zinc-700 dark:text-zinc-300">{{ audienceLabel(item) }}</td>
+                            <td class="px-3 py-3.5 text-right tabular-nums text-zinc-900 dark:text-white">{{ item.recipients_count }}</td>
+                            <td class="px-3 py-3.5 text-zinc-500">{{ item.sender || '—' }}</td>
                         </tr>
                     </tbody>
                 </table>

@@ -8,7 +8,7 @@
                 >
                     <div>
                         <h1
-                            class="text-3xl font-bold text-zinc-900 dark:text-white"
+                            class="text-2xl font-semibold text-zinc-900 sm:text-3xl dark:text-white"
                         >
                             Управление контентом
                         </h1>
@@ -54,13 +54,13 @@
         <div class="space-y-6">
             <!-- Блок управления и фильтров -->
             <div
-                class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6"
+                class="pb-2"
             >
                 <!-- Заголовок секции с кнопкой создания -->
                 <div
                     class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
                 >
-                    <div>
+                    <div class="hidden sm:block">
                         <h2
                             class="text-xl font-semibold text-zinc-900 dark:text-white"
                         >
@@ -113,7 +113,7 @@
                         <input
                             v-model="searchQuery"
                             type="text"
-                            placeholder="Поиск мероприятий по названию, описанию или месту проведения..."
+                            placeholder="Поиск мероприятий"
                             class="w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-4 py-3 text-sm text-zinc-900 placeholder-zinc-500 transition-all duration-200 ease-in-out hover:border-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:placeholder-zinc-400 dark:hover:border-zinc-600"
                             @input="debouncedSearch"
                         />
@@ -122,9 +122,19 @@
                         />
                     </div>
 
-                    <!-- Сетка фильтров -->
+                    <!-- Сетка фильтров: на телефоне по кнопке -->
+                    <button
+                        type="button"
+                        class="inline-flex w-full cursor-pointer items-center justify-between rounded-lg border border-zinc-300 px-3 py-2.5 text-sm font-medium text-zinc-700 sm:hidden dark:border-zinc-600 dark:text-zinc-200"
+                        :aria-expanded="showFilters"
+                        @click="showFilters = !showFilters"
+                    >
+                        <span>Фильтры<span v-if="hasActiveFilters()" class="ml-2 rounded-full bg-zinc-900 px-2 py-0.5 text-xs text-white dark:bg-white dark:text-zinc-900">{{ getActiveFiltersCount() }}</span></span>
+                        <span aria-hidden="true">{{ showFilters ? "▴" : "▾" }}</span>
+                    </button>
                     <div
-                        class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"
+                        class="grid-cols-2 sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-3"
+                        :class="showFilters ? 'grid' : 'hidden'"
                     >
                         <div>
                             <label
@@ -208,7 +218,8 @@
 
                     <!-- Дополнительные фильтры и кнопка сброса -->
                     <div
-                        class="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2 border-t border-zinc-200 dark:border-zinc-700"
+                        class="flex-col sm:flex sm:flex-row items-start sm:items-center gap-3 pt-2 border-t border-zinc-200 dark:border-zinc-700"
+                        :class="showFilters ? 'flex' : 'hidden'"
                     >
                         <div
                             class="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1"
@@ -296,42 +307,42 @@
                 <div v-if="activeTab === 'events'">
                     <div
                         v-if="events && events.data.length > 0"
-                        class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+                        class="overflow-hidden"
                     >
                         <div class="overflow-x-auto">
                             <table
-                                class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800"
+                                class="min-w-full"
                             >
-                                <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+                                <thead class="border-b border-zinc-200 dark:border-zinc-800">
                                     <tr>
                                         <th
                                             scope="col"
-                                            class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             Мероприятие
                                         </th>
                                         <th
                                             scope="col"
-                                            class="hidden lg:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="hidden lg:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             Дата проведения
                                         </th>
                                         <th
                                             scope="col"
-                                            class="hidden xl:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="hidden xl:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             Статус
                                         </th>
                                         <th
                                             scope="col"
-                                            class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             <span class="sr-only">Действия</span>
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody
-                                    class="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900"
+                                    class="divide-y divide-zinc-100 dark:divide-zinc-800/70"
                                 >
                                     <tr
                                         v-for="event in events.data"
@@ -340,7 +351,7 @@
                                         @click="editEvent(event)"
                                     >
                                         <td
-                                            class="whitespace-nowrap px-4 sm:px-6 py-4"
+                                            class="whitespace-nowrap px-3 py-3.5"
                                         >
                                             <div class="flex items-center">
                                                 <div
@@ -482,7 +493,7 @@
                                             </div>
                                         </td>
                                         <td
-                                            class="hidden lg:table-cell whitespace-nowrap px-4 sm:px-6 py-4"
+                                            class="hidden lg:table-cell whitespace-nowrap px-3 py-3.5"
                                         >
                                             <div
                                                 v-if="event.is_on_demand"
@@ -540,7 +551,7 @@
                                             </div>
                                         </td>
                                         <td
-                                            class="hidden xl:table-cell whitespace-nowrap px-4 sm:px-6 py-4"
+                                            class="hidden xl:table-cell whitespace-nowrap px-3 py-3.5"
                                         >
                                             <span
                                                 class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -559,7 +570,7 @@
                                             </span>
                                         </td>
                                         <td
-                                            class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm font-medium"
+                                            class="whitespace-nowrap px-3 py-3.5 text-sm font-medium"
                                         >
                                             <div
                                                 class="flex items-center gap-2"
@@ -621,48 +632,48 @@
                 <div v-if="activeTab === 'categories'">
                     <div
                         v-if="categoriesData && categoriesData.data.length > 0"
-                        class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+                        class="overflow-hidden"
                     >
                         <div class="overflow-x-auto">
                             <table
-                                class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800"
+                                class="min-w-full"
                             >
-                                <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+                                <thead class="border-b border-zinc-200 dark:border-zinc-800">
                                     <tr>
                                         <th
                                             scope="col"
-                                            class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             Название
                                         </th>
                                         <th
                                             scope="col"
-                                            class="hidden md:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="hidden md:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             Описание
                                         </th>
                                         <th
                                             scope="col"
-                                            class="hidden lg:table-cell px-4 sm:px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="hidden lg:table-cell px-3 py-2.5 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             Мероприятия
                                         </th>
                                         <th
                                             scope="col"
-                                            class="hidden xl:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="hidden xl:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             Статус
                                         </th>
                                         <th
                                             scope="col"
-                                            class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                                            class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
                                         >
                                             <span class="sr-only">Действия</span>
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody
-                                    class="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900"
+                                    class="divide-y divide-zinc-100 dark:divide-zinc-800/70"
                                 >
                                     <tr
                                         v-for="category in categoriesData.data"
@@ -671,7 +682,7 @@
                                         @click="editCategory(category)"
                                     >
                                         <td
-                                            class="whitespace-nowrap px-4 sm:px-6 py-4"
+                                            class="whitespace-nowrap px-3 py-3.5"
                                         >
                                             <Link
                                                 :href="route('admin.categories.edit', category.id)"
@@ -687,7 +698,7 @@
                                             </div>
                                         </td>
                                         <td
-                                            class="hidden md:table-cell whitespace-normal px-4 sm:px-6 py-4 text-sm text-zinc-600 dark:text-zinc-400 max-w-sm"
+                                            class="hidden md:table-cell whitespace-normal px-3 py-3.5 text-sm text-zinc-600 dark:text-zinc-400 max-w-sm"
                                         >
                                             <p class="truncate">
                                                 {{
@@ -696,7 +707,7 @@
                                             </p>
                                         </td>
                                         <td
-                                            class="hidden lg:table-cell whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-center"
+                                            class="hidden lg:table-cell whitespace-nowrap px-3 py-3.5 text-sm text-center"
                                         >
                                             <span
                                                 class="text-zinc-900 dark:text-white"
@@ -714,7 +725,7 @@
                                             >
                                         </td>
                                         <td
-                                            class="hidden xl:table-cell whitespace-nowrap px-4 sm:px-6 py-4"
+                                            class="hidden xl:table-cell whitespace-nowrap px-3 py-3.5"
                                         >
                                             <span
                                                 class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
@@ -733,7 +744,7 @@
                                             </span>
                                         </td>
                                         <td
-                                            class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm font-medium"
+                                            class="whitespace-nowrap px-3 py-3.5 text-sm font-medium"
                                         >
                                             <div
                                                 class="flex items-center gap-2"
@@ -927,6 +938,7 @@ const props = defineProps({
 
 // Общее состояние
 const loading = ref(false);
+const showFilters = ref(false);
 const showDeleteModal = ref(false);
 const itemToDelete = ref(null);
 const deleteModalTitle = ref("");

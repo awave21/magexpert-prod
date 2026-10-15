@@ -122,3 +122,31 @@
 @media (max-width: 600px) {
   .Vue-Toastification__container .Vue-Toastification__toast { max-width: none; margin: 0 12px 8px; border-radius: 18px; }
 }
+
+/* Админка: числа и даты выглядят как остальные поля, без системных стрелок и «колёсиков» */
+[data-admin] input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+[data-admin] input[type="number"]::-webkit-outer-spin-button,
+[data-admin] input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+[data-admin] input[type="date"],
+[data-admin] input[type="time"],
+[data-admin] input[type="datetime-local"] {
+  min-height: 2.5rem;
+  font-family: inherit;
+}
+[data-admin] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-admin] input[type="time"]::-webkit-calendar-picker-indicator,
+[data-admin] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+}
+.dark [data-admin] input[type="date"],
+.dark [data-admin] input[type="time"],
+.dark [data-admin] input[type="datetime-local"] {
+  color-scheme: dark;
+}

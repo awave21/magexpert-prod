@@ -24,7 +24,7 @@
                 :key="role.id" 
                 class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 rounded-full text-sm"
               >
-                {{ role.name }}
+                {{ roleLabel(role.name) }}
               </span>
             </div>
           </div>
@@ -70,7 +70,7 @@
           <div class="mt-8">
             <h3 class="text-lg font-medium mb-4">Тестирование уведомлений</h3>
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Уведомления будут отправлены всем пользователям с ролью "admin".
+              Уведомления будут отправлены всем пользователям с ролью «Администратор».
             </p>
             <div class="flex flex-wrap gap-4">
               <button 
@@ -105,6 +105,7 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { roleLabel } from '@/Components/Admin/roleLabels.js';
 import axios from 'axios';
 import { ref } from 'vue';
 

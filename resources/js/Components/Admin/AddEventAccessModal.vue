@@ -62,13 +62,11 @@
 
       <!-- Дата предоставления доступа -->
       <div>
-        <TextInput
-          id="access_granted_at"
+        <DateTimeInput id="access_granted_at"
           v-model="form.access_granted_at"
-          type="datetime-local"
+          
           label="Дата предоставления доступа"
-          :error="form.errors.access_granted_at"
-        />
+          :error="form.errors.access_granted_at" />
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           Оставьте пустым для использования текущего времени
         </p>
@@ -76,13 +74,11 @@
 
       <!-- Дата истечения доступа -->
       <div>
-        <TextInput
-          id="access_expires_at"
+        <DateTimeInput id="access_expires_at"
           v-model="form.access_expires_at"
-          type="datetime-local"
+          
           label="Дата истечения доступа"
-          :error="form.errors.access_expires_at"
-        />
+          :error="form.errors.access_expires_at" />
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           Оставьте пустым для бессрочного доступа
         </p>
@@ -121,11 +117,12 @@
 import { ref, watch, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import SlideOverModal from '@/Components/Modal/SlideOverModal.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/Admin/AdminSecondaryButton.vue';
+import PrimaryButton from '@/Components/Admin/AdminPrimaryButton.vue';
 import SearchableSelectInput from '@/Components/Form/SearchableSelectInput.vue';
 import SelectInput from '@/Components/Form/SelectInput.vue';
 import TextInput from '@/Components/Form/TextInput.vue';
+import DateTimeInput from '@/Components/Form/DateTimeInput.vue';
 import CheckboxInput from '@/Components/Form/CheckboxInput.vue';
 import { PlusIcon } from '@heroicons/vue/20/solid';
 import { ArrowPathIcon as SpinnerIcon } from '@heroicons/vue/24/outline';

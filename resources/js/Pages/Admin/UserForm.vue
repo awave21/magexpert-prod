@@ -101,6 +101,7 @@ import { computed } from "vue";
 import { useForm } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import AdminFormPage from "@/Components/Admin/AdminFormPage.vue";
+import { roleLabel } from "@/Components/Admin/roleLabels.js";
 import ImageUpload from "@/Components/Form/ImageUpload.vue";
 import PhoneInput from "@/Components/Form/PhoneInput.vue";
 import * as c from "@/Components/Admin/formClasses.js";
@@ -115,8 +116,6 @@ const toast = useToast();
 const isEdit = computed(() => !!props.user);
 const displayName = computed(() => [props.user?.last_name, props.user?.first_name, props.user?.middle_name].filter(Boolean).join(" ") || props.user?.email);
 
-const roleNames = { admin: "Администратор", manager: "Менеджер", editor: "Редактор", user: "Пользователь" };
-const roleLabel = (name) => roleNames[name] ?? name;
 
 const form = useForm({
     first_name: props.user?.first_name ?? "",

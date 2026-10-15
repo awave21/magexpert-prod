@@ -5,7 +5,7 @@
       <button
         type="button"
         @click="toggleDropdown"
-        class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-zinc-900 placeholder-zinc-500 focus:border-brandblue focus:outline-none focus:ring-2 focus:ring-brandblue/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:placeholder-zinc-400"
+        class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-sm text-zinc-900 transition-colors hover:border-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-500 dark:focus:border-white dark:focus:ring-white"
         :class="{ 'border-red-300 focus:border-red-500 focus:ring-red-500/20': error }"
       >
         <span class="flex items-center">
@@ -15,7 +15,7 @@
           </span>
         </span>
         <span class="pointer-events-none absolute inset-y-0 right-0 ml-3 flex items-center pr-2">
-          <ChevronUpDownIcon class="size-5 text-gray-400" aria-hidden="true" />
+          <ChevronUpDownIcon class="size-5 text-zinc-400" aria-hidden="true" />
         </span>
       </button>
 
@@ -29,7 +29,7 @@
       >
         <div
           v-if="isOpen"
-          class="absolute z-10 mt-1 w-full overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none dark:bg-zinc-800 dark:ring-white/10"
+          class="absolute z-10 mt-1 w-full overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-zinc-950/5 focus:outline-none dark:bg-zinc-800 dark:ring-white/10"
         >
           <!-- Поле поиска -->
           <div v-if="searchable" class="sticky top-0 bg-white dark:bg-zinc-800 p-2 border-b border-zinc-200 dark:border-zinc-700">
@@ -38,7 +38,7 @@
               v-model="searchQuery"
               type="text"
               :placeholder="searchPlaceholder"
-              class="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder-zinc-500 focus:border-brandblue focus:outline-none focus:ring-1 focus:ring-brandblue dark:border-zinc-600 dark:bg-zinc-700 dark:text-white dark:placeholder-zinc-400"
+              class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white dark:focus:border-white dark:focus:ring-white"
               @click.stop
               @keydown.escape="closeDropdown"
               @keydown.enter.prevent="selectFirstOption"
@@ -74,7 +74,7 @@
               @mouseenter="highlightedIndex = index"
               class="relative cursor-pointer select-none py-2 pl-3 pr-9 text-zinc-900 dark:text-white"
               :class="{
-                'bg-brandblue/10 dark:bg-brandblue/20': highlightedIndex === index,
+                'bg-zinc-100 dark:bg-zinc-700': highlightedIndex === index,
                 'hover:bg-zinc-100 dark:hover:bg-zinc-700': highlightedIndex !== index
               }"
             >
@@ -101,7 +101,7 @@
                 </div>
               </div>
 
-              <span v-if="selectedOption?.value === option.value" class="absolute inset-y-0 right-0 flex items-center pr-4 text-brandblue dark:text-brandblue">
+              <span v-if="selectedOption?.value === option.value" class="absolute inset-y-0 right-0 flex items-center pr-4 text-zinc-900 dark:text-white">
                 <CheckIcon class="h-5 w-5" aria-hidden="true" />
               </span>
             </div>
@@ -110,7 +110,7 @@
       </transition>
     </div>
     
-    <p v-if="error" class="mt-1 text-sm text-brandcoral dark:text-brandcoral">{{ error }}</p>
+    <p v-if="error" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
     <p v-if="hint" class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ hint }}</p>
   </div>
 </template>

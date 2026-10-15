@@ -57,38 +57,38 @@
     </div>
 
     <!-- Таблица пользователей -->
-    <div v-else-if="users.data.length > 0" class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+    <div v-else-if="users.data.length > 0" class="overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-          <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+        <table class="min-w-full">
+          <thead class="border-b border-zinc-200 dark:border-zinc-800">
             <tr>
               <th
                 scope="col"
-                class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >
                 Пользователь
               </th>
               <th
                 scope="col"
-                class="hidden md:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                class="hidden md:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >
                 Email
               </th>
               <th
                 scope="col"
-                class="hidden lg:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                class="hidden lg:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >
                 Роли
               </th>
               <th
                 scope="col"
-                class="hidden xl:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                class="hidden xl:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >
                 Дата регистрации
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
             <tr
               v-for="user in users.data"
               :key="user.id"
@@ -96,7 +96,7 @@
               :class="canOpen(user) ? 'cursor-pointer' : ''"
               @click="openUser(user)"
             >
-              <td class="whitespace-nowrap px-4 sm:px-6 py-4">
+              <td class="whitespace-nowrap px-3 py-3.5">
                 <div class="flex items-center">
                   <div class="size-8 sm:size-10 flex-shrink-0">
                     <UserAvatar 
@@ -113,10 +113,10 @@
                   </div>
                 </div>
               </td>
-              <td class="hidden md:table-cell whitespace-nowrap px-4 sm:px-6 py-4">
+              <td class="hidden md:table-cell whitespace-nowrap px-3 py-3.5">
                 <div class="text-sm text-zinc-900 dark:text-white">{{ user.email }}</div>
               </td>
-              <td class="hidden lg:table-cell whitespace-nowrap px-4 sm:px-6 py-4">
+              <td class="hidden lg:table-cell whitespace-nowrap px-3 py-3.5">
                 <div class="flex flex-wrap gap-1.5">
                   <span
                     v-for="role in user.roles"
@@ -139,7 +139,7 @@
                   </span>
                 </div>
               </td>
-              <td class="hidden xl:table-cell whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+              <td class="hidden xl:table-cell whitespace-nowrap px-3 py-3.5 text-sm text-zinc-500 dark:text-zinc-400">
                 {{ formatDate(user.created_at) }}
               </td>
             </tr>
@@ -211,6 +211,7 @@ import { ref, computed } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { roleLabel } from '@/Components/Admin/roleLabels.js';
 import UserAvatar from '@/Components/UserAvatar.vue';
 import SelectList from '@/Components/SelectList.vue';
 import Pagination from '@/Components/Pagination.vue';
@@ -325,6 +326,4 @@ const openUser = (user) => {
   }
 };
 
-const roleNames = { admin: 'Администратор', manager: 'Менеджер', editor: 'Редактор', user: 'Пользователь' };
-const roleLabel = (name) => roleNames[name] ?? name;
 </script> 

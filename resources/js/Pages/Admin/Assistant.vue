@@ -64,7 +64,7 @@ const cards = computed(() => [
 ]);
 
 const chip = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium';
-const th = 'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400';
+const th = 'px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400';
 </script>
 
 <template>
@@ -95,7 +95,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider tex
             <!-- Сводка за период -->
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <div v-for="card in cards" :key="card.label" class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                    <div class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ card.label }}</div>
+                    <div class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{{ card.label }}</div>
                     <div class="mt-1 text-2xl font-semibold text-zinc-900 dark:text-white">{{ card.value }}</div>
                     <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ card.hint }}</div>
                 </div>
@@ -103,7 +103,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider tex
 
             <div class="grid gap-6 lg:grid-cols-2">
                 <!-- Без ответа -->
-                <section class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+                <section class="min-w-0 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
                     <header class="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
                         <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Не нашлось в библиотеке</h2>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400">Подсказка, каких документов не хватает. Одинаковые вопросы склеены.</p>
@@ -119,7 +119,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider tex
                 </section>
 
                 <!-- Популярные документы -->
-                <section class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+                <section class="min-w-0 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
                     <header class="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
                         <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Популярные документы</h2>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400">Сколько раз документ был в ответах помощника и сколько раз его открыли.</p>
@@ -151,7 +151,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider tex
             </div>
 
             <!-- Все вопросы -->
-            <section class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+            <section class="min-w-0 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
                 <header class="flex flex-col gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
                     <h2 class="text-base font-semibold text-zinc-900 dark:text-white">Вопросы <span class="font-normal text-zinc-500">· {{ questions.total }}</span></h2>
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center">

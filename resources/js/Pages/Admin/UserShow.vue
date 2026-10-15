@@ -139,7 +139,7 @@
                         'bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200': role.name === 'user'
                       }"
                     >
-                      {{ role.name }}
+                      {{ roleLabels[role.name] ?? role.name }}
                     </span>
                   </div>
                   <p v-if="role.description" class="text-sm text-zinc-600 dark:text-zinc-300">
@@ -181,7 +181,7 @@
         <div class="border-b border-zinc-200 bg-zinc-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-800/50">
           <h2 class="text-lg font-medium text-zinc-900 dark:text-white">Действия</h2>
         </div>
-        <div class="flex items-center gap-4 px-6 py-5">
+        <div class="flex flex-wrap items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6 sm:py-5">
           <!-- Кнопка редактирования -->
           <Link
             v-if="canManageUsers && (isAdmin || !hasAdminRole(user))"
@@ -293,8 +293,9 @@ import UserAvatar from '@/Components/UserAvatar.vue';
 import UserRolesModal from '@/Components/Admin/UserRolesModal.vue';
 import UserEventAccess from '@/Components/Admin/UserEventAccess.vue';
 import SlideOverModal from '@/Components/Modal/SlideOverModal.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/Admin/AdminSecondaryButton.vue';
+import PrimaryButton from '@/Components/Admin/AdminPrimaryButton.vue';
+import { roleLabels } from '@/Components/Admin/roleLabels.js';
 import { 
   ArrowLeftIcon, 
   EnvelopeIcon, 

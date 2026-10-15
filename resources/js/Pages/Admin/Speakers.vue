@@ -57,35 +57,35 @@
     </div>
 
     <!-- Таблица спикеров -->
-    <div v-else-if="speakers.data.length > 0" class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+    <div v-else-if="speakers.data.length > 0" class="overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-          <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+        <table class="min-w-full">
+          <thead class="border-b border-zinc-200 dark:border-zinc-800">
             <tr>
               <th
                 scope="col"
-                class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >
                 Спикер
               </th>
               <th
                 scope="col"
-                class="hidden lg:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                class="hidden lg:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >
                 Должность/Компания
               </th>
               <th
                 scope="col"
-                class="hidden xl:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+                class="hidden xl:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400"
               >
                 Статус
               </th>
               <th scope="col" class="px-4 sm:px-6 py-3"><span class="sr-only">Действия</span></th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
             <tr v-for="speaker in speakers.data" :key="speaker.id" class="group cursor-pointer transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50" @click="editSpeaker(speaker)">
-              <td class="whitespace-nowrap px-4 sm:px-6 py-4">
+              <td class="whitespace-nowrap px-3 py-3.5">
                 <div class="flex items-center">
                   <div class="size-8 sm:size-10 flex-shrink-0 overflow-hidden rounded-lg">
                     <img v-if="speaker.photo" :src="speaker.photo" :alt="speaker.full_name" class="size-full object-cover" />
@@ -107,13 +107,13 @@
                   </div>
                 </div>
               </td>
-              <td class="hidden lg:table-cell whitespace-nowrap px-4 sm:px-6 py-4">
+              <td class="hidden lg:table-cell whitespace-nowrap px-3 py-3.5">
                 <div class="text-sm text-zinc-900 dark:text-white">
                   <div v-if="speaker.position">{{ speaker.position }}</div>
                   <div v-if="speaker.company" class="text-xs text-zinc-500 dark:text-zinc-400">{{ speaker.company }}</div>
                 </div>
               </td>
-              <td class="hidden xl:table-cell whitespace-nowrap px-4 sm:px-6 py-4">
+              <td class="hidden xl:table-cell whitespace-nowrap px-3 py-3.5">
                 <span
                   class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                   :class="{
@@ -124,7 +124,7 @@
                   {{ speaker.is_active ? 'На сайте' : 'Скрыт' }}
                 </span>
               </td>
-              <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm font-medium">
+              <td class="whitespace-nowrap px-3 py-3.5 text-sm font-medium">
                 <div class="flex items-center justify-end gap-2">
                   <!-- Кнопка удаления -->
                   <button

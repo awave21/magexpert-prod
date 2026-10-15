@@ -133,34 +133,34 @@ const gotoPage = (url) => {
     </div>
 
     <div v-else>
-      <div v-if="props.registrations && props.registrations.data.length > 0" class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+      <div v-if="props.registrations && props.registrations.data.length > 0" class="overflow-hidden">
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-            <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+          <table class="min-w-full">
+            <thead class="border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Пользователь</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Email</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Мероприятие</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Доступ</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Оплата</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Выдан</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Истекает</th>
+                <th class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Пользователь</th>
+                <th class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Email</th>
+                <th class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Мероприятие</th>
+                <th class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Доступ</th>
+                <th class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Оплата</th>
+                <th class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Выдан</th>
+                <th class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Истекает</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+            <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
               <tr v-for="row in localItems" :key="row.key" class="group transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-900 dark:text-white">
+                <td class="whitespace-nowrap px-3 py-3.5 text-sm text-zinc-900 dark:text-white">
                   <Link :href="route('admin.users.show', row.user.id)" class="font-medium text-brandblue hover:underline">
                     {{ row.user.full_name || '—' }}
                   </Link>
                   <div class="text-zinc-500 text-xs">{{ row.user.company || row.user.position ? `${row.user.company || ''}${row.user.company && row.user.position ? ' · ' : ''}${row.user.position || ''}` : '' }}</div>
                 </td>
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-700 dark:text-zinc-300">{{ row.user.email }}</td>
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-900 dark:text-white">
+                <td class="whitespace-nowrap px-3 py-3.5 text-sm text-zinc-700 dark:text-zinc-300">{{ row.user.email }}</td>
+                <td class="whitespace-nowrap px-3 py-3.5 text-sm text-zinc-900 dark:text-white">
                   <Link :href="route('events.show', row.event.slug)" class="text-brandblue hover:underline">{{ row.event.title }}</Link>
                   <div class="text-zinc-500 text-xs" v-if="row.event.start_date">{{ row.event.start_date }} <span v-if="row.event.start_time">{{ row.event.start_time }}</span></div>
                 </td>
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm">
+                <td class="whitespace-nowrap px-3 py-3.5 text-sm">
                   <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                         :class="{
                           'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200': row.access.type === 'free',
@@ -174,12 +174,12 @@ const gotoPage = (url) => {
                     {{ row.access.is_active ? 'Активен' : 'Отключен' }}
                   </div>
                 </td>
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm">
+                <td class="whitespace-nowrap px-3 py-3.5 text-sm">
                   <div class="text-zinc-900 dark:text-white">{{ row.access.payment_status_label }}</div>
                   <div class="text-zinc-500 text-xs" v-if="row.access.payment_amount">{{ row.access.payment_amount }} ₽</div>
                 </td>
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-700 dark:text-zinc-300">{{ row.access.granted_at || '—' }}</td>
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm text-zinc-700 dark:text-zinc-300">{{ row.access.expires_at || '—' }}</td>
+                <td class="whitespace-nowrap px-3 py-3.5 text-sm text-zinc-700 dark:text-zinc-300">{{ row.access.granted_at || '—' }}</td>
+                <td class="whitespace-nowrap px-3 py-3.5 text-sm text-zinc-700 dark:text-zinc-300">{{ row.access.expires_at || '—' }}</td>
               </tr>
             </tbody>
           </table>

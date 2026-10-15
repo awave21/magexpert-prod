@@ -11,25 +11,29 @@
         @submit="submitForm"
     >
         <section :class="c.box">
-            <div>
-                <label for="pt-name" :class="c.label">Название <span class="text-red-500">*</span></label>
-                <input id="pt-name" v-model="form.name" :class="c.input" />
-                <p v-if="form.errors.name" :class="c.error">{{ form.errors.name }}</p>
-            </div>
-            <div>
-                <label for="pt-site" :class="c.label">Сайт</label>
-                <input id="pt-site" v-model="form.website_url" type="url" :class="c.input" placeholder="https://" />
-                <p v-if="form.errors.website_url" :class="c.error">{{ form.errors.website_url }}</p>
-            </div>
-            <div>
-                <label for="pt-desc" :class="c.label">Описание</label>
-                <textarea id="pt-desc" v-model="form.description" rows="4" maxlength="1000" :class="c.input"></textarea>
-                <p :class="c.hint">{{ form.description.length }}/1000</p>
-                <p v-if="form.errors.description" :class="c.error">{{ form.errors.description }}</p>
-            </div>
-            <div>
-                <ImageUpload label="Логотип *" v-model="form.logo" :error="form.errors.logo" />
-                <p :class="c.hint">Квадратный, около 300×300, до 2 МБ.<template v-if="isEdit"> Чтобы заменить, выберите новый файл.</template></p>
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div class="space-y-4 lg:col-span-2">
+                    <div>
+                        <label for="pt-name" :class="c.label">Название <span class="text-red-500">*</span></label>
+                        <input id="pt-name" v-model="form.name" :class="c.input" />
+                        <p v-if="form.errors.name" :class="c.error">{{ form.errors.name }}</p>
+                    </div>
+                    <div>
+                        <label for="pt-site" :class="c.label">Сайт</label>
+                        <input id="pt-site" v-model="form.website_url" type="url" :class="c.input" placeholder="https://" />
+                        <p v-if="form.errors.website_url" :class="c.error">{{ form.errors.website_url }}</p>
+                    </div>
+                    <div>
+                        <label for="pt-desc" :class="c.label">Описание</label>
+                        <textarea id="pt-desc" v-model="form.description" rows="4" maxlength="1000" :class="c.input"></textarea>
+                        <p :class="c.hint">{{ form.description.length }}/1000</p>
+                        <p v-if="form.errors.description" :class="c.error">{{ form.errors.description }}</p>
+                    </div>
+                </div>
+                <div>
+                    <ImageUpload label="Логотип *" v-model="form.logo" :error="form.errors.logo" />
+                    <p :class="c.hint">Квадратный, около 300×300, до 2 МБ.<template v-if="isEdit"> Чтобы заменить, выберите новый файл.</template></p>
+                </div>
             </div>
         </section>
     </AdminFormPage>

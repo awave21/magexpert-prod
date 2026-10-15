@@ -38,20 +38,20 @@
     
     <!-- Таблица материалов библиотеки -->
     <div v-else>
-      <div v-if="library && library.data.length > 0" class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+      <div v-if="library && library.data.length > 0" class="overflow-hidden">
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-            <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+          <table class="min-w-full">
+            <thead class="border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Материал</th>
-                <th scope="col" class="hidden lg:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Дата публикации</th>
-                <th scope="col" class="hidden xl:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Язык</th>
+                <th scope="col" class="px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Материал</th>
+                <th scope="col" class="hidden lg:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Дата публикации</th>
+                <th scope="col" class="hidden xl:table-cell px-3 py-2.5 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Язык</th>
                 <th scope="col" class="px-4 sm:px-6 py-3"><span class="sr-only">Действия</span></th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+            <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/70">
               <tr v-for="item in library.data" :key="`library-${item.id}`" class="group cursor-pointer transition-colors duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800/50" @click="editLibraryItem(item)">
-                <td class="px-4 sm:px-6 py-4">
+                <td class="px-3 py-3.5">
                   <div class="flex items-center">
                     <div class="size-12 sm:size-16 flex-shrink-0 overflow-hidden rounded-lg">
                       <img v-if="item.image_url" :src="item.image_url" :alt="item.title" class="size-full object-cover" />
@@ -65,15 +65,15 @@
                     </div>
                   </div>
                 </td>
-                <td class="hidden lg:table-cell whitespace-nowrap px-4 sm:px-6 py-4">
+                <td class="hidden lg:table-cell whitespace-nowrap px-3 py-3.5">
                   <div class="text-sm text-zinc-900 dark:text-white">{{ formatDate(item.publication_date) }}</div>
                 </td>
-                <td class="hidden xl:table-cell whitespace-nowrap px-4 sm:px-6 py-4">
+                <td class="hidden xl:table-cell whitespace-nowrap px-3 py-3.5">
                   <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-300">
                     {{ getLanguageName(item.language) }}
                   </span>
                 </td>
-                <td class="whitespace-nowrap px-4 sm:px-6 py-4 text-sm font-medium">
+                <td class="whitespace-nowrap px-3 py-3.5 text-sm font-medium">
                   <div class="flex items-center justify-end gap-2">
                     <a v-if="item.file_url" :href="item.file_url" target="_blank" rel="noopener" :class="iconAction" title="Открыть файл" aria-label="Открыть файл" @click.stop>
                       <ArrowDownTrayIcon class="size-4" />

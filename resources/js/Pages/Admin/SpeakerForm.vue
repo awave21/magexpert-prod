@@ -12,36 +12,42 @@
     >
         <section :class="c.box">
             <h3 :class="c.boxTitle">Кто это</h3>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                    <label for="sp-last" :class="c.label">Фамилия <span class="text-red-500">*</span></label>
-                    <input id="sp-last" v-model="form.last_name" :class="c.input" />
-                    <p v-if="form.errors.last_name" :class="c.error">{{ form.errors.last_name }}</p>
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div class="space-y-4 lg:col-span-2">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        <div>
+                            <label for="sp-last" :class="c.label">Фамилия <span class="text-red-500">*</span></label>
+                            <input id="sp-last" v-model="form.last_name" :class="c.input" />
+                            <p v-if="form.errors.last_name" :class="c.error">{{ form.errors.last_name }}</p>
+                        </div>
+                        <div>
+                            <label for="sp-first" :class="c.label">Имя <span class="text-red-500">*</span></label>
+                            <input id="sp-first" v-model="form.first_name" :class="c.input" />
+                            <p v-if="form.errors.first_name" :class="c.error">{{ form.errors.first_name }}</p>
+                        </div>
+                        <div>
+                            <label for="sp-middle" :class="c.label">Отчество</label>
+                            <input id="sp-middle" v-model="form.middle_name" :class="c.input" />
+                            <p v-if="form.errors.middle_name" :class="c.error">{{ form.errors.middle_name }}</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="sp-pos" :class="c.label">Должность</label>
+                            <input id="sp-pos" v-model="form.position" :class="c.input" placeholder="Врач акушер-гинеколог, к.м.н." />
+                            <p v-if="form.errors.position" :class="c.error">{{ form.errors.position }}</p>
+                        </div>
+                        <div>
+                            <label for="sp-company" :class="c.label">Где работает</label>
+                            <input id="sp-company" v-model="form.company" :class="c.input" placeholder="Клиника, кафедра" />
+                            <p v-if="form.errors.company" :class="c.error">{{ form.errors.company }}</p>
+                        </div>
+                    </div>
                 </div>
                 <div>
-                    <label for="sp-first" :class="c.label">Имя <span class="text-red-500">*</span></label>
-                    <input id="sp-first" v-model="form.first_name" :class="c.input" />
-                    <p v-if="form.errors.first_name" :class="c.error">{{ form.errors.first_name }}</p>
-                </div>
-                <div>
-                    <label for="sp-middle" :class="c.label">Отчество</label>
-                    <input id="sp-middle" v-model="form.middle_name" :class="c.input" />
-                    <p v-if="form.errors.middle_name" :class="c.error">{{ form.errors.middle_name }}</p>
+                    <ImageUpload label="Фото" v-model="form.photo" v-model:delete-photo="form.delete_photo" :error="form.errors.photo" />
                 </div>
             </div>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                    <label for="sp-pos" :class="c.label">Должность</label>
-                    <input id="sp-pos" v-model="form.position" :class="c.input" placeholder="Врач акушер-гинеколог, к.м.н." />
-                    <p v-if="form.errors.position" :class="c.error">{{ form.errors.position }}</p>
-                </div>
-                <div>
-                    <label for="sp-company" :class="c.label">Где работает</label>
-                    <input id="sp-company" v-model="form.company" :class="c.input" placeholder="Клиника, кафедра" />
-                    <p v-if="form.errors.company" :class="c.error">{{ form.errors.company }}</p>
-                </div>
-            </div>
-            <ImageUpload label="Фото" v-model="form.photo" v-model:delete-photo="form.delete_photo" :error="form.errors.photo" />
         </section>
 
         <section :class="c.box">
@@ -61,15 +67,17 @@
 
         <section :class="c.box">
             <h3 :class="c.boxTitle">Публикация</h3>
+            <div class="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
                 <input v-model="form.is_active" type="checkbox" :class="c.checkbox" />
                 <span>Показывать на сайте<span :class="c.hintInline">скрытого спикера нельзя выбрать в новом мероприятии</span></span>
             </label>
-            <div class="max-w-48">
+            <div>
                 <label for="sp-sort" :class="c.label">Порядок в списках</label>
                 <input id="sp-sort" v-model.number="form.sort_order" type="number" min="0" :class="c.input" />
                 <p :class="c.hint">Чем меньше число, тем выше.</p>
                 <p v-if="form.errors.sort_order" :class="c.error">{{ form.errors.sort_order }}</p>
+            </div>
             </div>
         </section>
 

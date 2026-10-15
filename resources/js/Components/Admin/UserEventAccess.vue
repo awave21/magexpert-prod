@@ -168,7 +168,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import PrimaryButton from '@/Components/Admin/AdminPrimaryButton.vue';
 import AddEventAccessModal from '@/Components/Admin/AddEventAccessModal.vue';
 import EditEventAccessModal from '@/Components/Admin/EditEventAccessModal.vue';
 import {

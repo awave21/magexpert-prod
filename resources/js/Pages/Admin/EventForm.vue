@@ -12,80 +12,110 @@
             </div>
         </template>
 
-        <div class="flex items-start gap-8 pb-24">
-            <nav aria-label="Разделы формы" class="sticky top-6 hidden w-48 shrink-0 xl:block">
-                <ul class="space-y-1 text-sm">
-                    <li v-for="s in sections" :key="s.id">
-                        <a :href="`#${s.id}`" class="block rounded-md px-3 py-1.5 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white">{{ s.label }}</a>
-                    </li>
-                </ul>
-            </nav>
+        <div class="pb-24">
+            <div class="mb-6 flex gap-1 overflow-x-auto border-b border-zinc-200 [scrollbar-width:none] dark:border-zinc-800 [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Разделы мероприятия">
+                <button
+                    v-for="s in sections"
+                    :id="`tab-${s.id}`"
+                    :key="s.id"
+                    type="button"
+                    role="tab"
+                    :aria-selected="tab === s.id"
+                    :aria-controls="s.id"
+                    class="-mb-px flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+                    :class="tab === s.id
+                        ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'"
+                    @click="tab = s.id"
+                >
+                    {{ s.label }}
+                    <span v-if="tabHasErrors(s.id)" class="size-2 rounded-full bg-red-500" aria-label="есть ошибки"></span>
+                </button>
+            </div>
 
-            <form id="event-form" class="min-w-0 flex-1 space-y-5" novalidate @submit.prevent="submitForm()">
+            <div class="flex items-start gap-6">
+            <form id="event-form" class="min-w-0 flex-1" novalidate @submit.prevent="submitForm()">
             <!-- 1. Основное -->
-            <section :id="`sec-1`" :class="box" class="scroll-mt-24">
-                <h3 :class="boxTitle">1. Основное</h3>
-                <div>
-                    <label for="ev-title" :class="label">Название <span class="text-red-500">*</span></label>
-                    <input id="ev-title" v-model="form.title" :class="input" placeholder="2 ступень. Первая практика гинеколога-эстетиста" />
-                    <p v-if="form.errors.title" :class="error">{{ form.errors.title }}</p>
-                </div>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label for="ev-type" :class="label">Тип <span class="text-red-500">*</span></label>
-                        <select id="ev-type" v-model="form.event_type" :class="input">
-                            <option value="" disabled>Выберите тип</option>
-                            <option v-for="o in eventTypeOptions" :key="o.value" :value="o.value">{{ o.text }}</option>
-                        </select>
-                        <p v-if="form.errors.event_type" :class="error">{{ form.errors.event_type }}</p>
+            <section id="sec-1" v-show="tab === 'sec-1'" role="tabpanel" :aria-labelledby="`tab-sec-1`" :class="box">
+                <h3 :class="boxTitle">Основное</h3>
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <div class="lg:col-span-2">
+                        <label for="ev-title" :class="label">Название <span class="text-red-500">*</span></label>
+                        <input id="ev-title" v-model="form.title" :class="input" placeholder="2 ступень. Первая практика гинеколога-эстетиста" />
+                        <p v-if="form.errors.title" :class="error">{{ form.errors.title }}</p>
                     </div>
                     <div>
-                        <label for="ev-format" :class="label">Формат</label>
-                        <select id="ev-format" v-model="form.format" :class="input">
-                            <option value="">Не указан</option>
-                            <option v-for="o in formatOptions" :key="o.value" :value="o.value">{{ o.text }}</option>
-                        </select>
-                        <p v-if="form.errors.format" :class="error">{{ form.errors.format }}</p>
+                        <label for="ev-topic" :class="label">Тема</label>
+                        <input id="ev-topic" v-model="form.topic" :class="input" placeholder="Например, инъекционные методики" />
                     </div>
                 </div>
-                <MultiSelectInput
-                    id="categories"
-                    label="Категории"
-                    v-model="form.selected_categories"
-                    :options="categoryOptions"
-                    :error="form.errors.selected_categories || form.errors.categories"
-                    placeholder="Выберите одну или несколько"
-                    :searchable="true"
-                    :show-selected="true"
-                />
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div>
+                        <SelectInput
+                            id="ev-type"
+                            v-model="form.event_type"
+                            :options="eventTypeOptions"
+                            label="Тип *"
+                            placeholder="Выберите тип"
+                            :error="form.errors.event_type"
+                        />
+                    </div>
+                    <div>
+                        <SelectInput
+                            id="ev-format"
+                            v-model="form.format"
+                            :options="formatSelectOptions"
+                            label="Формат"
+                            placeholder="Не указан"
+                            :error="form.errors.format"
+                        />
+                    </div>
+                    <div>
+                    <MultiSelectInput
+                        id="categories"
+                        label="Категории"
+                        v-model="form.selected_categories"
+                        :options="categoryOptions"
+                        :error="form.errors.selected_categories || form.errors.categories"
+                        placeholder="Выберите одну или несколько"
+                        :searchable="true"
+                        :show-selected="true"
+                    />
+                    </div>
+                </div>
+                            <div>
+                    <label for="ev-short" :class="label">Кратко</label>
+                    <textarea id="ev-short" v-model="form.short_description" rows="2" :class="input" placeholder="Одно-два предложения для карточки в каталоге"></textarea>
+                    <p v-if="form.errors.short_description" :class="error">{{ form.errors.short_description }}</p>
+                </div>
             </section>
 
             <!-- 2. Дата и место -->
-            <section :id="`sec-2`" :class="box" class="scroll-mt-24">
-                <h3 :class="boxTitle">2. Дата и место</h3>
+            <section id="sec-2" v-show="tab === 'sec-2'" role="tabpanel" :aria-labelledby="`tab-sec-2`" :class="box">
+                <h3 :class="boxTitle">Дата и место</h3>
                 <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
                     <input v-model="form.is_on_demand" type="checkbox" :class="checkbox" />
                     <span>Без даты — смотреть в любое время<span :class="hintInline">запись доступна сразу после регистрации</span></span>
                 </label>
-                <div v-if="!form.is_on_demand" class="grid grid-cols-2 gap-4">
+                <div v-if="!form.is_on_demand" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
                     <div>
                         <label for="ev-sd" :class="label">Дата начала <span class="text-red-500">*</span></label>
-                        <input id="ev-sd" v-model="form.start_date" type="date" :class="input" />
+                        <DateInput id="ev-sd" v-model="form.start_date" />
                         <p v-if="form.errors.start_date" :class="error">{{ form.errors.start_date }}</p>
                     </div>
                     <div>
                         <label for="ev-st" :class="label">Время начала, МСК</label>
-                        <input id="ev-st" v-model="form.start_time" type="time" :class="input" />
+                        <TimeInput id="ev-st" v-model="form.start_time" />
                         <p v-if="form.errors.start_time" :class="error">{{ form.errors.start_time }}</p>
                     </div>
                     <div>
                         <label for="ev-ed" :class="label">Дата окончания</label>
-                        <input id="ev-ed" v-model="form.end_date" type="date" :min="form.start_date || undefined" :class="input" />
+                        <DateInput id="ev-ed" v-model="form.end_date" :min="form.start_date || ''" />
                         <p v-if="form.errors.end_date" :class="error">{{ form.errors.end_date }}</p>
                     </div>
                     <div>
                         <label for="ev-et" :class="label">Время окончания, МСК</label>
-                        <input id="ev-et" v-model="form.end_time" type="time" :class="input" />
+                        <TimeInput id="ev-et" v-model="form.end_time" />
                         <p v-if="form.errors.end_time" :class="error">{{ form.errors.end_time }}</p>
                     </div>
                 </div>
@@ -104,8 +134,8 @@
             </section>
 
             <!-- 3. Видео -->
-            <section :id="`sec-3`" :class="box" class="scroll-mt-24">
-                <h3 :class="boxTitle">3. Видео Kinescope</h3>
+            <section id="sec-3" v-show="tab === 'sec-3'" role="tabpanel" :aria-labelledby="`tab-sec-3`" :class="box">
+                <h3 :class="boxTitle">Видео Kinescope</h3>
                 <div>
                     <label for="ev-video" :class="label">Ссылка или ID из Kinescope</label>
                     <input id="ev-video" v-model="videoLink" :class="input" placeholder="https://kinescope.io/abc123 или https://kinescope.io/pl/xyz" @input="parseVideoLink" />
@@ -135,52 +165,58 @@
             </section>
 
             <!-- 4. Доступ и оплата -->
-            <section :id="`sec-4`" :class="box" class="scroll-mt-24">
-                <h3 :class="boxTitle">4. Доступ и оплата</h3>
-                <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Оплата">
-                    <label :class="[pill, !form.is_paid ? pillOn : '']">
-                        <input v-model="form.is_paid" type="radio" :value="false" class="sr-only" /> Бесплатное
-                    </label>
-                    <label :class="[pill, form.is_paid ? pillOn : '']">
-                        <input v-model="form.is_paid" type="radio" :value="true" class="sr-only" /> Платное
-                    </label>
-                </div>
-                <div v-if="form.is_paid" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <section id="sec-4" v-show="tab === 'sec-4'" role="tabpanel" :aria-labelledby="`tab-sec-4`" :class="box">
+                <h3 :class="boxTitle">Доступ и оплата</h3>
+                <div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
                     <div>
-                        <label for="ev-price" :class="label">Стоимость, ₽ <span class="text-red-500">*</span></label>
-                        <input id="ev-price" v-model="form.price" type="number" min="0" step="1" inputmode="numeric" :class="input" placeholder="5000" />
-                        <p v-if="form.errors.price" :class="error">{{ form.errors.price }}</p>
+                        <span :class="label">Оплата</span>
+                        <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Оплата">
+                            <label :class="[pill, !form.is_paid ? pillOn : '']">
+                                <input v-model="form.is_paid" type="radio" :value="false" class="sr-only" /> Бесплатное
+                            </label>
+                            <label :class="[pill, form.is_paid ? pillOn : '']">
+                                <input v-model="form.is_paid" type="radio" :value="true" class="sr-only" /> Платное
+                            </label>
+                        </div>
+                        <p v-if="!form.is_paid" :class="hint">Смотреть смогут все, кто зарегистрировался.</p>
                     </div>
-                    <label class="flex items-start gap-2 text-sm text-zinc-900 sm:pt-7 dark:text-white">
-                        <input v-model="form.show_price" type="checkbox" :class="checkbox" />
-                        <span>Показывать цену на сайте<span :class="hintInline">иначе будет написано «Платно»</span></span>
-                    </label>
+                    <template v-if="form.is_paid">
+                        <div>
+                            <label for="ev-price" :class="label">Стоимость, ₽ <span class="text-red-500">*</span></label>
+                            <input id="ev-price" v-model="form.price" type="number" min="0" step="1" inputmode="numeric" :class="input" placeholder="5000" />
+                            <p v-if="form.errors.price" :class="error">{{ form.errors.price }}</p>
+                        </div>
+                        <label class="flex items-start gap-2 text-sm text-zinc-900 lg:pt-7 dark:text-white">
+                            <input v-model="form.show_price" type="checkbox" :class="checkbox" />
+                            <span>Показывать цену на сайте<span :class="hintInline">иначе будет написано «Платно»</span></span>
+                        </label>
+                    </template>
                 </div>
-                <p v-else :class="hint">Смотреть смогут все, кто зарегистрировался.</p>
 
                 <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
                     <input v-model="form.registration_enabled" type="checkbox" :class="checkbox" />
                     <span>Открыта регистрация</span>
                 </label>
-                <div v-if="form.registration_enabled">
-                    <label for="ev-tags" :class="label">Теги для рассылок</label>
-                    <input id="ev-tags" v-model="form.tags_text" :class="input" placeholder="Например: гинекология, школа, 2026" />
-                    <p :class="hint">Через запятую. Контакт в Sender получит эти теги при регистрации на мероприятие, по ним отбираются получатели рассылки. При создании мероприятия заполняется адресом страницы и датой. При смене адреса или даты обновите теги вручную.</p>
-                    <p v-if="form.errors.tags || form.errors['tags.0']" :class="error">{{ form.errors.tags || form.errors['tags.0'] }}</p>
-                </div>
-                <div v-if="form.registration_enabled">
-                    <label for="ev-letter" :class="label">Письмо о регистрации</label>
-                    <input id="ev-letter" v-model="form.letter_draft_id" :class="input" placeholder="Стандартное письмо" />
-                    <p :class="hint">ID или алиас (draft-12) шаблона из Sender. Если пусто или такого шаблона нет, уйдёт стандартное письмо.</p>
-                    <p v-if="form.errors.letter_draft_id" :class="error">{{ form.errors.letter_draft_id }}</p>
-                </div>
-                <div v-if="form.registration_enabled" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                <div v-if="form.registration_enabled" class="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+                    <div class="lg:col-span-2">
+                        <label for="ev-tags" :class="label">Теги для рассылок</label>
+                        <input id="ev-tags" v-model="form.tags_text" :class="input" placeholder="Например: гинекология, школа, 2026" />
+                        <p :class="hint">Через запятую. Контакт в Sender получит эти теги при регистрации, по ним отбираются получатели рассылки. При создании заполняется адресом страницы и датой; при смене адреса или даты обновите вручную.</p>
+                        <p v-if="form.errors.tags || form.errors['tags.0']" :class="error">{{ form.errors.tags || form.errors['tags.0'] }}</p>
+                    </div>
+                    <div>
+                        <label for="ev-letter" :class="label">Письмо о регистрации</label>
+                        <input id="ev-letter" v-model="form.letter_draft_id" :class="input" placeholder="Стандартное письмо" />
+                        <p :class="hint">ID или алиас (draft-12) шаблона из Sender. Если пусто, уйдёт стандартное письмо.</p>
+                        <p v-if="form.errors.letter_draft_id" :class="error">{{ form.errors.letter_draft_id }}</p>
+                    </div>
                     <div>
                         <label for="ev-max" :class="label">Мест</label>
                         <input id="ev-max" v-model.number="form.max_quantity" type="number" min="0" step="1" :class="input" placeholder="Без ограничений" />
                         <p v-if="form.errors.max_quantity" :class="error">{{ form.errors.max_quantity }}</p>
                     </div>
-                    <div>
+                    <div class="lg:col-span-2">
                         <label for="ev-ext" :class="label">Регистрация на другом сайте</label>
                         <input id="ev-ext" v-model="form.external_url" type="url" :class="input" placeholder="https://" />
                         <p :class="hint">Если заполнить, кнопка «Записаться» поведёт туда.</p>
@@ -190,45 +226,45 @@
             </section>
 
             <!-- 5. Описание и материалы -->
-            <section :id="`sec-5`" :class="box" class="scroll-mt-24">
-                <h3 :class="boxTitle">5. Описание и материалы</h3>
-                <div>
-                    <label for="ev-short" :class="label">Кратко</label>
-                    <textarea id="ev-short" v-model="form.short_description" rows="2" :class="input" placeholder="Одно-два предложения для карточки в каталоге"></textarea>
-                    <p v-if="form.errors.short_description" :class="error">{{ form.errors.short_description }}</p>
-                </div>
-                <RichTextEditor
-                    id="full_description"
-                    label="Подробное описание"
-                    v-model="form.full_description"
-                    :error="form.errors.full_description"
-                    placeholder="Для кого, о чём, программа"
-                    :upload-endpoint="route('admin.events.upload-image')"
-                    :event-id="props.event?.id ?? null"
-                />
-                <div>
-                    <label for="ev-topic" :class="label">Тема</label>
-                    <input id="ev-topic" v-model="form.topic" :class="input" placeholder="Например, инъекционные методики" />
+            <section id="sec-5" v-show="tab === 'sec-5'" role="tabpanel" :aria-labelledby="`tab-sec-5`" :class="box">
+                <h3 :class="boxTitle">Описание и материалы</h3>
+                <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+                    <div class="lg:col-span-2">
+                    <RichTextEditor
+                        id="full_description"
+                        label="Подробное описание"
+                        v-model="form.full_description"
+                        :error="form.errors.full_description"
+                        placeholder="Для кого, о чём, программа"
+                        :upload-endpoint="route('admin.events.upload-image')"
+                        :event-id="props.event?.id ?? null"
+                    />
+                    </div>
+                    <div class="space-y-5">
+    <ImageUpload label="Обложка" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
+
+                    <div>
+                        <span :class="label">Программа мероприятия</span>
+                        <div v-if="currentFile" class="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
+                            <span class="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{{ currentFile.name }}</span>
+                            <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть</a>
+                            <button type="button" class="font-medium text-red-600 hover:underline" @click="removeFile">Убрать</button>
+                        </div>
+                        <label v-else :class="fileButton">
+                            <input id="event_file" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png" class="sr-only" @change="pickFile" />
+                            Выбрать файл
+                        </label>
+                        <p :class="hint">Необязательно. PDF, DOCX, JPG или PNG до 10 МБ.<template v-if="form.delete_file"> Файл удалится после сохранения.</template></p>
+                        <p v-if="form.errors.file" :class="error">{{ form.errors.file }}</p>
+                    </div>
+                    </div>
                 </div>
                 <SpeakerSelector id="speakers" label="Спикеры" v-model="form.speakers" :speakers="speakers" :error="form.errors.speakers" />
-                <ImageUpload label="Обложка" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
-
-                <div>
-                    <span :class="label">Программа мероприятия</span>
-                    <div v-if="currentFile" class="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
-                        <span class="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{{ currentFile.name }}</span>
-                        <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть</a>
-                        <button type="button" class="font-medium text-red-600 hover:underline" @click="removeFile">Убрать</button>
-                    </div>
-                    <input v-else id="event_file" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png" :class="[input, 'py-1.5']" @change="pickFile" />
-                    <p :class="hint">Необязательно. PDF, DOCX, JPG или PNG до 10 МБ.<template v-if="form.delete_file"> Файл удалится после сохранения.</template></p>
-                    <p v-if="form.errors.file" :class="error">{{ form.errors.file }}</p>
-                </div>
             </section>
 
             <!-- 6. Публикация -->
-            <section :id="`sec-6`" :class="box" class="scroll-mt-24">
-                <h3 :class="boxTitle">6. Публикация</h3>
+            <section id="sec-6" v-show="tab === 'sec-6'" role="tabpanel" :aria-labelledby="`tab-sec-6`" :class="box">
+                <h3 :class="boxTitle">Публикация</h3>
                 <label class="flex items-start gap-2 text-sm text-zinc-900 dark:text-white">
                     <input v-model="form.is_active" type="checkbox" :class="checkbox" />
                     <span>Показывать на сайте<span :class="hintInline">выключите, чтобы сохранить черновик</span></span>
@@ -237,12 +273,7 @@
                     <input v-model="form.is_archived" type="checkbox" :class="checkbox" />
                     <span>В архиве<span :class="hintInline">мероприятие прошло, на сайте будет в разделе записей</span></span>
                 </label>
-            </section>
-
-            <!-- Дополнительно -->
-            <details class="rounded-lg border border-zinc-200 dark:border-zinc-700" :open="hasAdvancedErrors">
-                <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-white">Дополнительно</summary>
-                <div class="space-y-4 px-4 pb-4">
+                <div class="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
                     <div>
                         <label for="ev-slug" :class="label">Адрес страницы</label>
                         <input id="ev-slug" v-model="form.slug" :class="input" placeholder="Заполнится из названия" />
@@ -253,20 +284,57 @@
                         <label for="ev-sort" :class="label">Порядок в списках</label>
                         <input id="ev-sort" v-model.number="form.sort_order" type="number" min="0" :class="input" />
                         <p :class="hint">Чем меньше число, тем выше. Обычно 0.</p>
+                        <p v-if="form.errors.sort_order" :class="error">{{ form.errors.sort_order }}</p>
                     </div>
                 </div>
-            </details>
+            </section>
+
         </form>
+
+            <!-- Справа: что осталось заполнить и как увидят на сайте -->
+            <aside class="hidden w-72 shrink-0 space-y-6 xl:block" aria-label="Готовность и превью">
+                <div>
+                    <div class="mb-2 flex items-baseline justify-between text-sm">
+                        <span class="font-semibold text-zinc-900 dark:text-white">Готовность</span>
+                        <span class="text-zinc-500 dark:text-zinc-400">{{ readyCount }} из {{ readiness.length }}</span>
+                    </div>
+                    <div class="mb-3 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700">
+                        <div class="h-1.5 rounded-full bg-zinc-900 transition-all dark:bg-white" :style="{ width: `${(readyCount / readiness.length) * 100}%` }"></div>
+                    </div>
+                    <ul class="space-y-1.5 text-sm">
+                        <li v-for="item in readiness" :key="item.label" class="flex items-center gap-2" :class="item.done ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'">
+                            <span class="flex size-4 shrink-0 items-center justify-center rounded-full text-[10px]" :class="item.done ? 'bg-emerald-500 text-white' : 'border border-zinc-300 dark:border-zinc-600'">{{ item.done ? "✓" : "" }}</span>
+                            <button type="button" class="text-left hover:underline" @click="tab = item.tab">{{ item.label }}</button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                    <p class="mb-2 text-sm font-semibold text-zinc-900 dark:text-white">Как увидят на сайте</p>
+                    <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+                        <div class="aspect-video bg-zinc-100 dark:bg-zinc-800">
+                            <img v-if="previewImage" :src="previewImage" alt="" class="size-full object-cover" />
+                        </div>
+                        <div class="space-y-1 p-3">
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ previewMeta }}</p>
+                            <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ form.title || "Название мероприятия" }}</p>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ previewWhen }}</p>
+                            <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ previewPrice }}</p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            </div>
         </div>
 
         <!-- Панель сохранения всегда под рукой -->
-        <div class="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 dark:border-zinc-800 dark:bg-zinc-900/95">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-6 lg:px-6 dark:border-zinc-800 dark:bg-zinc-900/95">
+            <div class="flex items-center justify-between gap-3">
                 <span v-if="Object.keys(form.errors).length" class="text-sm text-red-600">Проверьте поля, отмеченные красным</span>
-                <span v-else-if="form.isDirty" class="text-sm text-zinc-500">Есть несохранённые изменения</span>
-                <span v-else class="text-sm text-zinc-500">{{ isEdit ? "Все изменения сохранены" : "Заполните основное и дату — остальное можно позже" }}</span>
+                <span v-else-if="form.isDirty" class="hidden text-sm text-zinc-500 sm:inline">Есть несохранённые изменения</span>
+                <span v-else class="hidden text-sm text-zinc-500 sm:inline">{{ isEdit ? "Все изменения сохранены" : "Заполните основное и дату — остальное можно позже" }}</span>
                 <div class="flex gap-3">
-                    <Link :href="route('admin.events')" class="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800">Назад к списку</Link>
+                    <Link :href="route('admin.events')" class="inline-flex items-center rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 sm:px-4 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800">Назад<span class="hidden sm:inline">&nbsp;к списку</span></Link>
                     <button type="submit" form="event-form" class="inline-flex items-center rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900" :disabled="form.processing">
                         {{ form.processing ? "Сохраняем…" : isEdit ? "Сохранить" : "Создать мероприятие" }}
                     </button>
@@ -277,7 +345,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Head, Link, router, useForm } from "@inertiajs/vue3";
 import { useToast } from "vue-toastification";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
@@ -285,6 +353,14 @@ import MultiSelectInput from "@/Components/Form/MultiSelectInput.vue";
 import ImageUpload from "@/Components/Form/ImageUpload.vue";
 import SpeakerSelector from "@/Components/Form/SpeakerSelector.vue";
 import RichTextEditor from "@/Components/Form/RichTextEditor.vue";
+import SelectInput from "@/Components/Form/SelectInput.vue";
+import DateInput from "@/Components/Form/DateInput.vue";
+import TimeInput from "@/Components/Form/TimeInput.vue";
+import { label, input, checkbox, hint, hintInline, error, pill, pillOn, fileButton } from "@/Components/Admin/formClasses.js";
+
+// Секции — плоские блоки под вкладками, без рамок: название раздела уже на вкладке
+const box = "space-y-5";
+const boxTitle = "sr-only";
 
 const props = defineProps({
     event: { type: Object, default: null },
@@ -295,18 +371,7 @@ const props = defineProps({
 const toast = useToast();
 const isEdit = computed(() => !!props.event);
 
-// Общие классы полей — просто и одинаково во всей форме
-const box = "space-y-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700";
-const boxTitle = "text-sm font-semibold text-zinc-900 dark:text-white";
-const label = "mb-1 block text-sm font-medium text-zinc-800 dark:text-zinc-200";
-const input = "block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-white dark:focus:ring-white";
-const checkbox = "mt-0.5 size-4 shrink-0 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800";
-const hint = "mt-1 text-xs text-zinc-500 dark:text-zinc-400";
-const hintInline = "block text-xs text-zinc-500 dark:text-zinc-400";
-const error = "mt-1 text-sm text-red-600 dark:text-red-400";
-const pill = "cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200";
-const pillOn = "!border-zinc-900 bg-zinc-900 !text-white dark:!border-white dark:bg-white dark:!text-zinc-900";
-
+// Общие классы полей — один файл на всю админку
 const blank = {
     title: "",
     slug: "",
@@ -360,6 +425,7 @@ const formatOptions = [
     { value: "offline", text: "Офлайн" },
     { value: "hybrid", text: "Гибрид" },
 ];
+const formatSelectOptions = [{ value: "", text: "Не указан" }, ...formatOptions];
 const categoryOptions = computed(() => props.categories.map((c) => ({ value: c.id, text: c.name })));
 
 // ---------- Видео Kinescope: одна строка вместо «тип + ID» ----------
@@ -503,9 +569,74 @@ const sections = [
     { id: "sec-5", label: "Описание и материалы" },
     { id: "sec-6", label: "Публикация" },
 ];
+// ---------- Готовность и превью справа ----------
+const readiness = computed(() => [
+    { label: "Название и тип", done: !!form.title.trim() && !!form.event_type, tab: "sec-1" },
+    { label: "Дата и место", done: form.is_on_demand || !!form.start_date, tab: "sec-2" },
+    { label: "Спикеры", done: form.speakers.length > 0, tab: "sec-5" },
+    { label: "Обложка", done: !!previewImage.value, tab: "sec-5" },
+    { label: "Описание", done: !!(form.short_description.trim() || form.full_description.trim()), tab: "sec-1" },
+]);
+const readyCount = computed(() => readiness.value.filter((item) => item.done).length);
+
+const previewImage = ref(null);
+watch(
+    () => [form.image, form.delete_image],
+    ([image, removed]) => {
+        if (previewImage.value?.startsWith("blob:")) {
+            URL.revokeObjectURL(previewImage.value);
+        }
+        previewImage.value = removed ? null : image instanceof File ? URL.createObjectURL(image) : typeof image === "string" && image ? image : null;
+    },
+    { immediate: true },
+);
+onBeforeUnmount(() => {
+    if (previewImage.value?.startsWith("blob:")) {
+        URL.revokeObjectURL(previewImage.value);
+    }
+});
+
+const previewMeta = computed(() => {
+    const type = eventTypeOptions.find((o) => o.value === form.event_type)?.text;
+    const format = formatOptions.find((o) => o.value === form.format)?.text;
+    return [type, format].filter(Boolean).join(" · ") || "Тип · формат";
+});
+const previewWhen = computed(() => {
+    if (form.is_on_demand) {
+        return "В записи, без даты";
+    }
+    const date = form.start_date ? new Date(`${form.start_date}T00:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }) : "Дата не указана";
+    return [date, form.start_time, form.format !== "online" ? form.city : ""].filter(Boolean).join(" · ");
+});
+const previewPrice = computed(() => {
+    if (!form.is_paid) {
+        return "Бесплатно";
+    }
+    return form.show_price && form.price ? `${Number(form.price).toLocaleString("ru-RU")} ₽` : "Платно";
+});
+
 const publicUrl = computed(() => (props.event?.slug ? route("events.show", props.event.slug) : null));
 
-const hasAdvancedErrors = computed(() => ["slug", "sort_order"].some((key) => form.errors[key]));
+const tab = ref("sec-1");
+const tabFields = {
+    "sec-1": ["title", "event_type", "format", "selected_categories", "categories"],
+    "sec-2": ["start_date", "start_time", "end_date", "end_time", "location", "city", "is_on_demand"],
+    "sec-3": ["kinescope_id", "kinescope_playlist_id", "kinescope_type"],
+    "sec-4": ["price", "show_price", "tags", "tags.0", "letter_draft_id", "max_quantity", "external_url"],
+    "sec-5": ["short_description", "full_description", "topic", "speakers", "image", "file"],
+    "sec-6": ["slug", "sort_order"],
+};
+const tabHasErrors = (id) => tabFields[id].some((key) => form.errors[key]);
+// после неудачного сохранения открываем первую вкладку с ошибкой
+watch(
+    () => ({ ...form.errors }),
+    () => {
+        const first = Object.keys(tabFields).find((id) => tabHasErrors(id));
+        if (first && !tabHasErrors(tab.value)) {
+            tab.value = first;
+        }
+    },
+);
 
 // Предупреждаем, если уходят со страницы с несохранёнными правками
 let saving = false;

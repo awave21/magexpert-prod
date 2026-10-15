@@ -2,7 +2,7 @@
   <Listbox as="div" v-model="selectedValue" :disabled="disabled">
     <ListboxLabel v-if="label" class="block text-sm font-medium text-zinc-900 dark:text-white mb-1">{{ label }}</ListboxLabel>
     <div class="relative">
-      <ListboxButton class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-600 transition-colors duration-150 ease-in-out hover:border-zinc-400">
+      <ListboxButton class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-sm text-zinc-900 transition-colors hover:border-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-500 dark:focus:border-white dark:focus:ring-white">
         <span v-if="selectedOption" class="flex items-center gap-2">
           <img v-if="selectedOption.avatar" :src="selectedOption.avatar" alt="" class="size-5 shrink-0 rounded-full" />
           <span class="block truncate">{{ selectedOption.label || selectedOption.name }}</span>
@@ -23,7 +23,7 @@
         enter-from-class="opacity-0 translate-y-1"
         enter-to-class="opacity-100 translate-y-0"
       >
-        <ListboxOptions class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none dark:bg-zinc-800 dark:ring-white/10 text-sm">
+        <ListboxOptions class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-zinc-950/5 focus:outline-none dark:bg-zinc-800 dark:ring-white/10">
           <ListboxOption 
             v-slot="{ active, selected }" 
             v-for="option in options" 
