@@ -18,7 +18,7 @@
         <button
           type="button"
           @click="$refs.photoInput.click()"
-          class="inline-flex items-center px-4 py-2 border border-zinc-300 rounded-lg shadow-sm text-zinc-900 bg-white hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:focus:ring-white dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700"
+          class="inline-flex items-center px-4 py-2 border border-zinc-300 rounded-lg shadow-sm text-zinc-900 bg-white hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-brandblue dark:focus:ring-brandblue dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700"
         >
           {{ preview ? 'Изменить фото' : 'Выбрать фото' }}
         </button>

@@ -8,7 +8,7 @@
                     <Link :href="backHref" class="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">← {{ backLabel }}</Link>
                     <h1 class="mt-1 truncate text-2xl font-semibold text-zinc-900 dark:text-white">{{ title }}</h1>
                 </div>
-                <a v-if="publicUrl" :href="publicUrl" target="_blank" rel="noopener" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">{{ publicLabel }} ↗</a>
+                <a v-if="publicUrl" :href="publicUrl" target="_blank" rel="noopener" class="text-sm font-medium text-brandblue-dark hover:underline dark:text-brandblue">{{ publicLabel }} ↗</a>
             </div>
         </template>
 
@@ -38,7 +38,7 @@
                 <span v-else class="hidden text-sm text-zinc-500 sm:inline">{{ isEdit ? "Все изменения сохранены" : createHint }}</span>
                 <div class="flex gap-3">
                     <Link :href="backHref" class="inline-flex items-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800">{{ backButtonLabel }}</Link>
-                    <button type="submit" :form="formId" class="inline-flex items-center rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900" :disabled="form.processing">
+                    <button type="submit" :form="formId" class="inline-flex items-center rounded-lg bg-brandblue-dark px-5 py-2 text-sm font-medium text-white hover:bg-brandblue-deep disabled:opacity-50 dark:bg-brandblue dark:text-white" :disabled="form.processing">
                         {{ form.processing ? "Сохраняем…" : isEdit ? "Сохранить" : createLabel }}
                     </button>
                 </div>

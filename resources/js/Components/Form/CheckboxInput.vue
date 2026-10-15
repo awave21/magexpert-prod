@@ -5,7 +5,7 @@
       :checked="modelValue"
       @change="$emit('update:modelValue', $event.target.checked)"
       type="checkbox"
-      class="size-4 shrink-0 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800"
+      class="size-4 shrink-0 rounded border-zinc-300 text-brandblue-dark focus:ring-brandblue dark:border-zinc-600 dark:bg-zinc-800"
     />
     <label :for="id" class="ml-2 block text-sm text-zinc-900 dark:text-white">
       {{ label }}

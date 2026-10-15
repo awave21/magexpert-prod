@@ -48,7 +48,7 @@
                     <span :class="c.label">Файл <span class="text-red-500">*</span></span>
                     <div v-if="currentFile" class="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
                         <span class="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{{ currentFile.name }}</span>
-                        <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть</a>
+                        <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-brandblue-dark hover:underline dark:text-brandblue">Открыть</a>
                         <button type="button" class="font-medium text-zinc-700 hover:underline dark:text-zinc-300" @click="replaceFile">Заменить</button>
                     </div>
                     <label v-else :class="c.fileButton">
@@ -57,7 +57,7 @@
                     </label>
                     <p :class="c.hint">
                         PDF, Word, Excel или PowerPoint до 20 МБ.
-                        <button v-if="isEdit && !currentFile" type="button" class="font-medium text-blue-600 hover:underline dark:text-blue-400" @click="keepExisting = true">Оставить прежний файл</button>
+                        <button v-if="isEdit && !currentFile" type="button" class="font-medium text-brandblue-dark hover:underline dark:text-brandblue" @click="keepExisting = true">Оставить прежний файл</button>
                     </p>
                     <p v-if="form.errors.file" :class="c.error">{{ form.errors.file }}</p>
                 </div>

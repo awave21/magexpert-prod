@@ -18,9 +18,9 @@
               <span 
                 class="inline-flex rounded-full px-3 py-1 text-sm font-semibold"
                 :class="{
-                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300': role.name === 'admin',
-                  'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300': role.name === 'manager',
-                  'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300': role.name === 'editor',
+                  'bg-brandcoral-soft text-red-700 dark:bg-red-900/30 dark:text-red-300': role.name === 'admin',
+                  'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue': role.name === 'manager',
+                  'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue': role.name === 'editor',
                   'bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200': role.name === 'user'
                 }"
               >

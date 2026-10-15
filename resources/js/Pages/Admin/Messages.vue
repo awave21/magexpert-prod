@@ -138,7 +138,7 @@ const eventLabel = (event) => (event.date ? `${new Date(`${event.date}T00:00:00`
                     </span>
                     <button
                         type="submit"
-                        class="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+                        class="inline-flex items-center justify-center rounded-lg bg-brandblue-dark px-5 py-2.5 text-sm font-medium text-white hover:bg-brandblue-deep disabled:opacity-50 dark:bg-brandblue dark:text-white"
                         :disabled="form.processing || !count"
                     >{{ form.processing ? 'Отправляем…' : 'Отправить' }}</button>
                 </div>

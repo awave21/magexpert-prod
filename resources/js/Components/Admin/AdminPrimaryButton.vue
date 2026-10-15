@@ -11,7 +11,7 @@ defineProps({
     <button
         :type="type"
         :disabled="disabled || processing"
-        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 dark:focus-visible:ring-white dark:focus-visible:ring-offset-zinc-900"
+        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90 dark:focus-visible:ring-brandblue dark:focus-visible:ring-offset-zinc-900"
         :class="{ 'cursor-wait': processing }"
     >
         <svg v-if="processing" class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">

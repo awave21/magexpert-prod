@@ -17,7 +17,7 @@
                 :aria-expanded="isOpen"
                 :aria-controls="`${id}-list`"
                 :aria-activedescendant="isOpen && options[activeIndex] ? `${id}-opt-${activeIndex}` : undefined"
-                class="block w-full rounded-lg border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-white dark:focus:ring-white"
+                class="block w-full rounded-lg border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 placeholder-zinc-400 focus:border-brandblue focus:outline-none focus:ring-1 focus:ring-brandblue dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-brandblue dark:focus:ring-brandblue"
                 :placeholder="selected.length ? 'Добавить ещё спикера…' : 'Начните вводить фамилию спикера'"
                 @focus="open"
                 @click="open"
@@ -57,12 +57,12 @@
                         :id="`${id}-opt-${matches.length}`"
                         role="option"
                         :aria-selected="activeIndex === matches.length"
-                        class="flex cursor-pointer items-center gap-3 border-t border-zinc-100 px-3 py-2 text-sm font-medium text-blue-700 dark:border-zinc-700 dark:text-blue-300"
+                        class="flex cursor-pointer items-center gap-3 border-t border-zinc-100 px-3 py-2 text-sm font-medium text-brandblue-dark dark:border-zinc-700 dark:text-brandblue"
                         :class="activeIndex === matches.length ? 'bg-zinc-100 dark:bg-zinc-700' : ''"
                         @mouseenter="activeIndex = matches.length"
                         @mousedown.prevent="startCreate"
                     >
-                        <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/30"><PlusIcon class="size-4" /></span>
+                        <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-brandblue-soft dark:bg-brandblue/20"><PlusIcon class="size-4" /></span>
                         {{ query.trim() ? `Новый спикер: «${query.trim()}»` : "Новый спикер" }}
                     </li>
                 </ul>
@@ -71,7 +71,7 @@
         </div>
 
         <!-- Быстрое добавление спикера, которого ещё нет в базе -->
-        <div v-if="creating" class="space-y-3 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/30">
+        <div v-if="creating" class="space-y-3 rounded-lg border border-brandblue/30 bg-brandblue-soft/50 p-3 dark:border-brandblue/40 dark:bg-brandblue/10">
             <p class="text-sm font-medium text-zinc-900 dark:text-white">Новый спикер</p>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
@@ -96,7 +96,7 @@
             <p class="text-xs text-zinc-500 dark:text-zinc-400">Фото и регалии можно добавить позже в разделе «Спикеры».</p>
             <p v-if="draftErrors.general" class="text-xs text-red-600">{{ draftErrors.general }}</p>
             <div class="flex gap-2">
-                <button type="button" class="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900" :disabled="savingNew" @click="saveNew">
+                <button type="button" class="rounded-lg bg-brandblue-dark px-3 py-1.5 text-sm font-medium text-white hover:bg-brandblue-deep disabled:opacity-50 dark:bg-brandblue dark:text-white" :disabled="savingNew" @click="saveNew">
                     {{ savingNew ? "Добавляем…" : "Добавить и выбрать" }}
                 </button>
                 <button type="button" class="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800" @click="creating = false">Отмена</button>
@@ -120,7 +120,7 @@
                 <div class="flex items-center gap-3">
                     <button
                         type="button"
-                        class="-ml-1 flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 active:cursor-grabbing dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                        class="-ml-1 flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue active:cursor-grabbing dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
                         :aria-label="`Перетащите, чтобы изменить порядок: ${nameOf(speakerOf(item))}. С клавиатуры — стрелки вверх и вниз`"
                         title="Перетащите, чтобы изменить порядок"
                         :data-handle="index"
@@ -181,7 +181,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
-const smallInput = "block w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-white";
+const smallInput = "block w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-brandblue focus:outline-none focus:ring-1 focus:ring-brandblue dark:border-zinc-600 dark:bg-zinc-900 dark:text-white";
 const iconButton = "inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white";
 
 // Круглое фото спикера или значок, если фото нет

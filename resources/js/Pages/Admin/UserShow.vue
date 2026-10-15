@@ -57,7 +57,7 @@
               <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Email подтвержден</dt>
               <dd class="mt-1 text-sm text-zinc-900 dark:text-white">
                 <span v-if="user.email_verified_at" class="inline-flex items-center">
-                  <CheckCircleIcon class="mr-1.5 size-4 text-green-500" />
+                  <CheckCircleIcon class="mr-1.5 size-4 text-brandblue" />
                   {{ formatDate(user.email_verified_at) }}
                 </span>
                 <span v-else class="inline-flex items-center">
@@ -133,9 +133,9 @@
                     <span
                       class="inline-flex rounded-full px-3 py-1 text-sm font-semibold"
                       :class="{
-                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300': role.name === 'admin',
-                        'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300': role.name === 'manager',
-                        'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300': role.name === 'editor',
+                        'bg-brandcoral-soft text-red-700 dark:bg-red-900/30 dark:text-red-300': role.name === 'admin',
+                        'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue': role.name === 'manager',
+                        'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue': role.name === 'editor',
                         'bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200': role.name === 'user'
                       }"
                     >
@@ -210,7 +210,7 @@
       v-if="notification.show"
       class="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg px-4 py-3 shadow-lg transition-all duration-300"
       :class="{
-        'bg-green-50 text-green-800 ring-1 ring-green-500/10 dark:bg-green-900/30 dark:text-green-300': notification.type === 'success',
+        'bg-brandblue-soft text-brandblue-dark ring-1 ring-brandblue/20 dark:bg-brandblue/15 dark:text-brandblue': notification.type === 'success',
         'bg-red-50 text-red-800 ring-1 ring-red-500/10 dark:bg-red-900/30 dark:text-red-300': notification.type === 'error'
       }"
     >

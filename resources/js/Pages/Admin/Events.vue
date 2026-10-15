@@ -94,7 +94,7 @@
                                     ? router.visit(route('admin.events.create'))
                                     : router.visit(route('admin.categories.create'))
                             "
-                            class="inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-zinc-800 hover:scale-105 active:scale-95 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shadow-lg hover:shadow-xl"
+                            class="inline-flex items-center justify-center rounded-lg bg-brandblue-dark px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-brandblue-deep hover:scale-105 active:scale-95 dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90 shadow-lg hover:shadow-xl"
                         >
                             <PlusIcon class="mr-2 size-4" />
                             {{
@@ -129,7 +129,7 @@
                         :aria-expanded="showFilters"
                         @click="showFilters = !showFilters"
                     >
-                        <span>Фильтры<span v-if="hasActiveFilters()" class="ml-2 rounded-full bg-zinc-900 px-2 py-0.5 text-xs text-white dark:bg-white dark:text-zinc-900">{{ getActiveFiltersCount() }}</span></span>
+                        <span>Фильтры<span v-if="hasActiveFilters()" class="ml-2 rounded-full bg-brandblue-dark px-2 py-0.5 text-xs text-white dark:bg-brandblue dark:text-white">{{ getActiveFiltersCount() }}</span></span>
                         <span aria-hidden="true">{{ showFilters ? "▴" : "▾" }}</span>
                     </button>
                     <div
@@ -472,7 +472,7 @@
                                                     >
                                                         <span
                                                             v-if="event.is_paid"
-                                                            class="font-medium text-emerald-600 dark:text-emerald-400"
+                                                            class="font-medium text-brandblue-dark dark:text-brandblue"
                                                         >
                                                             {{
                                                                 event.price &&
@@ -485,7 +485,7 @@
                                                         </span>
                                                         <span
                                                             v-else
-                                                            class="text-blue-600 dark:text-blue-400"
+                                                            class="text-brandblue-dark dark:text-brandblue"
                                                             >Бесплатно</span
                                                         >
                                                     </div>
@@ -532,7 +532,7 @@
                                             <div class="mt-1 text-xs">
                                                 <span
                                                     v-if="event.is_paid"
-                                                    class="font-medium text-emerald-600 dark:text-emerald-400"
+                                                    class="font-medium text-brandblue-dark dark:text-brandblue"
                                                 >
                                                     {{
                                                         event.price &&
@@ -545,7 +545,7 @@
                                                 </span>
                                                 <span
                                                     v-else
-                                                    class="text-blue-600 dark:text-blue-400"
+                                                    class="text-brandblue-dark dark:text-brandblue"
                                                     >Бесплатно</span
                                                 >
                                             </div>
@@ -556,7 +556,7 @@
                                             <span
                                                 class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                                                 :class="{
-                                                    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300':
+                                                    'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue':
                                                         event.is_active,
                                                     'bg-zinc-100 text-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-300':
                                                         !event.is_active,
@@ -620,7 +620,7 @@
                         <button
                             v-if="hasActiveFilters()"
                             @click="resetFilters"
-                            class="mt-4 inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                            class="mt-4 inline-flex items-center rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90"
                         >
                             <XCircleIcon class="mr-2 size-4" />
                             Сбросить фильтры
@@ -730,7 +730,7 @@
                                             <span
                                                 class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                                                 :class="{
-                                                    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300':
+                                                    'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue':
                                                         category.is_active,
                                                     'bg-zinc-100 text-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-300':
                                                         !category.is_active,
@@ -783,7 +783,7 @@
                         <button
                             v-if="hasActiveCategoryFilters()"
                             @click="resetCategoryFilters"
-                            class="mt-4 inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                            class="mt-4 inline-flex items-center rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90"
                         >
                             <XCircleIcon class="mr-2 size-4" />
                             Сбросить фильтры

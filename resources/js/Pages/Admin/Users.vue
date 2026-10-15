@@ -8,7 +8,7 @@
           <Link
             v-if="canManageUsers"
             :href="route('admin.users.create')"
-            class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+            class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="mr-2 size-4">
               <path d="M6.25 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM3.25 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.766.766 0 0 1-.752.743H4.003a.766.766 0 0 1-.752-.743l-.001-.122Z" />
@@ -123,9 +123,9 @@
                     :key="role.id"
                     class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-150"
                     :class="{
-                      'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300': role.name === 'admin',
-                      'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300': role.name === 'manager',
-                      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300': role.name === 'editor',
+                      'bg-brandcoral-soft text-red-700 dark:bg-red-900/30 dark:text-red-300': role.name === 'admin',
+                      'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue': role.name === 'manager',
+                      'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue': role.name === 'editor',
                       'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200': role.name === 'user'
                     }"
                   >
@@ -161,7 +161,7 @@
       <button 
         v-if="hasActiveFilters()" 
         @click="resetFilters" 
-        class="mt-4 inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+        class="mt-4 inline-flex items-center rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="mr-2 size-4">
           <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clip-rule="evenodd" />

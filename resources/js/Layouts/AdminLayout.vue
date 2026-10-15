@@ -3,113 +3,106 @@
         data-admin
         class="relative isolate flex min-h-svh w-full bg-white max-lg:flex-col lg:bg-zinc-100 dark:bg-zinc-900 dark:lg:bg-zinc-950"
     >
-        <!-- Боковая панель (фиксированная на больших экранах), сворачивается до иконок -->
+        <!-- Боковая панель (фиксированная на больших экранах), плавно сворачивается до иконок -->
         <aside
-            class="fixed inset-y-0 left-0 z-20 transition-[width] duration-200 max-lg:hidden"
+            class="fixed inset-y-0 left-0 z-20 overflow-hidden transition-[width] duration-300 ease-in-out max-lg:hidden"
             :class="adminStore.isSidebarCollapsed ? 'w-[72px]' : 'w-64'"
         >
-            <nav class="flex h-full min-h-0 flex-col" aria-label="Главное меню">
+            <nav class="flex h-full min-h-0 w-full flex-col" aria-label="Главное меню">
+                <!-- Шапка: логотип и кнопка свернуть/развернуть сверху, всегда на виду -->
                 <div
-                    class="flex items-center p-4"
-                    :class="adminStore.isSidebarCollapsed ? 'justify-center' : ''"
+                    class="flex gap-2 p-3 transition-all duration-300"
+                    :class="adminStore.isSidebarCollapsed ? 'flex-col items-center' : 'flex-row items-center'"
                 >
                     <Link
                         :href="route('welcome')"
-                        class="flex min-w-0 items-center gap-3 rounded-lg text-sm font-semibold text-zinc-950 dark:text-white"
+                        class="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-sm font-semibold text-zinc-950 dark:text-white"
+                        :class="adminStore.isSidebarCollapsed ? 'flex-none' : ''"
                         title="Открыть сайт"
                     >
                         <img
-                            v-if="adminStore.isSidebarCollapsed"
                             class="size-10 shrink-0 rounded-lg bg-white object-contain"
                             src="/images/admin/magexpert-icon.svg"
                             alt="MAG Expert"
                         />
-                        <template v-else>
-                            <span class="inline-grid shrink-0 rounded-lg bg-white p-1">
-                                <img
-                                    class="size-6 object-contain"
-                                    src="/images/admin/magexpert-icon.svg"
-                                    alt="MAG Expert"
-                                />
-                            </span>
-                            <span class="truncate">MAG Expert</span>
-                        </template>
+                        <span
+                            class="truncate whitespace-nowrap transition-all duration-300"
+                            :class="adminStore.isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'"
+                        >MAG Expert</span>
                     </Link>
+                    <button
+                        type="button"
+                        class="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+                        :title="adminStore.isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
+                        :aria-label="adminStore.isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
+                        :aria-expanded="!adminStore.isSidebarCollapsed"
+                        @click="adminStore.toggleSidebar"
+                    >
+                        <ChevronDoubleLeftIcon
+                            class="size-5 transition-transform duration-300"
+                            :class="adminStore.isSidebarCollapsed ? 'rotate-180' : ''"
+                        />
+                    </button>
                 </div>
 
                 <div class="px-3">
                     <button
                         type="button"
-                        class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        :class="adminStore.isSidebarCollapsed ? 'justify-center' : ''"
+                        class="flex w-full cursor-pointer items-center gap-3 overflow-hidden rounded-lg px-3.5 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
                         :title="adminStore.isSidebarCollapsed ? 'Быстрый поиск (Ctrl+K)' : undefined"
                         aria-label="Быстрый поиск"
                         @click="adminStore.openCommandPalette"
                     >
                         <MagnifyingGlassIcon class="size-5 shrink-0 fill-zinc-500 dark:fill-zinc-400" />
-                        <template v-if="!adminStore.isSidebarCollapsed">
-                            <span class="flex-1 text-left">Быстрый поиск</span>
+                        <span
+                            class="flex flex-1 items-center justify-between whitespace-nowrap transition-opacity duration-300"
+                            :class="adminStore.isSidebarCollapsed ? 'opacity-0' : 'opacity-100'"
+                        >
+                            Быстрый поиск
                             <kbd class="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900">⌘K</kbd>
-                        </template>
+                        </span>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-3 py-2">
+                <div class="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2">
                     <template v-for="group in menuGroups" :key="group.title || 'root'">
                         <p
-                            v-if="group.title && !adminStore.isSidebarCollapsed"
-                            class="px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-zinc-400"
+                            v-if="group.title"
+                            class="overflow-hidden whitespace-nowrap px-3.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 transition-all duration-300"
+                            :class="adminStore.isSidebarCollapsed ? 'max-h-0 pb-0 pt-0 opacity-0' : 'max-h-10 pb-1 pt-4 opacity-100'"
                         >
                             {{ group.title }}
                         </p>
                         <div
-                            v-else-if="group.title"
-                            class="my-3 border-t border-zinc-950/10 dark:border-white/10"
+                            v-if="group.title"
+                            class="mx-3 border-t border-zinc-950/10 transition-all duration-300 dark:border-white/10"
+                            :class="adminStore.isSidebarCollapsed ? 'my-3 opacity-100' : 'my-0 opacity-0'"
                             aria-hidden="true"
                         ></div>
                         <ul class="space-y-0.5">
                             <li v-for="item in group.items" :key="item.routeName">
                                 <Link
                                     :href="route(item.routeName)"
-                                    class="flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-colors"
-                                    :class="[
-                                        adminStore.isSidebarCollapsed ? 'justify-center' : '',
-                                        isActive(item)
-                                            ? 'bg-zinc-950/5 text-zinc-950 dark:bg-white/10 dark:text-white'
-                                            : 'text-zinc-700 hover:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-800',
-                                    ]"
+                                    class="flex items-center gap-3 overflow-hidden rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150"
+                                    :class="isActive(item)
+                                        ? 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/15 dark:text-white'
+                                        : 'text-zinc-700 hover:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-800'"
                                     :title="adminStore.isSidebarCollapsed ? item.name : undefined"
                                     :aria-current="isActive(item) ? 'page' : undefined"
                                 >
                                     <component
                                         :is="item.icon"
                                         class="size-5 shrink-0"
-                                        :class="isActive(item) ? 'fill-zinc-950 dark:fill-white' : 'fill-zinc-500 dark:fill-zinc-400'"
+                                        :class="isActive(item) ? 'fill-brandblue-dark dark:fill-brandblue' : 'fill-zinc-500 dark:fill-zinc-400'"
                                     />
-                                    <span v-if="!adminStore.isSidebarCollapsed" class="truncate">{{ item.name }}</span>
-                                    <span v-else class="sr-only">{{ item.name }}</span>
+                                    <span
+                                        class="truncate whitespace-nowrap transition-opacity duration-300"
+                                        :class="adminStore.isSidebarCollapsed ? 'opacity-0' : 'opacity-100'"
+                                    >{{ item.name }}</span>
                                 </Link>
                             </li>
                         </ul>
                     </template>
-                </div>
-
-                <div class="border-t border-zinc-950/5 p-3 dark:border-white/5">
-                    <button
-                        type="button"
-                        class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        :class="adminStore.isSidebarCollapsed ? 'justify-center' : ''"
-                        :title="adminStore.isSidebarCollapsed ? 'Развернуть меню' : undefined"
-                        :aria-label="adminStore.isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'"
-                        :aria-expanded="!adminStore.isSidebarCollapsed"
-                        @click="adminStore.toggleSidebar"
-                    >
-                        <ChevronDoubleRightIcon v-if="adminStore.isSidebarCollapsed" class="size-5 shrink-0" />
-                        <template v-else>
-                            <ChevronDoubleLeftIcon class="size-5 shrink-0" />
-                            <span>Свернуть</span>
-                        </template>
-                    </button>
                 </div>
             </nav>
         </aside>
@@ -306,7 +299,7 @@
                         <span class="relative block">
                             <span
                                 v-if="isActive(item)"
-                                class="absolute inset-y-2 -left-2 w-0.5 rounded-full bg-zinc-950 dark:bg-white"
+                                class="absolute inset-y-2 -left-2 w-0.5 rounded-full bg-zinc-950 dark:bg-brandblue"
                             ></span>
                             <Link
                                 :href="route(item.routeName)"
@@ -346,7 +339,7 @@
                                 v-if="!adminStore.darkMode"
                                 class="h-5 w-5 text-amber-500"
                             />
-                            <MoonIcon v-else class="h-5 w-5 text-blue-500" />
+                            <MoonIcon v-else class="h-5 w-5 text-brandblue" />
                             <span>{{
                                 adminStore.darkMode
                                     ? "Темная тема"
@@ -420,7 +413,7 @@
                 <div class="ml-auto flex items-center gap-2">
                     <Menu v-if="createActions.length" as="div" class="relative">
                         <MenuButton
-                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-brandblue-dark px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brandblue-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue focus-visible:ring-offset-2 dark:bg-brandblue dark:hover:bg-brandblue/90 dark:focus-visible:ring-offset-zinc-900"
                         >
                             <PlusIcon class="size-4" />
                             Создать
@@ -455,7 +448,7 @@
 
                     <button
                         type="button"
-                        class="relative flex size-9 cursor-pointer items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        class="relative flex size-9 cursor-pointer items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue dark:text-zinc-300 dark:hover:bg-zinc-800"
                         aria-label="Уведомления"
                         @click="adminStore.toggleNotificationDrawer"
                     >
@@ -470,7 +463,7 @@
 
                     <Menu as="div" class="relative">
                         <MenuButton
-                            class="flex cursor-pointer items-center rounded-lg p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+                            class="flex cursor-pointer items-center rounded-lg p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue"
                             aria-label="Меню аккаунта"
                         >
                             <UserAvatar
@@ -512,7 +505,7 @@
                                             @click="adminStore.toggleDarkMode"
                                         >
                                             <SunIcon v-if="!adminStore.darkMode" class="size-5 text-amber-500" />
-                                            <MoonIcon v-else class="size-5 text-blue-500" />
+                                            <MoonIcon v-else class="size-5 text-brandblue" />
                                             {{ adminStore.darkMode ? "Тёмная тема" : "Светлая тема" }}
                                         </button>
                                     </MenuItem>

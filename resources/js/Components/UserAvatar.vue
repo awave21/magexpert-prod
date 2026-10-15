@@ -89,21 +89,15 @@ const getBgColorClass = () => {
     hash = props.name.charCodeAt(i) + ((hash << 5) - hash);
   }
   
-  // Определяем индекс цвета (у нас 8 цветов)
-  const index = Math.abs(hash) % 8;
-  
-  // Возвращаем соответствующий класс цвета
+  // Фирменные оттенки: синий, коралловый и нейтральный
   const colorClasses = [
-    'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-    'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-    'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
-    'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-    'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300'
+    'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue',
+    'bg-brandcoral-soft text-red-700 dark:bg-brandcoral/20 dark:text-brandcoral',
+    'bg-brandblue/15 text-brandblue-deep dark:bg-brandblue/25 dark:text-white',
+    'bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200'
   ];
-  
+  const index = Math.abs(hash) % colorClasses.length;
+
   return colorClasses[index];
 };
 

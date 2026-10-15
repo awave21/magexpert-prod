@@ -5,7 +5,7 @@
       <button
         type="button"
         @click="isOpen = !isOpen"
-        class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-sm text-zinc-900 transition-colors hover:border-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-500 dark:focus:border-white dark:focus:ring-white"
+        class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-sm text-zinc-900 transition-colors hover:border-zinc-400 focus:border-brandblue focus:outline-none focus:ring-1 focus:ring-brandblue disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-500 dark:focus:border-brandblue dark:focus:ring-brandblue"
       >
         <span class="flex items-center">
           <span class="block truncate">
@@ -36,7 +36,7 @@
               v-model="searchQuery"
               type="text"
               placeholder="Поиск категорий..."
-              class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white dark:focus:border-white dark:focus:ring-white"
+              class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-brandblue focus:outline-none focus:ring-1 focus:ring-brandblue dark:border-zinc-600 dark:bg-zinc-700 dark:text-white dark:focus:border-brandblue dark:focus:ring-brandblue"
               @click.stop
             />
           </div>
@@ -53,7 +53,7 @@
                 <input
                   type="checkbox"
                   :checked="isSelected(option.value)"
-                  class="mr-3 size-4 shrink-0 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800"
+                  class="mr-3 size-4 shrink-0 rounded border-zinc-300 text-brandblue-dark focus:ring-brandblue dark:border-zinc-600 dark:bg-zinc-800"
                   @click.stop
                 />
                 <img v-if="option.image" :src="option.image" alt="" class="size-6 shrink-0 rounded-full mr-3" />

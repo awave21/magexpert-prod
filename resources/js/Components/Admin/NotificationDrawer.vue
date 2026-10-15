@@ -29,7 +29,7 @@
         <!-- Список уведомлений -->
         <div class="overflow-y-auto -mx-6 px-6" style="max-height: calc(100vh - 250px);">
             <div v-if="loading" class="flex justify-center py-8">
-                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brandblue"></div>
             </div>
             
             <div v-else-if="filteredNotifications.length === 0" class="flex flex-col items-center justify-center py-8 text-center text-zinc-500 dark:text-zinc-400">
@@ -48,7 +48,7 @@
                     :class="[
                         notification.read 
                             ? 'bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800/70' 
-                            : 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30'
+                            : 'bg-brandblue-soft hover:bg-brandblue-soft dark:bg-brandblue/15 dark:hover:bg-brandblue/25'
                     ]"
                 >
                     <!-- Иконка уведомления -->
@@ -84,7 +84,7 @@
                                     v-if="!notification.read"
                                     @click="markAsRead(notification.id)"
                                     title="Отметить как прочитанное"
-                                    class="rounded-full p-1 text-zinc-400 hover:bg-zinc-200 hover:text-blue-600 dark:hover:bg-zinc-700 dark:hover:text-blue-400"
+                                    class="rounded-full p-1 text-zinc-400 hover:bg-zinc-200 hover:text-brandblue-dark dark:hover:bg-zinc-700 dark:hover:text-brandblue"
                                 >
                                     <EnvelopeOpenIcon class="size-4" />
                                 </button>
@@ -118,7 +118,7 @@
                 <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <button 
                         @click="markAllAsRead"
-                        class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:text-blue-600 hover:bg-blue-50 dark:text-zinc-300 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 focus:outline-none"
+                        class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium text-zinc-700 hover:text-brandblue-dark hover:bg-brandblue-soft dark:text-zinc-300 dark:hover:text-brandblue dark:hover:bg-brandblue/15 focus:outline-none"
                         :disabled="!hasUnreadNotifications"
                         :class="{ 'opacity-50 cursor-not-allowed': !hasUnreadNotifications }"
                     >
@@ -359,13 +359,13 @@ const getNotificationIcon = (type) => {
 const getNotificationClass = (type) => {
     switch (type) {
         case 'order':
-            return 'bg-blue-600';
+            return 'bg-brandblue-dark';
         case 'user':
-            return 'bg-green-600';
+            return 'bg-brandblue';
         case 'payment':
-            return 'bg-purple-600';
+            return 'bg-brandcoral';
         case 'success':
-            return 'bg-green-600';
+            return 'bg-brandblue-dark';
         case 'warning':
             return 'bg-yellow-600';
         case 'error':
@@ -381,13 +381,13 @@ function getIconUrl(type) {
     let color;
     switch (type) {
         case 'order':
-            color = '#2563eb'; // blue-600
+            color = '#3f6596'; // фирменный синий
             break;
         case 'user':
-            color = '#16a34a'; // green-600
+            color = '#6186b6'; // фирменный голубой
             break;
         case 'payment':
-            color = '#9333ea'; // purple-600
+            color = '#f27b63'; // фирменный коралловый
             break;
         case 'system':
             color = '#71717a'; // zinc-500

@@ -163,14 +163,14 @@ const gotoPage = (url) => {
                 <td class="whitespace-nowrap px-3 py-3.5 text-sm">
                   <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
                         :class="{
-                          'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200': row.access.type === 'free',
-                          'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200': row.access.type === 'paid',
+                          'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue': row.access.type === 'free',
+                          'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue': row.access.type === 'paid',
                           'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200': row.access.type === 'promotional',
-                          'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200': row.access.type === 'admin',
+                          'bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200': row.access.type === 'admin',
                         }">
                     {{ row.access.type_label }}
                   </span>
-                  <div class="mt-1 text-xs" :class="row.access.is_active ? 'text-green-600 dark:text-green-400' : 'text-zinc-500'">
+                  <div class="mt-1 text-xs" :class="row.access.is_active ? 'text-brandblue-dark dark:text-brandblue' : 'text-zinc-500'">
                     {{ row.access.is_active ? 'Активен' : 'Отключен' }}
                   </div>
                 </td>

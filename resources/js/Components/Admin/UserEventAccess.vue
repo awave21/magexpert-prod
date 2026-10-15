@@ -66,12 +66,12 @@
                       <span
                         class="inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold"
                         :class="event.pivot.is_active 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'"
+                          ? 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue' 
+                          : 'bg-brandcoral-soft text-red-700 dark:bg-red-900/30 dark:text-red-300'"
                       >
                         <span
                           class="mr-1 size-2 rounded-full"
-                          :class="event.pivot.is_active ? 'bg-green-500' : 'bg-red-500'"
+                          :class="event.pivot.is_active ? 'bg-brandblue-soft0' : 'bg-red-500'"
                         ></span>
                         {{ event.pivot.is_active ? 'Активен' : 'Неактивен' }}
                       </span>
@@ -108,7 +108,7 @@
                   class="inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2"
                   :class="event.pivot.is_active 
                     ? 'border-red-300 bg-white text-red-700 hover:bg-red-50 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30' 
-                    : 'border-green-300 bg-white text-green-700 hover:bg-green-50 focus:ring-green-500 dark:border-green-600 dark:bg-green-900/20 dark:text-green-300 dark:hover:bg-green-900/30'"
+                    : 'border-brandblue/40 bg-white text-brandblue-dark hover:bg-brandblue-soft focus:ring-brandblue dark:border-brandblue/50 dark:bg-brandblue/15 dark:text-brandblue dark:hover:bg-brandblue/20'"
                 >
                   <component 
                     :is="event.pivot.is_active ? XMarkIcon : CheckIcon" 
@@ -207,10 +207,10 @@ const getAccessTypeLabel = (type) => {
 
 const getAccessTypeClass = (type) => {
   const classes = {
-    'free': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    'paid': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-    'promotional': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-    'admin': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+    'free': 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue',
+    'paid': 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue',
+    'promotional': 'bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200',
+    'admin': 'bg-brandcoral-soft text-red-700 dark:bg-red-900/30 dark:text-red-300'
   };
   return classes[type] || 'bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200';
 };
@@ -230,10 +230,10 @@ const getPaymentStatusLabel = (status) => {
 const getPaymentStatusClass = (status) => {
   const classes = {
     'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    'completed': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    'failed': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+    'completed': 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue',
+    'failed': 'bg-brandcoral-soft text-red-700 dark:bg-red-900/30 dark:text-red-300',
     'refunded': 'bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200',
-    'free': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+    'free': 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue'
   };
   return classes[status] || 'bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200';
 };

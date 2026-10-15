@@ -42,7 +42,7 @@
                         type="button"
                         :data-active="h === current.hour"
                         class="w-full rounded-md px-2 py-1.5 text-sm transition-colors"
-                        :class="h === current.hour ? 'bg-zinc-900 font-semibold text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-900 hover:bg-zinc-100 dark:text-white dark:hover:bg-zinc-700'"
+                        :class="h === current.hour ? 'bg-brandblue-dark font-semibold text-white dark:bg-brandblue dark:text-white' : 'text-zinc-900 hover:bg-zinc-100 dark:text-white dark:hover:bg-zinc-700'"
                         @click="setHour(h)"
                     >
                         {{ h }}
@@ -55,7 +55,7 @@
                         type="button"
                         :data-active="m === current.minute"
                         class="w-full rounded-md px-2 py-1.5 text-sm transition-colors"
-                        :class="m === current.minute ? 'bg-zinc-900 font-semibold text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-900 hover:bg-zinc-100 dark:text-white dark:hover:bg-zinc-700'"
+                        :class="m === current.minute ? 'bg-brandblue-dark font-semibold text-white dark:bg-brandblue dark:text-white' : 'text-zinc-900 hover:bg-zinc-100 dark:text-white dark:hover:bg-zinc-700'"
                         @click="setMinute(m)"
                     >
                         {{ m }}

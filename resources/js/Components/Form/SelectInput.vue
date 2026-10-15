@@ -3,7 +3,7 @@
     <ListboxLabel v-if="label" class="block text-sm font-medium text-zinc-900 dark:text-white">{{ label }}</ListboxLabel>
     <div class="relative mt-1">
       <ListboxButton
-        class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-sm text-zinc-900 transition-colors hover:border-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-500 dark:focus:border-white dark:focus:ring-white"
+        class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-sm text-zinc-900 transition-colors hover:border-zinc-400 focus:border-brandblue focus:outline-none focus:ring-1 focus:ring-brandblue disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-500 dark:focus:border-brandblue dark:focus:ring-brandblue"
       >
         <span class="flex items-center">
           <img v-if="selectedOption?.image" :src="selectedOption.image" alt="" class="size-6 shrink-0 rounded-full" />

@@ -83,7 +83,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc
                         :key="item.value"
                         type="button"
                         class="rounded-md px-3 py-1.5 text-sm font-medium transition"
-                        :class="period === item.value ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'"
+                        :class="period === item.value ? 'bg-brandblue-dark text-white dark:bg-brandblue dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'"
                         :aria-pressed="period === item.value"
                         @click="period = item.value; apply()"
                     >{{ item.label }}</button>
@@ -161,7 +161,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc
                                 :key="item.value"
                                 type="button"
                                 class="rounded-md px-3 py-1 text-sm font-medium transition"
-                                :class="status === item.value ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'"
+                                :class="status === item.value ? 'bg-brandblue-dark text-white dark:bg-brandblue dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'"
                                 :aria-pressed="status === item.value"
                                 @click="status = item.value; apply()"
                             >{{ item.label }}</button>
@@ -185,7 +185,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc
                             <Link v-if="item.user" :href="route('admin.users.show', item.user.id)" class="font-medium text-brandblue hover:underline">{{ item.user.name || item.user.email }}</Link>
                             <span v-else>Пользователь удалён</span>
                             <span>{{ item.duration }} с</span>
-                            <span v-if="item.found" :class="[chip, 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200']">Есть ответ</span>
+                            <span v-if="item.found" :class="[chip, 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/20 dark:text-brandblue']">Есть ответ</span>
                             <span v-else :class="[chip, 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200']">Нет в библиотеке</span>
                         </div>
                         <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ item.question }}</p>
@@ -194,7 +194,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc
                                 v-for="source in item.sources"
                                 :key="`${source.document_id}-${source.page}`"
                                 class="inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-xs"
-                                :class="source.opened ? 'border-green-300 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/30 dark:text-green-100' : 'border-zinc-200 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'"
+                                :class="source.opened ? 'border-brandblue/40 bg-brandblue-soft text-brandblue-dark dark:border-brandblue/50 dark:bg-brandblue/15 dark:text-brandblue' : 'border-zinc-200 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'"
                                 :title="source.opened ? 'Пользователь открыл этот источник' : 'Источник был в ответе, но его не открывали'"
                             >
                                 <CheckCircleIcon v-if="source.opened" class="size-3.5 shrink-0" aria-hidden="true" />

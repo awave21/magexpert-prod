@@ -2,7 +2,7 @@
   <Listbox as="div" v-model="selectedValue" :disabled="disabled">
     <ListboxLabel v-if="label" class="block text-sm font-medium text-zinc-900 dark:text-white mb-1">{{ label }}</ListboxLabel>
     <div class="relative">
-      <ListboxButton class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-sm text-zinc-900 transition-colors hover:border-zinc-400 focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-500 dark:focus:border-white dark:focus:ring-white">
+      <ListboxButton class="relative w-full cursor-default rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-10 text-left text-sm text-zinc-900 transition-colors hover:border-zinc-400 focus:border-brandblue focus:outline-none focus:ring-1 focus:ring-brandblue disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:hover:border-zinc-500 dark:focus:border-brandblue dark:focus:ring-brandblue">
         <span v-if="selectedOption" class="flex items-center gap-2">
           <img v-if="selectedOption.avatar" :src="selectedOption.avatar" alt="" class="size-5 shrink-0 rounded-full" />
           <span class="block truncate">{{ selectedOption.label || selectedOption.name }}</span>

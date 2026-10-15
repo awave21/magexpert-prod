@@ -150,3 +150,14 @@
 .dark [data-admin] input[type="datetime-local"] {
   color-scheme: dark;
 }
+
+/* Админка: плавное появление вкладки и панелей */
+@keyframes admin-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.admin-fade-in { animation: admin-fade-in 0.2s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .admin-fade-in { animation: none; }
+  [data-admin] * { transition-duration: 0.01ms !important; }
+}

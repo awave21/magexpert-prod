@@ -8,7 +8,7 @@
                     <Link :href="route('admin.events')" class="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">← Все мероприятия</Link>
                     <h1 class="mt-1 truncate text-2xl font-semibold text-zinc-900 dark:text-white">{{ isEdit ? event.title : "Новое мероприятие" }}</h1>
                 </div>
-                <a v-if="publicUrl" :href="publicUrl" target="_blank" rel="noopener" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть на сайте ↗</a>
+                <a v-if="publicUrl" :href="publicUrl" target="_blank" rel="noopener" class="text-sm font-medium text-brandblue-dark hover:underline dark:text-brandblue">Открыть на сайте ↗</a>
             </div>
         </template>
 
@@ -22,9 +22,9 @@
                     role="tab"
                     :aria-selected="tab === s.id"
                     :aria-controls="s.id"
-                    class="-mb-px flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+                    class="-mb-px flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brandblue"
                     :class="tab === s.id
-                        ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white'
+                        ? 'border-brandblue-dark text-zinc-900 dark:border-brandblue dark:text-white'
                         : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'"
                     @click="tab = s.id"
                 >
@@ -151,7 +151,7 @@
                     <label v-if="!detectedFromUrl" class="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
                         <input v-model="isPlaylist" type="checkbox" :class="checkbox" /> это плейлист
                     </label>
-                    <button type="button" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400" @click="showPreview = !showPreview">
+                    <button type="button" class="text-sm font-medium text-brandblue-dark hover:underline dark:text-brandblue" @click="showPreview = !showPreview">
                         {{ showPreview ? "Скрыть плеер" : "Проверить в плеере" }}
                     </button>
                 </div>
@@ -247,7 +247,7 @@
                         <span :class="label">Программа мероприятия</span>
                         <div v-if="currentFile" class="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
                             <span class="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{{ currentFile.name }}</span>
-                            <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-blue-600 hover:underline dark:text-blue-400">Открыть</a>
+                            <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-brandblue-dark hover:underline dark:text-brandblue">Открыть</a>
                             <button type="button" class="font-medium text-red-600 hover:underline" @click="removeFile">Убрать</button>
                         </div>
                         <label v-else :class="fileButton">
@@ -299,7 +299,7 @@
                         <span class="text-zinc-500 dark:text-zinc-400">{{ readyCount }} из {{ readiness.length }}</span>
                     </div>
                     <div class="mb-3 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700">
-                        <div class="h-1.5 rounded-full bg-zinc-900 transition-all dark:bg-white" :style="{ width: `${(readyCount / readiness.length) * 100}%` }"></div>
+                        <div class="h-1.5 rounded-full bg-brandblue-dark transition-all dark:bg-brandblue" :style="{ width: `${(readyCount / readiness.length) * 100}%` }"></div>
                     </div>
                     <ul class="space-y-1.5 text-sm">
                         <li v-for="item in readiness" :key="item.label" class="flex items-center gap-2" :class="item.done ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'">
@@ -335,7 +335,7 @@
                 <span v-else class="hidden text-sm text-zinc-500 sm:inline">{{ isEdit ? "Все изменения сохранены" : "Заполните основное и дату — остальное можно позже" }}</span>
                 <div class="flex gap-3">
                     <Link :href="route('admin.events')" class="inline-flex items-center rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 sm:px-4 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800">Назад<span class="hidden sm:inline">&nbsp;к списку</span></Link>
-                    <button type="submit" form="event-form" class="inline-flex items-center rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900" :disabled="form.processing">
+                    <button type="submit" form="event-form" class="inline-flex items-center rounded-lg bg-brandblue-dark px-5 py-2 text-sm font-medium text-white hover:bg-brandblue-deep disabled:opacity-50 dark:bg-brandblue dark:text-white" :disabled="form.processing">
                         {{ form.processing ? "Сохраняем…" : isEdit ? "Сохранить" : "Создать мероприятие" }}
                     </button>
                 </div>
@@ -359,7 +359,7 @@ import TimeInput from "@/Components/Form/TimeInput.vue";
 import { label, input, checkbox, hint, hintInline, error, pill, pillOn, fileButton } from "@/Components/Admin/formClasses.js";
 
 // Секции — плоские блоки под вкладками, без рамок: название раздела уже на вкладке
-const box = "space-y-5";
+const box = "space-y-5 admin-fade-in";
 const boxTitle = "sr-only";
 
 const props = defineProps({

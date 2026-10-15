@@ -58,7 +58,7 @@
                     :disabled="cell.disabled"
                     class="flex size-9 items-center justify-center rounded-md text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-30"
                     :class="cell.selected
-                        ? 'bg-zinc-900 font-semibold text-white dark:bg-white dark:text-zinc-900'
+                        ? 'bg-brandblue-dark font-semibold text-white dark:bg-brandblue dark:text-white'
                         : cell.today
                             ? 'font-semibold text-zinc-900 ring-1 ring-zinc-300 hover:bg-zinc-100 dark:text-white dark:ring-zinc-600 dark:hover:bg-zinc-700'
                             : cell.outside

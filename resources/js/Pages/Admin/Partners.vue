@@ -11,7 +11,7 @@
           <Link
             v-if="canManagePartners"
             :href="route('admin.partners.create')"
-            class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+            class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90"
           >
             <PlusIcon class="mr-2 size-4" />
             Добавить партнёра
@@ -61,7 +61,7 @@
                   </div>
                 </td>
                 <td class="hidden lg:table-cell whitespace-nowrap px-3 py-3.5">
-                  <a v-if="partner.website_url" :href="partner.website_url" target="_blank" rel="noopener" @click.stop class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                  <a v-if="partner.website_url" :href="partner.website_url" target="_blank" rel="noopener" @click.stop class="text-sm text-brandblue-dark hover:text-brandblue-deep dark:text-brandblue dark:hover:text-white">
                     {{ formatUrl(partner.website_url) }}
                   </a>
                   <span v-else class="text-sm text-zinc-500 dark:text-zinc-400">—</span>
@@ -82,7 +82,7 @@
         <BuildingOfficeIcon class="mb-4 size-16 text-zinc-300 dark:text-zinc-600" />
         <h3 class="text-xl font-medium text-zinc-900 dark:text-white">Партнеры не найдены</h3>
         <p class="mt-2 text-zinc-600 dark:text-zinc-400">{{ getNoResultsMessage() }}</p>
-        <button v-if="hasActiveFilters()" @click="resetFilters" class="mt-4 inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100">
+        <button v-if="hasActiveFilters()" @click="resetFilters" class="mt-4 inline-flex items-center rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90">
           <XCircleIcon class="mr-2 size-4" />
           Сбросить фильтры
         </button>

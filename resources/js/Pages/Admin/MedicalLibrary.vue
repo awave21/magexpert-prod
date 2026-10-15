@@ -11,7 +11,7 @@
           <Link
             v-if="canManageLibrary"
             :href="route('admin.medical-library.create')"
-            class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+            class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90"
           >
             <PlusIcon class="mr-2 size-4" />
             Добавить материал
@@ -92,7 +92,7 @@
         <DocumentTextIcon class="mb-4 size-16 text-zinc-300 dark:text-zinc-600" />
         <h3 class="text-xl font-medium text-zinc-900 dark:text-white">Материалы не найдены</h3>
         <p class="mt-2 text-zinc-600 dark:text-zinc-400">{{ getNoResultsMessage() }}</p>
-        <button v-if="hasActiveFilters()" @click="resetFilters" class="mt-4 inline-flex items-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100">
+        <button v-if="hasActiveFilters()" @click="resetFilters" class="mt-4 inline-flex items-center rounded-lg bg-brandblue-dark px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brandblue-deep dark:bg-brandblue dark:text-white dark:hover:bg-brandblue/90">
           <XCircleIcon class="mr-2 size-4" />
           Сбросить фильтры
         </button>
