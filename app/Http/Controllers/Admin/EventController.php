@@ -164,12 +164,23 @@ class EventController extends Controller
             return response()->json([]);
         }
 
+        // LIKE в PostgreSQL различает регистр, а ILIKE зависит от локали базы и кириллицу может не склеить:
+        // «тест» не находил «Тестовое». Ищем по трём вариантам написания, не полагаясь на базу.
+        $lower = mb_strtolower($search);
+        $variants = array_values(array_unique([
+            $search,
+            $lower,
+            mb_strtoupper(mb_substr($lower, 0, 1)).mb_substr($lower, 1),
+        ]));
+
         $events = Event::query()
             ->where('is_active', true)
-            ->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('short_description', 'like', "%{$search}%")
-                    ->orWhere('location', 'like', "%{$search}%");
+            ->where(function ($q) use ($variants) {
+                foreach ($variants as $variant) {
+                    $q->orWhere('title', 'like', "%{$variant}%")
+                        ->orWhere('short_description', 'like', "%{$variant}%")
+                        ->orWhere('location', 'like', "%{$variant}%");
+                }
             })
             ->orderBy('title')
             ->limit($limit)
