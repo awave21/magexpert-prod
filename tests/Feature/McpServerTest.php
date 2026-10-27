@@ -168,3 +168,25 @@ test('отозванный ключ перестаёт работать', functi
 
     $this->withToken($key)->postJson('/api/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])->assertUnauthorized();
 });
+
+test('в админке администратор создаёт и отзывает ключ, ключ показывается один раз', function () {
+    [$admin] = siteMcpUser('admin');
+
+    $response = $this->actingAs($admin)->post(route('admin.mcp.keys.store'), ['name' => 'Ноутбук'])->assertOk();
+    $plain = $response->viewData('page')['props']['newKey'];
+
+    expect($plain)->toStartWith('mxe_');
+    $this->withToken($plain)->postJson('/api/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])->assertOk();
+
+    $this->actingAs($admin)->get(route('admin.mcp'))->assertOk()->assertDontSee($plain, false);
+
+    $token = \App\Models\McpToken::query()->where('name', 'Ноутбук')->first();
+    $this->actingAs($admin)->delete(route('admin.mcp.keys.destroy', $token))->assertRedirect();
+    $this->withToken($plain)->postJson('/api/mcp', [])->assertUnauthorized();
+});
+
+test('редактору страница ключей недоступна', function () {
+    [$editor] = siteMcpUser('editor');
+
+    $this->actingAs($editor)->get(route('admin.mcp'))->assertForbidden();
+});

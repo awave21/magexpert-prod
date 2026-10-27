@@ -211,6 +211,11 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
         // ИИ-помощник: какие вопросы задают и какие документы открывают
         Route::get('/assistant', [AssistantAnalyticsController::class, 'index'])->name('admin.assistant');
 
+        // Ключи MCP для ИИ-ассистентов и журнал их действий
+        Route::get('/mcp', [\App\Http\Controllers\Admin\McpKeyController::class, 'index'])->name('admin.mcp');
+        Route::post('/mcp/keys', [\App\Http\Controllers\Admin\McpKeyController::class, 'store'])->name('admin.mcp.keys.store');
+        Route::delete('/mcp/keys/{token}', [\App\Http\Controllers\Admin\McpKeyController::class, 'destroy'])->name('admin.mcp.keys.destroy');
+
         // Создание пользователя
         Route::post('/users', [AdminUserController::class, 'store'])->name('admin.users.store');
 

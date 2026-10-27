@@ -584,6 +584,7 @@ import {
     ClipboardDocumentListIcon,
     BellAlertIcon,
     SparklesIcon,
+    KeyIcon,
     PlusIcon,
     ChevronDoubleLeftIcon,
     ChevronDoubleRightIcon,
@@ -672,6 +673,13 @@ const menuItems = [
             icon: SparklesIcon,
             group: "Инструменты",
             keywords: "вопросы",
+        }, {
+            name: "Ключи MCP",
+            routeName: "admin.mcp",
+            activePattern: "admin.mcp*",
+            icon: KeyIcon,
+            group: "Инструменты",
+            keywords: "ассистент claude доступ журнал",
         }]
         : []),
 ];
