@@ -26,3 +26,8 @@ Route::post('/webhooks/sender', \App\Http\Controllers\Webhooks\SenderWebhookCont
 
 // API для пользователей
 Route::post('/users', [UserController::class, 'store']);
+
+Route::middleware(\App\Mcp\Http\AuthenticateMcpToken::class)->group(function () {
+    Route::post('/mcp', [\App\Mcp\Http\McpController::class, 'handle'])->name('mcp');
+    Route::match(['get', 'delete'], '/mcp', [\App\Mcp\Http\McpController::class, 'methodNotAllowed']);
+});
