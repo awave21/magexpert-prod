@@ -87,31 +87,11 @@ const telegram = {
                         >
                             <!-- Изображение мероприятия -->
                             <div
-                                v-if="upcomingEvent.image"
-                                class="h-48 bg-cover bg-start"
+                                class="h-48 bg-cover bg-center"
                                 :style="{
-                                    backgroundImage: `url(${upcomingEvent.image})`,
+                                    backgroundImage: `url(${upcomingEvent.image || '/images/default-event-cover.webp'})`,
                                 }"
                             ></div>
-                            <div
-                                v-else
-                                class="h-48 bg-gradient-to-br from-brandblue to-brandcoral flex items-center justify-center"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    class="h-16 w-16 text-white opacity-60"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                    />
-                                </svg>
-                            </div>
 
                             <!-- Информация о мероприятии -->
                             <div class="p-6">

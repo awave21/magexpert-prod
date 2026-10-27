@@ -4,6 +4,8 @@ namespace App\Mcp\Tools;
 
 use App\Mcp\McpContext;
 use App\Mcp\Support\Entities;
+use App\Mcp\Support\MediaSource;
+use App\Mcp\Support\MediaStore;
 use App\Mcp\Tool;
 use App\Mcp\ToolException;
 use Illuminate\Database\Eloquent\Model;
@@ -63,7 +65,8 @@ class EntityTool implements Tool
         return match ($this->action) {
             'list' => "Список: {$this->def['plural']}. Поиск по тексту q, постранично (limit до 100, page).",
             'get' => "Полная карточка: {$s} по id.",
-            'create' => "Создаёт: {$s}. Файлы (обложки, фото, логотипы, документы) через MCP не загружаются.",
+            'create' => "Создаёт: {$s}."
+                .(isset($this->def['media_create']) ? ' Файлы передаются в полях '.implode(', ', array_keys($this->def['media_create'])).' (url https или base64).' : ' Картинки загружаются отдельно через set_image.'),
             'update' => "Меняет только переданные поля: {$s}. Чтобы очистить поле, передайте null.",
             'delete' => "Удаляет: {$s} безвозвратно. Нужен confirm: true; только администратор и менеджер. Сначала покажите пользователю, что будет удалено.",
         };
@@ -90,8 +93,11 @@ class EntityTool implements Tool
             'get' => ['type' => 'object', 'properties' => $id, 'required' => ['id'], 'additionalProperties' => false],
             'create' => [
                 'type' => 'object',
-                'properties' => $fields,
-                'required' => array_keys(array_filter($this->def['fields'], fn ($f) => str_starts_with($f[1], 'required'))),
+                'properties' => $fields + array_map(fn (array $m): array => MediaSource::schema($m['label'].'.'), $this->def['media_create'] ?? []),
+                'required' => array_merge(
+                    array_keys(array_filter($this->def['fields'], fn ($f) => str_starts_with($f[1], 'required'))),
+                    array_keys(array_filter($this->def['media_create'] ?? [], fn ($m) => $m['required'])),
+                ),
                 'additionalProperties' => false,
             ],
             'update' => ['type' => 'object', 'properties' => $id + $fields, 'required' => ['id'], 'additionalProperties' => false],
@@ -167,10 +173,8 @@ class EntityTool implements Tool
      */
     private function create(array $args, McpContext $ctx): array
     {
-        if (! $this->def['can_create']) {
-            throw new ToolException('Создание недоступно: у записи обязателен загружаемый файл. Добавьте её в админке, дальше можно править текст через MCP.');
-        }
-
+        $media = array_intersect_key($args, $this->def['media_create'] ?? []);
+        $args = array_diff_key($args, $media);
         $data = $this->validated($args, null);
         $this->extra($data, null);
         $related = array_intersect_key($data, array_flip(['categories']));
@@ -180,7 +184,27 @@ class EntityTool implements Tool
             ($this->def['before_create'])($data);
         }
 
+        $store = new MediaStore;
+        foreach ($media as $key => $source) {
+            if ($this->def['media_create'][$key]['target'] === 'library_file') {
+                MediaSource::fetch($source, MediaSource::MAX_FILE);
+            } else {
+                MediaSource::fetch($source, MediaSource::MAX_IMAGE);
+            }
+        }
+
         $item = $this->def['model']::query()->create($data);
+
+        try {
+            foreach ($media as $key => $source) {
+                $target = $this->def['media_create'][$key]['target'];
+                $target === 'library_file' ? $store->saveLibraryFile($item, $source) : $store->saveImage($target, $item, $source);
+            }
+        } catch (ToolException $e) {
+            $item->delete();
+            throw $e;
+        }
+
         $this->afterSave($item, $related);
         $ctx->audit($this->name(), 'create', $this->entity, $item->id, ['fields' => array_keys($args)]);
 

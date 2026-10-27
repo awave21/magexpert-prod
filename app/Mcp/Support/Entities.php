@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
 /**
  * Описание сущностей, которыми управляет MCP: поля (одно место и для схемы, и для проверки), поиск, вывод и удаление.
  *
- * Поля описаны как [json-схема, правило Laravel, описание]. Файлы (обложки, фото, логотипы, документы) через MCP не загружаются.
+ * Поля описаны как [json-схема, правило Laravel, описание]. Картинки и документы загружаются отдельно: set_image, set_library_file (для партнёра и материала — сразу при создании).
  */
 class Entities
 {
@@ -282,7 +282,13 @@ class Entities
             'plural' => 'партнёры',
             'search' => ['name', 'website_url'],
             'order' => ['name', 'asc'],
-            'can_create' => false,
+            'can_create' => true,
+            'media_create' => [
+                'logo' => ['target' => 'partner_logo', 'required' => true, 'label' => 'Логотип'],
+            ],
+            'before_create' => function (array &$data): void {
+                $data['logo_path'] = '';
+            },
             'fields' => [
                 'name' => [['type' => 'string', 'maxLength' => 255], 'required|string|max:255', 'Название'],
                 'description' => [['type' => ['string', 'null'], 'maxLength' => 1000], 'nullable|string|max:1000', 'Описание'],
@@ -314,7 +320,14 @@ class Entities
             'plural' => 'материалы библиотеки',
             'search' => ['title', 'description'],
             'order' => ['publication_date', 'desc'],
-            'can_create' => false,
+            'can_create' => true,
+            'media_create' => [
+                'file' => ['target' => 'library_file', 'required' => true, 'label' => 'Документ'],
+                'cover' => ['target' => 'library_cover', 'required' => false, 'label' => 'Обложка'],
+            ],
+            'before_create' => function (array &$data): void {
+                $data['file_path'] = 'placeholder';
+            },
             'fields' => [
                 'title' => [['type' => 'string', 'maxLength' => 255], 'required|string|max:255', 'Название'],
                 'description' => [['type' => ['string', 'null']], 'nullable|string', 'Описание'],

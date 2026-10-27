@@ -38,7 +38,7 @@ const badge = computed(() => ({
 <template>
     <Link :href="href" class="cab-focus group flex flex-col gap-3 rounded-[22px] text-gray-900 no-underline dark:text-white">
         <div class="cab-thumb aspect-[16/10]">
-            <img v-if="event.image" :src="event.image" alt="" class="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+            <img :src="event.image || '/images/default-event-cover.webp'" alt="" class="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
             <span class="absolute inset-0 bg-gradient-to-b from-transparent from-50% to-black/45"></span>
             <span v-if="event.type" class="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-extrabold text-brandblue-dark">
                 <span v-if="event.is_live" class="cab-live mr-1.5 !h-2 !w-2 align-middle"></span>{{ event.type }}

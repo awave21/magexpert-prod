@@ -385,12 +385,9 @@ const getFirstRegaliaLine = (regalia) => {
 
                 <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
                     <div class="lg:col-span-2 space-y-8">
-                        <div
-                            v-if="event.image"
-                            class="overflow-hidden rounded-xl"
-                        >
+                        <div class="overflow-hidden rounded-xl">
                             <img
-                                :src="event.image"
+                                :src="event.image || '/images/default-event-cover.webp'"
                                 :alt="event.title"
                                 class="w-full h-auto object-cover"
                             />

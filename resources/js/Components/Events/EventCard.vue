@@ -119,17 +119,10 @@ const getFirstRegaliaLine = (regalia) => {
         <!-- Изображение мероприятия -->
         <div class="relative aspect-video w-full overflow-hidden">
             <img
-                v-if="event.image"
-                :src="event.image"
+                :src="event.image || '/images/default-event-cover.webp'"
                 :alt="event.title"
                 class="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
             />
-            <div
-                v-else
-                class="flex h-full w-full items-center justify-center bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
-            >
-                <CalendarDaysIcon class="h-16 w-16" />
-            </div>
 
             <!-- Бейджи на изображении -->
             <div

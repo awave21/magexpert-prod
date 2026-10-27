@@ -6,6 +6,7 @@ use App\Mcp\Support\ArgumentValidator;
 use App\Mcp\Support\Entities;
 use App\Mcp\Tools\EntityTool;
 use App\Mcp\Tools\EventStateTool;
+use App\Mcp\Tools\MediaTool;
 use App\Mcp\Tools\SetEventSpeakersTool;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -99,7 +100,7 @@ class Server
             'serverInfo' => ['name' => 'magexpert', 'title' => 'MagExpert — сайт', 'version' => self::VERSION],
             'instructions' => 'Сервер управляет данными сайта MagExpert: мероприятия, спикеры, категории, партнёры, материалы библиотеки. '
                 .'Можно создавать, менять, публиковать и скрывать; удаление — только с confirm: true и только администратору и менеджеру. '
-                .'Файлы (обложки, фото, логотипы, документы) через сервер не загружаются. Все изменения пишутся в журнал.',
+                .'Картинки (обложки, фото, логотипы) и документы библиотеки загружаются по ссылке https или base64. Все изменения пишутся в журнал.',
         ];
     }
 
@@ -182,6 +183,7 @@ class Server
                     array_push($list, new EventStateTool(true), new EventStateTool(false), new SetEventSpeakersTool);
                 }
             }
+            array_push($list, new MediaTool('set_image'), new MediaTool('remove_image'), new MediaTool('set_library_file'));
             $this->tools = [];
             foreach ($list as $tool) {
                 $this->tools[$tool->name()] = $tool;

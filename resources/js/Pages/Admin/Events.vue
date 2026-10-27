@@ -358,19 +358,10 @@
                                                     class="size-12 sm:size-16 flex-shrink-0 overflow-hidden rounded-lg"
                                                 >
                                                     <img
-                                                        v-if="event.image"
-                                                        :src="event.image"
+                                                        :src="event.image || '/images/default-event-cover.webp'"
                                                         :alt="event.title"
                                                         class="size-full object-cover"
                                                     />
-                                                    <div
-                                                        v-else
-                                                        class="size-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-zinc-500 dark:text-zinc-400"
-                                                    >
-                                                        <PhotoIcon
-                                                            class="size-8"
-                                                        />
-                                                    </div>
                                                 </div>
                                                 <div class="ml-3 sm:ml-4">
                                                     <Link
@@ -912,7 +903,6 @@ import debounce from "lodash/debounce";
 import {
     PlusIcon,
     MagnifyingGlassIcon,
-    PhotoIcon,
     TrashIcon,
     ArrowTopRightOnSquareIcon,
     CalendarDaysIcon,
