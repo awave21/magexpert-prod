@@ -1,6 +1,6 @@
 <template>
     <nav
-        class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 md:hidden z-50"
+        class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)] md:hidden z-50"
     >
         <div class="grid grid-cols-5 h-16">
             <!-- Библиотека -->

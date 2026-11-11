@@ -255,7 +255,7 @@ watch(() => page.props.flash?.error, (error) => {
             </main>
         </div>
 
-        <CookieConsent />
+        <CookieConsent navigation-breakpoint="lg" />
 
         <!-- Нижнее меню кабинета на телефоне и планшете: те же пункты, что в боковом меню на десктопе -->
         <nav
