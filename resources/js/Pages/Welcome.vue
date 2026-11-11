@@ -2,7 +2,6 @@
 import { Head } from "@inertiajs/vue3";
 import MainLayout from "@/Layouts/MainLayout.vue";
 import AboutUs from "@/Components/AboutUs.vue";
-import { InformationCircleIcon } from "@heroicons/vue/24/outline";
 
 defineProps({
     canLogin: {
@@ -43,28 +42,6 @@ const telegram = {
     <Head title="Главная" />
 
     <MainLayout>
-        <section
-            role="status"
-            aria-labelledby="platform-recovery-title"
-            class="mx-auto mt-5 max-w-[1440px] px-4 sm:px-6 lg:px-8"
-        >
-            <div
-                class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950 sm:p-5 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
-            >
-                <InformationCircleIcon class="mt-0.5 h-6 w-6 shrink-0" aria-hidden="true" />
-                <div class="min-w-0">
-                    <h2 id="platform-recovery-title" class="text-base font-semibold">
-                        Восстановление платформы
-                    </h2>
-                    <p class="mt-1 text-sm leading-6 sm:text-base">
-                        После технического сбоя часть данных и функций платформы недоступна.
-                        Ведём восстановительные работы и проверяем целостность данных.
-                        Приносим извинения за неудобства.
-                    </p>
-                </div>
-            </div>
-        </section>
-
         <div
             class="py-10 md:py-30 bg-gradient-to-b from-white to-gray-100 dark:from-gray-800 dark:to-gray-900"
         >
