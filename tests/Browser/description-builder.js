@@ -56,6 +56,29 @@ async (page) => {
     await frame.locator('.be-canvas .tiptap').fill(('Длинное описание мероприятия. ').repeat(300));
     await page.waitForFunction(() => { const f = document.querySelector('iframe'); return f.clientHeight > 1200 && f.contentDocument.documentElement.scrollHeight <= f.clientHeight + 2; });
     await page.screenshot({ path: '/tmp/magsender-event-editor.png', fullPage: true });
+    for (const width of [1440, 1000, 780, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await frame.getByRole('tab', { name: 'Стили страницы', exact: true }).click();
+        const overflow = await frame.locator('.be-styles').evaluate(root => {
+            const bounds = root.closest('.be-left').getBoundingClientRect();
+            return [...root.querySelectorAll('input,select,button,.be-slider,.be-color')].filter(el => {
+                const box = el.getBoundingClientRect();
+                return box.width > 1 && box.height > 1 && (box.left < bounds.left - 1 || box.right > bounds.right + 1);
+            }).map(el => el.getAttribute('aria-label') || el.textContent);
+        });
+        if (overflow.length) throw new Error(`Style controls overflow at ${width}px: ${overflow.join(', ')}`);
+        await frame.getByLabel('Размер текста', { exact: true }).fill('18');
+        await frame.getByRole('tab', { name: 'Блоки', exact: true }).click();
+        await frame.locator('.be-canvas .be-blk').first().click();
+        const rightOverflow = await frame.locator('.be-right').evaluate(root => {
+            const bounds = root.getBoundingClientRect();
+            return [...root.querySelectorAll('input,select,button')].filter(el => {
+                const box = el.getBoundingClientRect();
+                return box.width > 1 && box.height > 1 && (box.left < bounds.left - 1 || box.right > bounds.right + 1);
+            }).length;
+        });
+        if (rightOverflow) throw new Error(`Block controls overflow at ${width}px`);
+    }
     await page.setViewportSize({ width: 390, height: 844 });
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Mobile page overflow');
     if (errors.length) throw new Error(errors.join('\n'));

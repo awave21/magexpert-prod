@@ -471,7 +471,7 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
       <div
         className={`be-blk${isSel ? ' sel' : ''}${hiddenHere ? ' hidden-here' : ''}${drag?.kind === 'move' && drag.id === b.id ? ' dragging' : ''}`}
         style={b.bg && b.inset ? { padding: `0 ${side(40)}px` } : { padding: pad, background: b.bg || undefined }}
-        onClick={(e) => { e.stopPropagation(); if (!isSel) setSelected(b.id) }}
+        onClick={(e) => { e.stopPropagation(); if (embedded) setTab('blocks'); if (!isSel) setSelected(b.id) }}
       >
         {isSel && (
           <>
@@ -497,7 +497,7 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
   const mailWidth = device === 'mobile' ? 375 : s.width
 
   return (
-    <div className={`be${embedded ? ' be-event' : ''}`}>
+    <div className={`be${embedded ? ` be-event${tab === 'styles' ? ' be-event-styles' : ''}` : ''}`}>
       {/* верхняя панель */}
       <header className="be-top">
         {!embedded && <Link to={`/templates/${id}`} className="btn ghost be-back"><ArrowLeft size={16} />Карточка письма</Link>}

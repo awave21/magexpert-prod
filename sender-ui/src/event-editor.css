@@ -11,3 +11,24 @@ html,body,#root{height:auto;min-height:0;overflow:hidden}
 .editor-overlay .be-event{height:100dvh;min-height:0;overflow:hidden}
 .editor-overlay .be-body{min-height:0;overflow:hidden}
 @media(max-width:650px){.be-event .be-left{max-height:none}.be-event .be-tiles{overflow:visible;flex-wrap:wrap}.be-event .be-canvas{min-height:320px}}
+
+/* The block palette and the page inspector need different working widths. */
+.be-event-styles .be-left{width:304px;min-width:304px;padding:20px}
+.be-event-styles .be-right{display:none}
+.be-event .be-left,.be-event .be-right,.be-event .be-styles,.be-event .be-inspector,.be-event .be-grp{min-width:0}
+.be-event .be-styles .be-row{flex-direction:column;align-items:stretch;gap:7px}
+.be-event .be-styles .be-row>.be-lab{white-space:normal}
+.be-event .be-styles .seg{display:flex;flex-wrap:wrap;max-width:100%;align-self:stretch}
+.be-event .be-styles .seg button{flex:1;justify-content:center;min-width:0}
+.be-event .be-styles .be-select,.be-event .be-styles .be-color,.be-event .be-styles .be-slider{width:100%;min-width:0;max-width:100%}
+.be-event .be-right .be-row{flex-wrap:wrap}
+.be-event .be-right .be-row>*{max-width:100%}
+.be-event .be-color{min-width:0;max-width:100%}
+.be-event .be-color input{min-width:0}
+.be-event .be-pads{grid-template-columns:repeat(2,minmax(0,1fr))}
+.be-event .be-pad{min-width:0;padding-left:7px;gap:2px}
+.be-event .be-pad .be-num{min-width:0;flex-shrink:0}
+.be-event .be-grp .be-select{max-width:100%}
+@media(max-width:900px) and (min-width:651px){.be-event-styles .be-left{width:280px;min-width:280px;padding:16px}.be-event .be-right .be-row{flex-direction:column;align-items:stretch;gap:7px}.be-event .be-right .be-select{width:100%}.be-event .be-right .be-row .seg{display:flex;flex-wrap:wrap}.be-event .be-right .be-row .seg button{flex:1;justify-content:center}}
+@media(max-width:650px){.be-event-styles .be-left{width:100%;min-width:0;padding:16px}.be-event-styles .be-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.be-event-styles .be-styles>.hint{grid-column:1/-1}}
+@media(max-width:420px){.be-event-styles .be-styles{grid-template-columns:1fr}}
