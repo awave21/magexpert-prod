@@ -1,7 +1,7 @@
 <template>
   <div>
     <label class="block text-sm font-medium text-zinc-900 dark:text-white">{{ label }}</label>
-    <div class="mt-1">
+    <FileDropzone :label="`Перетащите ${label.toLowerCase() === 'обложка' ? 'обложку' : 'изображение'} сюда`" :accept="accept" :max-size-mb="maxSize" @file="selectFile">
       <div v-if="preview" class="mb-3">
         <img :src="preview" alt="Превью фото" class="h-32 w-32 rounded-lg object-cover" />
       </div>
@@ -32,7 +32,7 @@
           Удалить фото
         </button>
       </div>
-    </div>
+    </FileDropzone>
     <p v-if="hint" class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ hint }}</p>
     <p v-if="error" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
   </div>
@@ -40,6 +40,8 @@
 
 <script setup>
 import { ref, watch, onMounted, defineProps, defineEmits } from 'vue';
+import FileDropzone from './FileDropzone.vue';
+import { uploadError } from '@/Support/uploadValidation';
 import { useToast } from 'vue-toastification';
 
 const props = defineProps({
@@ -109,24 +111,17 @@ watch(() => props.modelValue, (newValue) => {
   }
 }, { immediate: true });
 
-const onFileChange = (e) => {
-  const file = e.target.files[0];
+const onFileChange = (event) => {
+  selectFile(event.target.files?.[0]);
+  event.target.value = '';
+};
+function selectFile(file) {
   if (!file) return;
-
-  const acceptedTypes = props.accept.split(',').map(t => t.trim());
-  if (props.accept !== 'image/*' && !acceptedTypes.includes(file.type)) {
-    toast.error('Недопустимый формат файла.');
-    return;
-  }
-  
-  if (file.size > props.maxSize * 1024 * 1024) {
-    toast.error(`Размер файла превышает ${props.maxSize}MB`);
-    return;
-  }
-
+  const error = uploadError(file, props.accept, props.maxSize);
+  if (error) { toast.error(error); return; }
   emit('update:modelValue', file);
   emit('update:deletePhoto', false);
-};
+}
 
 const removePhoto = () => {
   emit('update:modelValue', null);

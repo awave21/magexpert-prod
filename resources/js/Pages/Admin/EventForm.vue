@@ -260,19 +260,21 @@
             <section id="sec-materials" v-show="tab === 'sec-materials'" role="tabpanel" aria-labelledby="tab-sec-materials" :class="box">
                 <h3 :class="boxTitle">Обложка и программа</h3>
                 <div class="grid gap-5 md:grid-cols-2">
-                    <ImageUpload label="Обложка" upload-label="Загрузить обложку" replace-label="Заменить обложку" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
+                    <ImageUpload accept="image/jpeg,image/png,image/gif,image/webp" label="Обложка" upload-label="Загрузить обложку" replace-label="Заменить обложку" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
 
                     <div>
                         <span :class="label">Программа мероприятия</span>
+                        <FileDropzone label="Перетащите программу сюда" accept=".pdf,.docx,.jpg,.jpeg,.png" :max-size-mb="10" @file="setProgramFile">
                         <div v-if="currentFile" class="mt-1 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
                             <span class="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{{ currentFile.name }}</span>
                             <a v-if="currentFile.url" :href="currentFile.url" target="_blank" rel="noopener" class="font-medium text-brandblue-dark hover:underline dark:text-brandblue">Открыть</a>
                             <button type="button" class="font-medium text-red-600 hover:underline" @click="removeFile">Убрать</button>
                         </div>
-                        <label v-else :class="fileButton">
+                        <label :class="fileButton">
                             <input id="event_file" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png" class="sr-only" @change="pickFile" />
-                            Загрузить программу
+                            {{ currentFile ? "Заменить программу" : "Загрузить программу" }}
                         </label>
+                        </FileDropzone>
                         <p :class="hint">Необязательно. PDF, DOCX, JPG или PNG до 10 МБ.<template v-if="form.delete_file"> Файл удалится после сохранения.</template></p>
                         <p v-if="form.errors.file" :class="error">{{ form.errors.file }}</p>
                     </div>
@@ -359,6 +361,8 @@ import AdminLayout from "@/Layouts/AdminLayout.vue";
 import MultiSelectInput from "@/Components/Form/MultiSelectInput.vue";
 import ImageUpload from "@/Components/Form/ImageUpload.vue";
 import SpeakerSelector from "@/Components/Form/SpeakerSelector.vue";
+import FileDropzone from "@/Components/Form/FileDropzone.vue";
+import { uploadError } from "@/Support/uploadValidation";
 import DescriptionBuilder from "@/Components/Form/DescriptionBuilder.vue";
 import SelectInput from "@/Components/Form/SelectInput.vue";
 import DateInput from "@/Components/Form/DateInput.vue";
@@ -489,7 +493,15 @@ const currentFile = computed(() => {
     return null;
 });
 function pickFile(event) {
-    form.file = event.target.files?.[0] ?? null;
+    setProgramFile(event.target.files?.[0]);
+    event.target.value = "";
+}
+function setProgramFile(file) {
+    if (!file) return;
+    const error = uploadError(file, ".pdf,.docx,.jpg,.jpeg,.png", 10);
+    if (error) { toast.error(error); return; }
+    form.file = file;
+    form.delete_file = false;
 }
 function removeFile() {
     if (form.file instanceof File) {
