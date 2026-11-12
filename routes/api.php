@@ -4,6 +4,10 @@ use App\Http\Controllers\Api\PayKeeperWebhookController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
+if (config('deployment.service') === 'sender') {
+    return;
+}
+
 /*
 |--------------------------------------------------------------------------
 | API Routes

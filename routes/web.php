@@ -29,6 +29,10 @@ use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+if (config('deployment.service') === 'sender') {
+    return;
+}
+
 // Публичные маршруты
 Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
 

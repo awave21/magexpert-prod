@@ -53,6 +53,10 @@ class SenderServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/config.php', 'sender');
 
+        if (config('deployment.service') === 'sender') {
+            $this->loadMigrationsFrom(__DIR__.'/Database/Migrations');
+        }
+
         $this->app->bind(DnsLookup::class, PhpDnsLookup::class);
         $this->app->bind(Transport::class, LaravelMailTransport::class);
         $this->app->bind(FeedbackMailbox::class, ImapFeedbackMailbox::class);
@@ -82,8 +86,10 @@ class SenderServiceProvider extends ServiceProvider
 
             $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
                 $schedule->command('sender:prune')->dailyAt('03:30')->withoutOverlapping();
-                $schedule->command('sender:campaigns-tick')->everyMinute()->withoutOverlapping();
-                $schedule->command('sender:recover')->everyFiveMinutes()->withoutOverlapping();
+                if (config('sender.delivery_enabled')) {
+                    $schedule->command('sender:campaigns-tick')->everyMinute()->withoutOverlapping();
+                    $schedule->command('sender:recover')->everyFiveMinutes()->withoutOverlapping();
+                }
 
                 if (filled(config('sender.fbl.host'))) {
                     $schedule->command('sender:complaints --fetch')->everyTenMinutes()->withoutOverlapping();

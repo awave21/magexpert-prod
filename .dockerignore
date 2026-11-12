@@ -1,0 +1,16 @@
+.git
+.claude
+.codex
+.env*
+node_modules
+sender-ui/node_modules
+vendor
+storage
+bootstrap/cache/*.php
+bootstrap/ssr
+public/hot
+public/storage
+deploy/docker/secrets
+deploy/docker/data
+tests
+.DS_Store

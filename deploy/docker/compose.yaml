@@ -1,0 +1,170 @@
+name: mag-services
+
+x-site: &site
+  image: magexpert-site:${SITE_RELEASE_TAG:-local}
+  restart: unless-stopped
+  secrets:
+    - source: site_env
+      target: application_env
+  volumes:
+    - ${STATE_DIR:-/srv/mag-services/data}/site-storage:/var/www/html/storage
+  networks: [site_backend, site_egress, service_api]
+  depends_on:
+    site-db: {condition: service_healthy}
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+
+x-sender: &sender
+  environment:
+    SENDER_DELIVERY_ENABLED: ${SENDER_DELIVERY_ENABLED:-false}
+  image: magsender-app:${SENDER_RELEASE_TAG:-local}
+  restart: unless-stopped
+  secrets:
+    - source: sender_env
+      target: application_env
+  volumes:
+    - ${STATE_DIR:-/srv/mag-services/data}/sender-storage:/var/www/html/storage
+  networks: [sender_backend, sender_egress]
+  depends_on:
+    sender-db: {condition: service_healthy}
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+
+services:
+  site-db:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+    secrets:
+      - source: site_db_password
+        target: database_password
+    volumes: [site_database:/var/lib/postgresql]
+    networks: [site_backend]
+    command: [postgres, -c, shared_buffers=96MB, -c, max_connections=40]
+    mem_limit: 512m
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres -d postgres]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  sender-db:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+    secrets:
+      - source: sender_db_password
+        target: database_password
+    volumes: [sender_database:/var/lib/postgresql]
+    networks: [sender_backend]
+    command: [postgres, -c, shared_buffers=64MB, -c, max_connections=30]
+    mem_limit: 384m
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres -d postgres]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  site-app:
+    <<: *site
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: app
+      args: {APP_SERVICE: site}
+    mem_limit: 384m
+
+  site-web:
+    image: magexpert-web:${SITE_RELEASE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: web
+      args: {APP_SERVICE: site}
+    restart: unless-stopped
+    environment: {PHP_UPSTREAM: "site-app:9000"}
+    ports: ["127.0.0.1:8081:80"]
+    volumes:
+      - ${STATE_DIR:-/srv/mag-services/data}/site-storage:/var/www/html/storage:ro
+    networks: [site_backend, site_egress]
+    depends_on: [site-app]
+    mem_limit: 64m
+    healthcheck:
+      test: [CMD-SHELL, wget -q -O /dev/null http://127.0.0.1/up]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  site-worker:
+    <<: *site
+    command: [php, artisan, "queue:work", "--queue=default", "--sleep=3", "--tries=3", "--timeout=120", "--max-time=3600", "--no-interaction"]
+    mem_limit: 192m
+
+  site-scheduler:
+    <<: *site
+    command: [php, artisan, "schedule:work", "--no-interaction"]
+    mem_limit: 128m
+
+  sender-app:
+    <<: *sender
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: app
+      args: {APP_SERVICE: sender}
+    mem_limit: 384m
+
+  sender-web:
+    image: magsender-web:${SENDER_RELEASE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: web
+      args: {APP_SERVICE: sender}
+    restart: unless-stopped
+    environment: {PHP_UPSTREAM: "sender-app:9000"}
+    ports: ["127.0.0.1:8082:80"]
+    volumes:
+      - ${STATE_DIR:-/srv/mag-services/data}/sender-storage:/var/www/html/storage:ro
+    networks: [sender_backend, sender_egress, service_api]
+    depends_on: [sender-app]
+    mem_limit: 64m
+    healthcheck:
+      test: [CMD-SHELL, wget -q -O /dev/null http://127.0.0.1/up]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  sender-worker:
+    <<: *sender
+    command:
+      - sh
+      - -c
+      - 'if [ "$$SENDER_DELIVERY_ENABLED" = true ]; then exec php artisan queue:work --queue=sender-transactional,sender,default --sleep=3 --tries=3 --timeout=120 --max-time=3600 --no-interaction; else exec php artisan queue:work --queue=sender-maintenance --sleep=3 --tries=3 --max-time=3600 --no-interaction; fi'
+    mem_limit: 192m
+
+  sender-scheduler:
+    <<: *sender
+    command: [php, artisan, "schedule:work", "--no-interaction"]
+    mem_limit: 128m
+
+secrets:
+  site_env: {file: ./secrets/site.env}
+  sender_env: {file: ./secrets/sender.env}
+  site_db_password: {file: ./secrets/site-db-password}
+  sender_db_password: {file: ./secrets/sender-db-password}
+
+networks:
+  site_backend: {internal: true}
+  sender_backend: {internal: true}
+  service_api: {internal: true}
+  site_egress: {}
+  sender_egress: {}
+
+volumes:
+  site_database: {}
+  sender_database: {}

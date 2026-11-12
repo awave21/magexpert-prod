@@ -95,7 +95,7 @@ return [
             'sslmode' => 'prefer',
         ],
 
-        'sender' => [
+        ...(env('APP_SERVICE') === 'site' ? [] : ['sender' => [
             'driver' => 'pgsql',
             'host' => env('SENDER_DB_HOST', env('DB_HOST', '127.0.0.1')),
             'port' => env('SENDER_DB_PORT', env('DB_PORT', '5432')),
@@ -107,7 +107,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
-        ],
+        ]]),
 
         'sqlsrv' => [
             'driver' => 'sqlsrv',

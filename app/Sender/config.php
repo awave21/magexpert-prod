@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'delivery_enabled' => (bool) env('SENDER_DELIVERY_ENABLED', true),
     'connection' => env('SENDER_DB_CONNECTION', 'sender'),
     // очередь писем рассылок
     'queue' => env('SENDER_QUEUE', 'sender'),

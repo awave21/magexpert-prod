@@ -2,6 +2,10 @@
 
 use Illuminate\Support\Facades\Broadcast;
 
+if (config('deployment.service') === 'sender') {
+    return;
+}
+
 Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 });
