@@ -1,4 +1,4 @@
-FROM php:8.4-fpm-bookworm AS app
+FROM php:8.4-fpm-bookworm AS php-base
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev libzip-dev libicu-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libonig-dev \
     unzip git gosu poppler-utils \
@@ -24,9 +24,27 @@ RUN chmod +x /usr/local/bin/application-entrypoint
 ENTRYPOINT ["application-entrypoint"]
 CMD ["php-fpm", "-F"]
 
+FROM node:22-bookworm-slim AS frontend
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY . .
+COPY --from=php-base /var/www/html/vendor/tightenco/ziggy ./vendor/tightenco/ziggy
+ARG APP_SERVICE=combined
+RUN --mount=type=secret,id=frontend_env,target=/app/.env.production \
+    mkdir -p bootstrap/ssr \
+    && if [ "$APP_SERVICE" != sender ]; then npm run build; fi \
+    && if [ "$APP_SERVICE" != site ]; then npm --prefix sender-ui ci --no-audit --no-fund && npm --prefix sender-ui run build; fi \
+    && if [ "$APP_SERVICE" = site ]; then rm -rf public/sender-static; fi \
+    && if [ "$APP_SERVICE" = sender ]; then rm -rf public/build; fi
+
+FROM php-base AS app
+COPY --from=frontend /app/public /var/www/html/public
+COPY --from=frontend /app/bootstrap/ssr /var/www/html/bootstrap/ssr
+
 FROM nginx:stable-alpine AS web
 ARG APP_SERVICE=combined
-COPY public /var/www/html/public
+COPY --from=frontend /app/public /var/www/html/public
 RUN rm -f /var/www/html/public/hot \
     && ln -s ../storage/app/public /var/www/html/public/storage \
     && if [ "$APP_SERVICE" = site ]; then rm -rf /var/www/html/public/sender-static; fi \

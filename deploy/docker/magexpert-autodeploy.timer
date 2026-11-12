@@ -1,0 +1,10 @@
+[Unit]
+Description=Check MagExpert main every 15 minutes
+
+[Timer]
+OnBootSec=90s
+OnUnitInactiveSec=15min
+Unit=magexpert-autodeploy.service
+
+[Install]
+WantedBy=timers.target
