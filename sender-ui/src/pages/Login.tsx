@@ -57,6 +57,7 @@ export default function Login() {
               <PasswordInput id="password" autoComplete="current-password" className={`input${error ? ' err' : ''}`} placeholder="Введите пароль" value={password} onChange={(e) => setPassword(e.target.value)} required />
               {error && <div className="hint err" role="alert">{error}</div>}
             </div>
+            <Link to="/forgot-password">Забыли пароль?</Link>
             <button className="btn primary lg" disabled={busy || !email || !password}>{busy ? 'Входим…' : 'Войти'}</button>
           </form>
           <SocialButtons divider="или" />

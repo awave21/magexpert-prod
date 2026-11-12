@@ -25,7 +25,7 @@ x-sender: &sender
       target: application_env
   volumes:
     - ${STATE_DIR:-/srv/mag-services/data}/sender-storage:/var/www/html/storage
-  networks: [sender_backend, sender_egress]
+  networks: [sender_backend, sender_egress, mail_submission]
   depends_on:
     sender-db: {condition: service_healthy}
   logging:
@@ -33,6 +33,27 @@ x-sender: &sender
     options: {max-size: 10m, max-file: "3"}
 
 services:
+  mailer:
+    image: magsender-mailer:${MAILER_RELEASE_TAG:-local}
+    build:
+      context: ./mailer
+    restart: unless-stopped
+    hostname: smtp.magsender.ru
+    secrets:
+      - source: mail_dkim
+        target: mail_dkim
+    volumes: [mail_queue:/var/spool/postfix]
+    networks: [mail_submission, mail_egress]
+    mem_limit: 192m
+    healthcheck:
+      test: [CMD-SHELL, "kill -0 $$(cat /run/opendkim/opendkim.pid) && postfix status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+
   site-db:
     image: pgvector/pgvector:0.8.7-pg18-trixie
     restart: unless-stopped
@@ -144,7 +165,7 @@ services:
     command:
       - sh
       - -c
-      - 'if [ "$$SENDER_DELIVERY_ENABLED" = true ]; then exec php artisan queue:work --queue=sender-transactional,sender,default --sleep=3 --tries=3 --timeout=120 --max-time=3600 --no-interaction; else exec php artisan queue:work --queue=sender-maintenance --sleep=3 --tries=3 --max-time=3600 --no-interaction; fi'
+      - 'if [ "$$SENDER_DELIVERY_ENABLED" = true ]; then exec php artisan queue:work --queue=sender-transactional,sender,default --sleep=3 --tries=3 --timeout=120 --max-time=3600 --no-interaction; else exec php artisan queue:work --queue=sender-transactional,sender-maintenance --sleep=3 --tries=3 --timeout=120 --max-time=3600 --no-interaction; fi'
     mem_limit: 192m
 
   sender-scheduler:
@@ -153,12 +174,18 @@ services:
     mem_limit: 128m
 
 secrets:
+  mail_dkim: {file: ./secrets/mail-dkim.private}
   site_env: {file: ./secrets/site.env}
   sender_env: {file: ./secrets/sender.env}
   site_db_password: {file: ./secrets/site-db-password}
   sender_db_password: {file: ./secrets/sender-db-password}
 
 networks:
+  mail_submission:
+    internal: true
+    ipam:
+      config: [{subnet: 172.30.93.0/28}]
+  mail_egress: {}
   site_backend: {internal: true}
   sender_backend: {internal: true}
   service_api: {internal: true}
@@ -166,5 +193,6 @@ networks:
   sender_egress: {}
 
 volumes:
+  mail_queue: {}
   site_database: {}
   sender_database: {}

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth'
 import { Layout } from './components/Layout'
 import Login from './pages/Login'
+import PasswordRecovery from './pages/PasswordRecovery'
 import Register from './pages/Register'
 import Overview from './pages/Overview'
 import Domains from './pages/Domains'
@@ -42,6 +43,8 @@ export default function App() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/forgot-password" element={<PasswordRecovery key="forgot" />} />
+        <Route path="/reset-password" element={<PasswordRecovery key="reset" reset />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/register" element={<Register />} />
         <Route path="*" element={<Login />} />
@@ -50,6 +53,8 @@ export default function App() {
   }
   return (
     <Routes>
+      <Route path="/forgot-password" element={<PasswordRecovery key="forgot" />} />
+      <Route path="/reset-password" element={<PasswordRecovery key="reset" reset />} />
       <Route path="privacy" element={<Privacy />} />
       <Route path="templates/:id/blocks" element={<Suspense fallback={<div className="be-center muted">Загрузка редактора…</div>}><BlockEditor /></Suspense>} />
       <Route element={<Layout />}>

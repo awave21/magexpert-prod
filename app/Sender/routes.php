@@ -78,6 +78,8 @@ Route::prefix('api/sender/v1')->middleware('api')->group(function (): void {
 
     Route::prefix('admin')->name('sender.admin.')->group(function (): void {
         Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1')->name('login');
+        Route::post('forgot-password', [\App\Sender\Http\Controllers\Admin\PasswordResetController::class, 'request'])->middleware('throttle:5,1')->name('password.request');
+        Route::post('reset-password', [\App\Sender\Http\Controllers\Admin\PasswordResetController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
         Route::post('register', [AuthController::class, 'register'])->middleware('throttle:10,60')->name('register');
         Route::post('oauth/exchange', [AuthController::class, 'oauthExchange'])->middleware('throttle:20,1')->name('oauth.exchange');
         Route::get('oauth/providers', [AuthController::class, 'oauthProviders'])->name('oauth.providers');
