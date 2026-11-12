@@ -104,7 +104,11 @@ export function TextInput({ value, onChange, label, placeholder, mono, multiline
 
 // ---------- загрузка картинки ----------
 
+let customUploader: ((file: File) => Promise<{ url: string; name: string; meta: string }>) | null = null
+export function setImageUploader(uploader: typeof customUploader) { customUploader = uploader }
+
 export async function uploadImage(file: File): Promise<{ url: string; name: string; meta: string }> {
+  if (customUploader) return customUploader(file)
   const body = new FormData()
   body.append('file', file)
   const res = await fetch('/api/sender/v1/admin/assets', {
@@ -148,11 +152,12 @@ type InspectorProps = {
   onRemove: () => void
   onError: (m: string) => void
   varHint: string
+  hideVariables?: boolean
   variables: { key: string; label: string }[]
   onOpenZero?: () => void
 }
 
-export function BlockInspector({ block: b, position, settings: s, onChange, onRemove, onError, varHint, variables, onOpenZero }: InspectorProps) {
+export function BlockInspector({ block: b, position, settings: s, onChange, onRemove, onError, varHint, variables, onOpenZero, hideVariables }: InspectorProps) {
   const set = onChange as (p: Record<string, unknown>) => void
   let body: ReactNode = null
 
@@ -195,7 +200,7 @@ export function BlockInspector({ block: b, position, settings: s, onChange, onRe
           </Group>
           <Group title="Описание и ссылка">
             <TextInput label="Описание картинки" value={b.alt} onChange={(v) => set({ alt: v })} placeholder="Например: обложка вебинара" hint="Видно, если почта не загрузила картинки. Его же читает экранный диктор." />
-            <TextInput label="Ссылка при нажатии" mono value={b.href} onChange={(v) => set({ href: v })} placeholder="https://… или {{ event_url }}" hint={varHint} />
+            <TextInput label="Ссылка при нажатии" mono value={b.href} onChange={(v) => set({ href: v })} placeholder={hideVariables ? "https://…" : "https://… или {{ event_url }}"} hint={varHint} />
           </Group>
           <Group title="Размер и вид">
             <Row label="Ширина"><Seg label="Ширина" value={b.full ? 'full' : 'own'} onChange={(v) => set({ full: v === 'full' })} options={[{ value: 'own', label: 'Своя' }, { value: 'full', label: 'Во всю' }]} /></Row>
@@ -211,7 +216,7 @@ export function BlockInspector({ block: b, position, settings: s, onChange, onRe
         <>
           <Group title="Содержимое">
             <TextInput label="Текст кнопки" value={b.text} onChange={(v) => set({ text: v })} />
-            <TextInput label="Ссылка" mono value={b.href} onChange={(v) => set({ href: v })} placeholder="https://… или {{ event_url }}" hint={varHint} />
+            <TextInput label="Ссылка" mono value={b.href} onChange={(v) => set({ href: v })} placeholder={hideVariables ? "https://…" : "https://… или {{ event_url }}"} hint={varHint} />
           </Group>
           <Group title="Вид">
             <Row label="Цвет кнопки"><ColorField label="Цвет кнопки" value={b.fill} allowEmpty emptyLabel="Как в стилях" onChange={(v) => set({ fill: v })} /></Row>
@@ -279,7 +284,7 @@ export function BlockInspector({ block: b, position, settings: s, onChange, onRe
               </div>
             ) : <div className="hint">Соберётся при сохранении письма и загрузится на сервер.</div>}
             <TextInput label="Описание картинки" value={b.alt} onChange={(v) => set({ alt: v })} placeholder={zeroAlt(b.layers) || 'Что изображено'} hint="Видно, если почта не загрузила картинки. Если оставить пустым, возьмём текст слоёв." />
-            <TextInput label="Ссылка при нажатии" mono value={b.href} onChange={(v) => set({ href: v })} placeholder="https://… или {{ event_url }}" hint={varHint} />
+            <TextInput label="Ссылка при нажатии" mono value={b.href} onChange={(v) => set({ href: v })} placeholder={hideVariables ? "https://…" : "https://… или {{ event_url }}"} hint={varHint} />
           </Group>
         </>
       )
@@ -312,14 +317,14 @@ export function BlockInspector({ block: b, position, settings: s, onChange, onRe
         <Row label="Показывать">
           <Seg<Show> label="Где показывать" value={b.show} onChange={(v) => onChange({ show: v })} options={[{ value: 'all', label: 'Везде' }, { value: 'desktop', label: 'ПК' }, { value: 'mobile', label: 'Тел.' }]} />
         </Row>
-        <div className="field">
+        {!hideVariables && <div className="field">
           <label className="be-lab" htmlFor="be-cond">Условие</label>
           <select id="be-cond" className="select be-select wide" value={b.cond ?? ''} onChange={(e) => onChange({ cond: e.target.value })}>
             <option value="">Показывать всегда</option>
             {variables.map((v) => <option key={v.key} value={v.key}>Только если заполнено: {v.label}</option>)}
           </select>
           <div className="hint">{b.cond ? `Блок попадёт в письмо, только если приложение передало {{ ${b.cond} }}.` : 'Например, пароль показывать только новым участникам.'}</div>
-        </div>
+        </div>}
       </Group>
       <button type="button" className="btn sm text danger-text" style={{ alignSelf: 'flex-start' }} onClick={onRemove}><Trash2 size={14} />Удалить блок</button>
     </div>

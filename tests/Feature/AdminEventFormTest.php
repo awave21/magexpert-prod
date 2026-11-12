@@ -246,3 +246,22 @@ test('обложка мероприятия загружается и сохра
     \Illuminate\Support\Facades\Storage::disk('public')->assertExists($path);
     expect(getimagesizefromstring(\Illuminate\Support\Facades\Storage::disk('public')->get($path))['mime'])->toBe('image/webp');
 });
+
+test('описание MagSender сохраняет исходные фотографии слоёв после переноса черновика', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+    $disk->put('events/drafts/test/render.webp', 'rendered image');
+    $disk->put('events/drafts/test/photo.webp', 'layer image');
+    $design = ['version' => 1, 'blocks' => [['type' => 'zero', 'src' => '/storage/events/drafts/test/render.webp', 'layers' => [['kind' => 'image', 'src' => '/storage/events/drafts/test/photo.webp']]]]];
+    $html = '<img src="/storage/events/drafts/test/render.webp"><template data-magsender-design><span data-design-json>'.htmlspecialchars(json_encode($design, JSON_UNESCAPED_SLASHES), ENT_QUOTES).'</span><img src="/storage/events/drafts/test/photo.webp"></template>';
+
+    $this->actingAs(eventEditor())->post('/admin/events', eventPayload(['full_description' => $html]))
+        ->assertSessionHasNoErrors()->assertSessionHas('success');
+
+    $event = Event::first();
+    expect($event->full_description)->toContain('data-magsender-design')->not->toContain('/storage/events/drafts/');
+    expect($disk->files("events/{$event->id}/content"))->toHaveCount(2);
+    preg_match('/<span data-design-json>(.*?)<\/span>/', $event->full_description, $matches);
+    $stored = json_decode(html_entity_decode($matches[1], ENT_QUOTES), true);
+    $disk->assertExists(str_replace('/storage/', '', $stored['blocks'][0]['layers'][0]['src']));
+});

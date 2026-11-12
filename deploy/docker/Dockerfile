@@ -34,7 +34,7 @@ COPY --from=php-base /var/www/html/vendor/tightenco/ziggy ./vendor/tightenco/zig
 ARG APP_SERVICE=combined
 RUN --mount=type=secret,id=frontend_env,target=/app/.env.production \
     mkdir -p bootstrap/ssr \
-    && if [ "$APP_SERVICE" != sender ]; then npm run build; fi \
+    && if [ "$APP_SERVICE" != sender ]; then npm run build && (cd sender-ui && npm ci --no-audit --no-fund && npx vite build --config vite.event.config.ts); fi \
     && if [ "$APP_SERVICE" != site ]; then npm --prefix sender-ui ci --no-audit --no-fund && npm --prefix sender-ui run build; fi \
     && if [ "$APP_SERVICE" = site ]; then rm -rf public/sender-static; fi \
     && if [ "$APP_SERVICE" = sender ]; then rm -rf public/build; fi

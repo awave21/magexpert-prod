@@ -50,11 +50,12 @@ type ToolbarProps = {
   editor: Editor | null
   align: Align
   onAlign: (a: Align) => void
+  hideVariables?: boolean
   variables: { key: string; label: string }[]
 }
 
 // Панель форматирования над письмом: действует на текст выбранного блока
-export function FormatToolbar({ editor, align, onAlign, variables }: ToolbarProps) {
+export function FormatToolbar({ editor, align, onAlign, variables, hideVariables }: ToolbarProps) {
   const [, rerender] = useReducer((x: number) => x + 1, 0)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
@@ -113,7 +114,7 @@ export function FormatToolbar({ editor, align, onAlign, variables }: ToolbarProp
       </label>
       {btn('Убрать оформление', false, () => chain().unsetAllMarks().clearNodes().run(), <RemoveFormatting size={15} />)}
       <span className="be-fmt-sep" />
-      <div className="be-pop-wrap">
+      {!hideVariables && <div className="be-pop-wrap">
         <button type="button" className={`be-fmt-btn wide${varsOpen ? ' on' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => { setVarsOpen((o) => !o); setLinkOpen(false) }}>
           <Braces size={14} />Переменная
         </button>
@@ -126,7 +127,7 @@ export function FormatToolbar({ editor, align, onAlign, variables }: ToolbarProp
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

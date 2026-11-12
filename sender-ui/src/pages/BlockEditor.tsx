@@ -69,16 +69,22 @@ const isTyping = () => {
   return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
 }
 
-export default function BlockEditor() {
+export type EmbeddedEditor = {
+  template: Template
+  onChange: (design: Design) => void
+  registerSave: (save: () => Promise<void>) => void
+}
+
+export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } = {}) {
   const { id } = useParams()
   const qc = useQueryClient()
   const toast = useToast()
-  const { user } = useAuth()
+  const user = useAuth()?.user
 
-  const q = useQuery({ queryKey: ['template', id], queryFn: () => api<{ data: Template }>(`/templates/${id}`) })
-  const vq = useQuery({ queryKey: ['variables'], queryFn: () => api<Variables>('/variables') })
-  const dq = useQuery({ queryKey: ['domains'], queryFn: () => api<{ data: Domain[] }>('/domains') })
-  const template = q.data?.data
+  const q = useQuery({ enabled: !embedded, queryKey: ['template', id], queryFn: () => api<{ data: Template }>(`/templates/${id}`) })
+  const vq = useQuery({ enabled: !embedded, queryKey: ['variables'], queryFn: () => api<Variables>('/variables') })
+  const dq = useQuery({ enabled: !embedded, queryKey: ['domains'], queryFn: () => api<{ data: Domain[] }>('/domains') })
+  const template = embedded?.template ?? q.data?.data
 
   const [h, dispatch] = useReducer(historyReducer, { past: [], present: emptyDesign(), future: [], key: null, at: 0 })
   const design = h.present
@@ -141,7 +147,7 @@ export default function BlockEditor() {
   const applyPreset = (key: string) => {
     const preset = PRESETS.find((p) => p.key === key)
     if (!preset) return
-    const next = preset.design()
+    const next = embedded ? JSON.parse(JSON.stringify(preset.design()).replace(/\{\{[^}]+\}\}/g, '')) as Design : preset.design()
     // логотип из текущего письма переезжает в первый блок макета
     const oldLogo = design.blocks.find((x) => x.type === 'image' && !x.full && x.src)
     const newLogo = next.blocks[0]
@@ -245,6 +251,7 @@ export default function BlockEditor() {
       }
       if (d !== design) setDesign(d, 'zero-render')
       const body = d === design ? html : designToHtml(d, template.subject)
+      if (embedded) { embedded.onChange(d); return { r: { data: template }, d } }
       const r = await api<{ data: Template }>(`/templates/${id}`, {
         method: 'PUT',
         body: {
@@ -258,10 +265,17 @@ export default function BlockEditor() {
       setSavedJson(JSON.stringify(d))
       qc.setQueryData(['template', id], r)
       qc.invalidateQueries({ queryKey: ['templates'] })
-      toast('Письмо сохранено')
+      toast(embedded ? 'Описание подготовлено. Сохраните мероприятие.' : 'Письмо сохранено')
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : (e as Error).message, true),
   })
+  useEffect(() => {
+    if (embedded && ready && dirty) embedded.onChange(design)
+  }, [design, ready, dirty, embedded])
+  useEffect(() => {
+    embedded?.registerSave(async () => { if (dirty) await save.mutateAsync() })
+  }, [embedded, save, dirty])
+
   const sendTest = useMutation({
     mutationFn: async () => {
       if (dirty || template?.editor !== 'blocks') await save.mutateAsync()
@@ -479,14 +493,14 @@ export default function BlockEditor() {
   const mailWidth = device === 'mobile' ? 375 : s.width
 
   return (
-    <div className="be">
+    <div className={`be${embedded ? ' be-event' : ''}`}>
       {/* верхняя панель */}
       <header className="be-top">
-        <Link to={`/templates/${id}`} className="btn ghost be-back"><ArrowLeft size={16} />Карточка письма</Link>
+        {!embedded && <Link to={`/templates/${id}`} className="btn ghost be-back"><ArrowLeft size={16} />Карточка письма</Link>}
         <span className="be-sep" />
         <div className="be-title">
           <b>{template.name}</b>
-          <span><span className="mono">{template.slug}</span> · {dirty ? <span className="be-dirty"><i />Не сохранено</span> : savedJson ? <span className="be-saved"><Check size={12} strokeWidth={2.6} />Сохранено</span> : <span className="be-dirty"><i />Ещё не сохранено</span>}</span>
+          <span>{!embedded && <><span className="mono">{template.slug}</span> · </>}{dirty ? <span className="be-dirty"><i />Не сохранено</span> : savedJson ? <span className="be-saved"><Check size={12} strokeWidth={2.6} />Сохранено</span> : <span className="be-dirty"><i />Ещё не сохранено</span>}</span>
         </div>
         <span style={{ flex: 1 }} />
         <button type="button" className="btn icon sm ghost" title="Отменить (Cmd+Z)" aria-label="Отменить" disabled={!h.past.length} onClick={() => dispatch({ type: 'undo' })}><Undo2 size={17} /></button>
@@ -499,8 +513,8 @@ export default function BlockEditor() {
         <span className="be-sep" />
         <button type="button" className="btn ghost" onClick={() => setPresetsOpen(true)}><LayoutTemplate size={15} />Макеты</button>
         <button type="button" className="btn ghost" onClick={() => setHtmlOpen(true)}><Code2 size={15} />HTML</button>
-        <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>
-        <button type="button" className="btn primary" disabled={save.isPending || (!dirty && !!savedJson)} onClick={() => save.mutate()} title="Cmd+S">{rendering ?? (save.isPending ? 'Сохраняем…' : 'Сохранить')}</button>
+        {!embedded && <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>}
+        <button type="button" className="btn primary" disabled={save.isPending || (!dirty && !!savedJson)} onClick={() => save.mutate()} title="Cmd+S">{rendering ?? (save.isPending ? 'Сохраняем…' : embedded ? 'Применить' : 'Сохранить')}</button>
       </header>
 
       <div className="be-body">
@@ -508,12 +522,12 @@ export default function BlockEditor() {
         <aside className="be-left">
           <div className="seg be-tabs" role="tablist">
             <button type="button" role="tab" aria-selected={tab === 'blocks'} className={tab === 'blocks' ? 'on' : ''} onClick={() => setTab('blocks')}>Блоки</button>
-            <button type="button" role="tab" aria-selected={tab === 'styles'} className={tab === 'styles' ? 'on' : ''} onClick={() => setTab('styles')}>Стили письма</button>
+            <button type="button" role="tab" aria-selected={tab === 'styles'} className={tab === 'styles' ? 'on' : ''} onClick={() => setTab('styles')}>{embedded ? 'Стили страницы' : 'Стили письма'}</button>
           </div>
           {tab === 'blocks' ? (
             <>
               <div className="be-tiles">
-                {TILES.map((t) => (
+                {TILES.filter(t => !embedded || t.type !== 'footer').map((t) => (
                   <button type="button" key={t.type} className={`be-tile${drag?.kind === 'new' && drag.type === t.type ? ' dragging' : ''}`} draggable
                     onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', t.type); setDrag({ kind: 'new', type: t.type }) }}
                     onDragEnd={() => { setDrag(null); setDropAt(null) }}
@@ -534,20 +548,20 @@ export default function BlockEditor() {
           {textBlock && editor && (
             <div className="be-fmt-wrap" onClick={(e) => e.stopPropagation()}>
               <FormatToolbar editor={editor} variables={variables}
-                align={textBlock.align} onAlign={(a) => patchBlock(textBlock.id, { align: a } as Partial<Block>)} />
+                hideVariables={!!embedded} align={textBlock.align} onAlign={(a) => patchBlock(textBlock.id, { align: a } as Partial<Block>)} />
             </div>
           )}
           <div className={`be-mail${device === 'mobile' ? ' mobile' : ''}`} style={{ width: mailWidth, background: s.bodyBg, borderRadius: s.radius, fontFamily: s.font, color: s.textColor }}>
             {design.blocks.length === 0 && !drag ? (
               <div className="be-empty">
                 <LayoutTemplate size={26} />
-                <b>Письмо пустое</b>
+                <b>{embedded ? 'Описание пустое' : 'Письмо пустое'}</b>
                 <span>Перетащите сюда блок слева или нажмите на него.</span>
               </div>
             ) : renderList(design.blocks, ROOT, mailWidth)}
-            <div className="be-system-foot" title="Добавляется в конец каждого письма автоматически, убрать её нельзя" onClick={(e) => e.stopPropagation()}>
+            {!embedded && <div className="be-system-foot" title="Добавляется в конец каждого письма автоматически, убрать её нельзя" onClick={(e) => e.stopPropagation()}>
               Чтобы не получать такие письма, <u>отпишитесь от рассылки</u>
-            </div>
+            </div>}
           </div>
           <div className="be-canvas-note">{total} {total % 10 === 1 && total % 100 !== 11 ? 'блок' : total % 10 >= 2 && total % 10 <= 4 && (total % 100 < 10 || total % 100 >= 20) ? 'блока' : 'блоков'} · {device === 'mobile' ? 'телефон, 375 px' : `ширина ${s.width} px`}</div>
         </main>
@@ -556,8 +570,8 @@ export default function BlockEditor() {
         <aside className="be-right" key={selected ?? 'none'}>
           {selectedBlock ? (
             <BlockInspector block={selectedBlock} position={position} settings={s}
-              varHint="Можно вставить переменную, например {{ event_url }}: ссылка станет своей для каждого получателя."
-              variables={variables}
+              varHint={embedded ? '' : "Можно вставить переменную, например {{ event_url }}: ссылка станет своей для каждого получателя."}
+              variables={variables} hideVariables={!!embedded}
               onChange={(p) => patchBlock(selectedBlock.id, p)} onRemove={removeSelected} onError={(m) => toast(m, true)}
               onOpenZero={() => setZeroOpen(selectedBlock.id)} />
           ) : (

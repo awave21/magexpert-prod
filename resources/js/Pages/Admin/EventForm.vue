@@ -244,6 +244,7 @@
                 <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
                     <div class="lg:col-span-3">
                     <DescriptionBuilder
+                        ref="descriptionEditor"
                         id="full_description"
                         label="Подробное описание"
                         v-model="form.full_description"
@@ -337,8 +338,8 @@
                 <span v-else class="hidden text-sm text-zinc-500 sm:inline">{{ isEdit ? "Все изменения сохранены" : "Заполните основное и дату — остальное можно позже" }}</span>
                 <div class="flex gap-3">
                     <Link :href="route('admin.events')" class="inline-flex items-center rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 sm:px-4 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800">Назад<span class="hidden sm:inline">&nbsp;к списку</span></Link>
-                    <button type="submit" form="event-form" class="inline-flex items-center rounded-lg bg-brandblue-dark px-5 py-2 text-sm font-medium text-white hover:bg-brandblue-deep disabled:opacity-50 dark:bg-brandblue dark:text-white" :disabled="form.processing">
-                        {{ form.processing ? "Сохраняем…" : isEdit ? "Сохранить" : "Создать мероприятие" }}
+                    <button type="submit" form="event-form" class="inline-flex items-center rounded-lg bg-brandblue-dark px-5 py-2 text-sm font-medium text-white hover:bg-brandblue-deep disabled:opacity-50 dark:bg-brandblue dark:text-white" :disabled="form.processing || preparingDescription">
+                        {{ preparingDescription ? "Подготавливаем описание…" : form.processing ? "Сохраняем…" : isEdit ? "Сохранить" : "Создать мероприятие" }}
                     </button>
                 </div>
             </div>
@@ -662,7 +663,15 @@ onBeforeUnmount(() => {
     window.removeEventListener("beforeunload", onUnload);
 });
 
-function submitForm() {
+const descriptionEditor = ref(null);
+const preparingDescription = ref(false);
+async function submitForm() {
+    if (preparingDescription.value || form.processing) return;
+    preparingDescription.value = true;
+    try { form.full_description = await descriptionEditor.value.flush(); }
+    catch (error) { toast.error(error.message || 'Не удалось подготовить описание'); return; }
+    finally { preparingDescription.value = false; }
+
     const url = isEdit.value ? route("admin.events.update", props.event.id) : route("admin.events.store");
 
     form.transform((data) => ({

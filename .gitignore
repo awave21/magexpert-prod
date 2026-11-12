@@ -38,3 +38,5 @@ yarn-error.log
 /brag-output
 /deploy/docker/secrets/
 /deploy/docker/.env
+
+/public/event-editor
