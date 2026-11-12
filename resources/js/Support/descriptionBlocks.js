@@ -1,11 +1,11 @@
-export const blockLabels = { heading: 'Заголовок', text: 'Текст', image: 'Изображение', button: 'Кнопка', divider: 'Разделитель', spacer: 'Отступ', html: 'Свой HTML' };
+export const blockLabels = { heading: 'Заголовок', text: 'Текст', image: 'Изображение', button: 'Кнопка', divider: 'Разделитель', spacer: 'Отступ', html: 'Свой HTML', zero: 'Zero Block' };
 export const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export function safeUrl(value) {
     const url = String(value || '').trim();
     return /^(https?:\/\/|mailto:|tel:|\/(?!\/)|#)/i.test(url) ? url : '';
 }
 export function createBlock(type) {
-    return { id: crypto.randomUUID(), type, original: null, html: '<p>Введите текст</p>', text: type === 'button' ? 'Зарегистрироваться' : 'Заголовок', href: '', src: '', alt: '', align: 'left', color: '#f27b63', height: 24, spacing: 16 };
+    return { id: crypto.randomUUID(), type, original: null, zero: {height:320,bg:'#f1f3fa',layers:[]}, html: '<p>Введите текст</p>', text: type === 'button' ? 'Зарегистрироваться' : 'Заголовок', href: '', src: '', alt: '', align: 'left', color: '#f27b63', height: 24, spacing: 16 };
 }
 export function renderBlock(block) {
     if (block.original !== null) return block.original;
@@ -24,6 +24,22 @@ export function renderBlock(block) {
         case 'image': content = `<p style="${style}"><img src="${escapeHtml(safeUrl(block.src))}" alt="${escapeHtml(block.alt)}" style="max-width:100%;height:auto;border-radius:8px"></p>`; break;
         case 'divider': content = `<hr style="border:0;border-top:1px solid #d4d4d8;margin:0 0 ${spacing}px">`; break;
         case 'spacer': content = `<div style="height:${Math.max(0, Math.min(240, Number(block.height) || 0))}px" aria-hidden="true"></div>`; break;
+        case 'zero': {
+            const z = block.zero;
+            const height = Math.max(120, Math.min(1200, Number(z.height) || 320));
+            const color = value => /^#[0-9a-f]{6}$/i.test(value) ? value : '#202637';
+            const num = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+            const layers = z.layers.map(l => {
+                const x=num(l.x), y=num(l.y), w=Math.max(1,num(l.w)), h=Math.max(1,num(l.h));
+                const transform=`rotate(${num(l.rot)} ${x+w/2} ${y+h/2})`;
+                if(l.kind==='rect') return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${Math.max(0,num(l.radius))}" fill="${color(l.color)}" transform="${transform}"/>`;
+                if(l.kind==='image') return `<image x="${x}" y="${y}" width="${w}" height="${h}" href="${escapeHtml(safeUrl(l.src))}" preserveAspectRatio="xMidYMid slice" transform="${transform}"/>`;
+                const size=Math.max(8,Math.min(160,num(l.size,36)));
+                return `<text fill="${color(l.color)}" font-family="Arial,sans-serif" font-size="${size}" font-weight="${num(l.weight,700)}" transform="${transform}">${String(l.text||'').split('\n').map((line,i)=>`<tspan x="${x}" y="${y+size+i*size*1.2}">${escapeHtml(line)}</tspan>`).join('')}</text>`;
+            }).join('');
+            content=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 ${height}" role="img" aria-label="${escapeHtml(z.layers.filter(l=>l.kind==='text').map(l=>l.text).join(' '))}" style="display:block;width:100%;height:auto"><rect width="600" height="${height}" fill="${color(z.bg)}"/>${layers}</svg>`;
+            return `<section data-description-block="zero" data-zero="${escapeHtml(JSON.stringify(z))}">${content}</section>`;
+        }
         case 'html': content = block.html; break;
     }
     return `<section data-description-block="${block.type}">${content}</section>`;
@@ -43,6 +59,7 @@ export function parseBlocks(html, documentParser) {
         let type = element?.getAttribute('data-description-block');
         if (!blockLabels[type]) type = /^h[1-6]$/.test(tag) ? 'heading' : onlyLink && /background|padding|inline-flex|inline-block/.test(link.getAttribute('style') || '') ? 'button' : image && !root.textContent.trim() ? 'image' : tag === 'hr' ? 'divider' : ['p', 'ul', 'ol', 'blockquote'].includes(tag) ? 'text' : 'html';
         const block = createBlock(type);
+        if (type === 'zero') { try { const data = JSON.parse(element.getAttribute('data-zero')); if (Array.isArray(data.layers)) block.zero = data; } catch {} }
         block.original = element ? element.outerHTML : escapeHtml(node.textContent);
         block.html = type === 'html' ? block.original : element?.hasAttribute('data-description-block') ? root?.innerHTML || '' : block.original;
         block.text = type === 'button' ? link?.textContent || '' : root?.textContent || node.textContent;

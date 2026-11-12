@@ -33,6 +33,10 @@
                 </button>
             </div>
 
+            <div class="mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/50" aria-label="Готовность мероприятия">
+                <span class="text-xs font-medium text-zinc-500">Заполнено {{ readyCount }} из {{ readiness.length }}</span>
+                <button v-for="item in readiness" :key="item.label" type="button" class="inline-flex items-center gap-2 text-xs transition-colors hover:text-brandblue" :class="item.done ? 'text-zinc-800 dark:text-zinc-100' : 'text-zinc-400'" @click="tab = item.tab"><span class="flex size-4 items-center justify-center rounded-full text-[10px]" :class="item.done ? 'bg-emerald-100 text-emerald-700' : 'border border-zinc-300'">{{ item.done ? '✓' : '' }}</span>{{ item.label }}</button>
+            </div>
             <div class="flex items-start gap-6">
             <form id="event-form" class="min-w-0 flex-1" novalidate @submit.prevent="submitForm()">
             <!-- 1. Основное -->
@@ -227,7 +231,16 @@
 
             <!-- 5. Описание и материалы -->
             <section id="sec-5" v-show="tab === 'sec-5'" role="tabpanel" :aria-labelledby="`tab-sec-5`" :class="box">
-                <h3 :class="boxTitle">Описание и материалы</h3>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <h3 :class="boxTitle">Описание и материалы</h3>
+                    <details class="relative text-sm">
+                        <summary class="cursor-pointer text-zinc-500 hover:text-brandblue">Как увидят карточку на сайте</summary>
+                        <div class="absolute right-0 z-20 mt-3 w-64 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                            <img :src="previewImage || '/images/default-event-cover.webp'" alt="" class="aspect-video w-full object-cover" />
+                            <div class="space-y-1 p-4"><p class="text-xs text-zinc-500">{{ previewMeta }}</p><p class="font-semibold">{{ form.title || 'Название мероприятия' }}</p><p class="text-xs text-zinc-500">{{ previewWhen }}</p><p class="text-sm">{{ previewPrice }}</p></div>
+                        </div>
+                    </details>
+                </div>
                 <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
                     <div class="lg:col-span-3">
                     <DescriptionBuilder
@@ -296,22 +309,7 @@
         </form>
 
             <!-- Справа: что осталось заполнить и как увидят на сайте -->
-            <aside class="hidden w-72 shrink-0 space-y-6 xl:block" aria-label="Готовность и превью">
-                <div>
-                    <div class="mb-2 flex items-baseline justify-between text-sm">
-                        <span class="font-semibold text-zinc-900 dark:text-white">Готовность</span>
-                        <span class="text-zinc-500 dark:text-zinc-400">{{ readyCount }} из {{ readiness.length }}</span>
-                    </div>
-                    <div class="mb-3 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700">
-                        <div class="h-1.5 rounded-full bg-brandblue-dark transition-all dark:bg-brandblue" :style="{ width: `${(readyCount / readiness.length) * 100}%` }"></div>
-                    </div>
-                    <ul class="space-y-1.5 text-sm">
-                        <li v-for="item in readiness" :key="item.label" class="flex items-center gap-2" :class="item.done ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'">
-                            <span class="flex size-4 shrink-0 items-center justify-center rounded-full text-[10px]" :class="item.done ? 'bg-emerald-500 text-white' : 'border border-zinc-300 dark:border-zinc-600'">{{ item.done ? "✓" : "" }}</span>
-                            <button type="button" class="text-left hover:underline" @click="tab = item.tab">{{ item.label }}</button>
-                        </li>
-                    </ul>
-                </div>
+            <aside v-if="tab !== 'sec-5'" class="hidden w-64 shrink-0 space-y-6 xl:block" aria-label="Превью карточки">
 
                 <div>
                     <p class="mb-2 text-sm font-semibold text-zinc-900 dark:text-white">Как увидят на сайте</p>

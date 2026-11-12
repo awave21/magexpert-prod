@@ -44,6 +44,17 @@ await page.getByLabel('Описание изображения',{exact:true}).fi
 await page.getByRole('button',{name:'Предпросмотр',exact:true}).click();
 await page.frameLocator('iframe').getByText('Очное участие').waitFor();
 await page.getByRole('button',{name:'Редактировать',exact:true}).click();
+await page.getByRole('button',{name:'Zero Block',exact:true}).click();
+await page.getByRole('dialog',{name:'Zero Block',exact:true}).waitFor();
+await page.getByRole('dialog',{name:'Zero Block',exact:true}).getByRole('button',{name:'Текст',exact:true}).click();
+await page.getByLabel('Текст',{exact:true}).fill('Свободная композиция');
+const target=page.locator('.zero-object').first();const rect=await target.boundingBox();await page.mouse.move(rect.x+10,rect.y+10);await page.mouse.down();await page.mouse.move(rect.x+50,rect.y+35);await page.mouse.up();if(Number(await page.getByLabel('X',{exact:true}).inputValue())===40)throw Error('Zero drag failed');
+await page.getByRole('button',{name:'Фигура',exact:true}).click();
+await page.getByRole('button',{name:'Применить',exact:true}).click();
+if(!(await page.evaluate(()=>window.output)).includes('data-zero='))throw Error('Zero block not persisted');
+await page.getByRole('button',{name:'Открыть Zero Block ↗',exact:true}).click();
+await page.getByRole('button',{name:'Отмена',exact:true}).click();
+await page.evaluate(async()=>{const {parseBlocks,renderBlock}=await import('/resources/js/Support/descriptionBlocks.js');const b=parseBlocks(window.output,new DOMParser());const z=b.find(x=>x.type==='zero');if(z.zero.layers.length!==2)throw Error('Zero layers lost');z.original=null;if(!renderBlock(z).includes('Свободная композиция'))throw Error('Zero serialization lost text');});
 await page.setViewportSize({width:390,height:844});
 if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Mobile overflow');
 await page.screenshot({path:'/tmp/description-builder-mobile.png',fullPage:true});
