@@ -259,6 +259,10 @@
                     </div>
                     </div>
                 </div>
+            </section>
+
+            <section id="sec-speakers" v-show="tab === 'sec-speakers'" role="tabpanel" aria-labelledby="tab-sec-speakers" :class="box">
+                <h3 :class="boxTitle">Спикеры</h3>
                 <SpeakerSelector id="speakers" label="Спикеры" v-model="form.speakers" :speakers="speakers" :error="form.errors.speakers" />
             </section>
 
@@ -567,13 +571,14 @@ const sections = [
     { id: "sec-3", label: "Видео" },
     { id: "sec-4", label: "Доступ и оплата" },
     { id: "sec-5", label: "Описание и материалы" },
+    { id: "sec-speakers", label: "Спикеры" },
     { id: "sec-6", label: "Публикация" },
 ];
 // ---------- Готовность и превью справа ----------
 const readiness = computed(() => [
     { label: "Название и тип", done: !!form.title.trim() && !!form.event_type, tab: "sec-1" },
     { label: "Дата и место", done: form.is_on_demand || !!form.start_date, tab: "sec-2" },
-    { label: "Спикеры", done: form.speakers.length > 0, tab: "sec-5" },
+    { label: "Спикеры", done: form.speakers.length > 0, tab: "sec-speakers" },
     { label: "Обложка", done: !!previewImage.value, tab: "sec-5" },
     { label: "Описание", done: !!(form.short_description.trim() || form.full_description.trim()), tab: "sec-1" },
 ]);
@@ -623,7 +628,8 @@ const tabFields = {
     "sec-2": ["start_date", "start_time", "end_date", "end_time", "location", "city", "is_on_demand"],
     "sec-3": ["kinescope_id", "kinescope_playlist_id", "kinescope_type"],
     "sec-4": ["price", "show_price", "tags", "tags.0", "letter_draft_id", "max_quantity", "external_url"],
-    "sec-5": ["short_description", "full_description", "topic", "speakers", "image", "file"],
+    "sec-5": ["short_description", "full_description", "topic", "image", "file"],
+    "sec-speakers": ["speakers"],
     "sec-6": ["slug", "sort_order"],
 };
 const tabHasErrors = (id) => tabFields[id].some((key) => form.errors[key]);
