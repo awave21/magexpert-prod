@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPOSITORY = 'https://github.com/awave21/magexpert-prod.git'
 BASE = Path('/srv/mag-services')
-PUBLIC_HOST = 'www.medalliance-expert.ru'
+PUBLIC_HOST = 'mag-expert.ru'
 ROUTES = ('/', '/contacts', '/events', '/documents', '/events/podderzka-liuteinovoi-fazy')
 SERVICES = ('site-app', 'site-web', 'site-worker', 'site-scheduler')
 
