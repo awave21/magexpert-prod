@@ -246,7 +246,7 @@ const calendarHref = computed(() => {
                         <span v-if="isLive" class="inline-flex items-center gap-2 rounded-full bg-brandcoral-soft px-3 py-1 text-xs font-extrabold text-[#b4442c]"><span class="cab-live !h-2 !w-2"></span>В эфире</span>
                         <span v-for="category in event.categories" :key="category.id" class="rounded-full bg-brandcoral-soft px-2.5 py-1 text-xs font-extrabold text-[#b4442c]">{{ category.name }}</span>
                     </div>
-                    <h1 class="cab-h1">{{ event.title }}</h1>
+                    <h1 class="text-base font-semibold leading-relaxed text-gray-900 dark:text-gray-100 sm:text-lg">{{ event.title }}</h1>
                     <div class="flex flex-wrap gap-x-5 gap-y-2 text-[15px] font-semibold text-gray-500 dark:text-gray-400">
                         <span v-if="formatDate(event.start_date)" class="inline-flex items-center gap-2">
                             <CalendarDaysIcon class="h-[18px] w-[18px]" aria-hidden="true" />
