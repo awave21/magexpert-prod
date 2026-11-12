@@ -670,6 +670,7 @@ const getFirstRegaliaLine = (regalia) => {
 
                                 <button
                                     v-if="
+                                        event.registration_enabled &&
                                         !(
                                             event.is_on_demand &&
                                             event.user_has_access
@@ -755,7 +756,7 @@ const getFirstRegaliaLine = (regalia) => {
                                 </div>
 
                                 <div
-                                    v-else-if="!isRegistrationAvailable(event)"
+                                    v-else-if="event.registration_enabled && !isRegistrationAvailable(event)"
                                     class="text-sm text-center text-gray-500 dark:text-gray-400"
                                 >
                                     <p
@@ -765,9 +766,6 @@ const getFirstRegaliaLine = (regalia) => {
                                         "
                                     >
                                         Запись мероприятия пока недоступна
-                                    </p>
-                                    <p v-else-if="!event.registration_enabled">
-                                        Регистрация временно недоступна
                                     </p>
                                     <p
                                         v-else-if="

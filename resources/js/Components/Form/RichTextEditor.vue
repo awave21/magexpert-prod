@@ -1,15 +1,48 @@
 <template>
   <div class="w-full">
     <label v-if="label" class="block text-sm font-medium text-zinc-900 dark:text-white mb-1">{{ label }}</label>
+    <div class="mb-2 flex flex-wrap gap-2" role="group" aria-label="Режим редактора">
+      <button
+        v-for="option in editorModes"
+        :key="option.value"
+        type="button"
+        :aria-pressed="mode === option.value"
+        class="rounded-md border px-3 py-1.5 text-sm font-medium"
+        :class="mode === option.value ? 'border-brandblue bg-brandblue text-white' : 'border-zinc-200 text-zinc-700 dark:border-zinc-700 dark:text-zinc-200'"
+        @click="mode = option.value"
+      >{{ option.label }}</button>
+    </div>
     <QuillEditor
+      v-if="mode === 'visual'"
       ref="editorRef"
-      v-model:content="localContent"
+      :content="localContent"
       contentType="html"
       theme="snow"
       :placeholder="placeholder"
       :options="editorOptions"
+      @textChange="handleTextChange"
       class="bg-white dark:bg-zinc-900 dark:text-white rounded-lg border border-zinc-200 dark:border-zinc-700"
     />
+    <textarea
+      v-else-if="mode === 'html'"
+      v-model="localContent"
+      aria-label="HTML-код описания"
+      spellcheck="false"
+      rows="14"
+      class="block w-full rounded-lg border border-zinc-200 bg-white p-3 font-mono text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+      placeholder="<h2>Программа</h2><p>Описание мероприятия</p>"
+    ></textarea>
+    <iframe
+      v-else
+      :srcdoc="previewDocument"
+      sandbox=""
+      referrerpolicy="no-referrer"
+      title="Предпросмотр описания"
+      class="h-96 w-full rounded-lg border border-zinc-200 bg-white dark:border-zinc-700"
+    ></iframe>
+    <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+      HTML-код позволяет добавлять кнопки и отступы. Для сохранения собственного оформления редактируйте его в режиме HTML: визуальный редактор поддерживает только базовое форматирование.
+    </p>
     <p v-if="hint" class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ hint }}</p>
     <p v-if="error" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
   </div>
@@ -17,11 +50,10 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { QuillEditor } from '@vueup/vue-quill';
 import '@vueup/vue-quill/dist/vue-quill.snow.css';
 import { useToast } from 'vue-toastification';
-import { Quill } from '@vueup/vue-quill';
 
 const props = defineProps({
   modelValue: {
@@ -62,6 +94,19 @@ const emit = defineEmits(['update:modelValue']);
 const toast = useToast();
 const editorRef = ref(null);
 const localContent = ref(props.modelValue || '');
+const mode = ref(/\s(?:style|class)=|<(?:div|table|section|iframe|button)\b/i.test(localContent.value) ? 'html' : 'visual');
+const editorModes = [
+  { value: 'visual', label: 'Текст' },
+  { value: 'html', label: 'HTML-код' },
+  { value: 'preview', label: 'Предпросмотр' }
+];
+const previewDocument = computed(() => `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:16px;font:16px/1.7 system-ui,sans-serif;color:#18181b;overflow-wrap:anywhere}img,video,iframe{max-width:100%}h2{font-size:22px}a{color:#2563eb}</style></head><body>${localContent.value}</body></html>`);
+
+function handleTextChange({ source }) {
+  if (source === 'user' && editorRef.value?.getQuill().hasFocus()) {
+    localContent.value = editorRef.value.getHTML();
+  }
+}
 
 watch(() => props.modelValue, (val) => {
   if (val !== localContent.value) {

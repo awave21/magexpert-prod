@@ -33,6 +33,26 @@ function eventPayload(array $overrides = []): array
     ], $overrides);
 }
 
+test('HTML описания с кнопкой и отступами сохраняется при создании и редактировании', function () {
+    $html = '<h2 style="margin-top:32px">Регистрация</h2><p><a href="https://example.com/register" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 24px;background:#2563eb;color:white">Зарегистрироваться</a></p>';
+    $editor = eventEditor();
+
+    $this->actingAs($editor)->post('/admin/events', eventPayload(['full_description' => $html]))
+        ->assertSessionHasNoErrors();
+
+    $event = Event::first();
+    expect($event->full_description)->toBe($html);
+
+    $this->get("/admin/events/{$event->id}/edit")->assertInertia(fn ($page) => $page
+        ->where('event.full_description', $html));
+
+    $updated = $html.'<p style="margin-top:24px">Организаторы</p>';
+    $this->post("/admin/events/{$event->id}", eventPayload(['_method' => 'PUT', 'full_description' => $updated]))
+        ->assertSessionHasNoErrors();
+
+    expect($event->fresh()->full_description)->toBe($updated);
+});
+
 test('бесплатное мероприятие создаётся с видео', function () {
     $this->actingAs(eventEditor())->post('/admin/events', eventPayload())
         ->assertSessionHasNoErrors()
@@ -42,6 +62,21 @@ test('бесплатное мероприятие создаётся с виде
         ->title->toBe('Мастер-класс по инъекционным методикам')
         ->kinescope_id->toBe('abc123')
         ->is_paid->toBeFalse();
+});
+
+test('регистрацию можно выключить через админку с сохранением внешней кнопки в описании', function () {
+    $html = '<p><a href="https://example.com/register" style="padding:14px 24px">Регистрация на очное участие</a></p>';
+    $event = Event::factory()->create(['registration_enabled' => true, 'full_description' => $html]);
+
+    $this->actingAs(eventEditor())->post("/admin/events/{$event->id}", eventPayload([
+        '_method' => 'PUT',
+        'registration_enabled' => false,
+        'full_description' => $html,
+    ]))->assertSessionHasNoErrors();
+
+    expect($event->fresh())
+        ->registration_enabled->toBeFalse()
+        ->full_description->toBe($html);
 });
 
 test('платное мероприятие без цены не сохраняется', function () {
