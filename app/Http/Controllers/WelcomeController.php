@@ -26,6 +26,7 @@ class WelcomeController extends Controller
                 $query->where('start_date', '>=', Carbon::today())
                     ->orWhere('is_on_demand', true);
             })
+            ->orderBy('is_on_demand', 'asc')
             ->orderBy('start_date', 'asc')
             ->orderBy('start_time', 'asc')
             ->first();

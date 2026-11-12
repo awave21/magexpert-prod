@@ -17,6 +17,7 @@ it('shows the nearest event regardless of registration availability', function (
         'start_time' => '18:00:00',
     ]);
     Event::factory()->create(['start_date' => today()->addDays(5)]);
+    Event::factory()->create(['start_date' => today()->subYear(), 'is_on_demand' => true]);
     Event::factory()->create(['start_date' => today()->addDay(), 'is_active' => false]);
     Event::factory()->create(['start_date' => today()->addDays(2), 'is_archived' => true]);
     Event::factory()->create(['start_date' => today()->subDay(), 'is_on_demand' => false]);
