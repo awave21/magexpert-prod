@@ -24,7 +24,7 @@ export default function NewTemplate() {
       .then((r) => {
         qc.invalidateQueries({ queryKey: ['templates'] })
         qc.invalidateQueries({ queryKey: ['template-folders'] })
-        nav(`/templates/${r.data.id}`, { replace: true })
+        nav(`/templates/${r.data.id}?setup=1`, { replace: true })
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Не удалось создать письмо'))
   }, [nav, params, qc])

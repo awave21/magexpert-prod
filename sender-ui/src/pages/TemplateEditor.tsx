@@ -35,6 +35,7 @@ export default function TemplateEditor() {
   const { id } = useParams()
   const [params] = useSearchParams()
   const isNew = id === 'new'
+  const isSetup = isNew || params.get('setup') === '1'
   const nav = useNavigate()
   const qc = useQueryClient()
   const toast = useToast()
@@ -53,6 +54,8 @@ export default function TemplateEditor() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [testOpen, setTestOpen] = useState(false)
   const [testTo, setTestTo] = useState('')
+  const [htmlOpen, setHtmlOpen] = useState(false)
+  const [htmlDraft, setHtmlDraft] = useState('')
 
   const fq = useQuery({ queryKey: ['template-folders'], queryFn: () => api<{ data: Folder[] }>('/template-folders') })
   const vq = useQuery({ queryKey: ['variables'], queryFn: () => api<Variables>('/variables') })
@@ -134,6 +137,18 @@ export default function TemplateEditor() {
     },
     onError: (e) => toast(e instanceof ApiError ? (e.errors.to?.[0] ?? e.message) : 'Не удалось отправить', true),
   })
+
+  const editContent = async () => {
+    if (!isBlocks) {
+      setHtmlDraft(form.body_html)
+      setHtmlOpen(true)
+      return
+    }
+    if (dirty) {
+      try { await save.mutateAsync() } catch { return }
+    }
+    nav(`/templates/${id}/blocks`)
+  }
 
   // HTML-файл письма разбирается на блоки в браузере; картинки остаются по своим https-ссылкам
   const uploadHtml = async (file: File) => {
@@ -222,7 +237,7 @@ export default function TemplateEditor() {
         <div className="tpl-grid">
           {/* левая колонка: название, способ собрать письмо, настройки */}
           <div className="tpl-edit">
-            {canEditContent && (
+            {canEditContent && isSetup && (
               <section className="tpl-steps" aria-label="Что дальше">
                 <ol>
                   {steps.map((s, i) => (
@@ -248,7 +263,7 @@ export default function TemplateEditor() {
 
             <section className="tpl-section">
               <div className="tpl-sub"><h2>Письмо</h2>{isBlocks && <span className="chip ok">Собрано из блоков</span>}</div>
-              <div className="tpl-ways">
+              {isSetup ? <div className="tpl-ways">
                 <Link to={isBlocks ? `/templates/${id}/blocks` : `/templates/${id}/blocks?start=empty`} className="tpl-way">
                   <span className="tpl-way-ic"><Blocks size={22} /></span>
                   <b>Конструктор писем</b>
@@ -270,7 +285,12 @@ export default function TemplateEditor() {
                   <span>{uploading ? 'Разбираем файл…' : 'HTML-файл письма. Картинки — по https-ссылкам'}</span>
                   <input type="file" accept=".html,.htm,text/html" hidden disabled={uploading} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) uploadHtml(file) }} />
                 </label>
-              </div>
+              </div> : canEditContent && <>
+                <p className="muted">Откройте сохранённое письмо, чтобы изменить его содержимое.</p>
+                <button type="button" className="btn primary" onClick={editContent} disabled={save.isPending}>
+                  {isBlocks ? <Blocks size={16} /> : <Code2 size={16} />}Редактировать письмо
+                </button>
+              </>}
               {err('body_html') && <div className="hint err">{err('body_html')}</div>}
             </section>
 
@@ -364,6 +384,22 @@ export default function TemplateEditor() {
           </div>
         </div>
       </form>
+
+      {htmlOpen && (
+        <Modal title="Редактировать письмо" onClose={() => setHtmlOpen(false)} wide>
+          <div className="stack">
+            <label htmlFor="existing-html">HTML письма</label>
+            <textarea id="existing-html" className="textarea code" rows={18} value={htmlDraft} onChange={(e) => setHtmlDraft(e.target.value)} spellCheck={false} />
+            <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" className="btn" onClick={() => setHtmlOpen(false)}>Отмена</button>
+              <button type="button" className="btn primary" onClick={() => {
+                setForm((f) => ({ ...f, body_html: htmlDraft, body_text: htmlToText(htmlDraft) }))
+                setHtmlOpen(false)
+              }}>Применить изменения</button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {testOpen && (
         <Modal title="Тестовое письмо" onClose={() => setTestOpen(false)}>
