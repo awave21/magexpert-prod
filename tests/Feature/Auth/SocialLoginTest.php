@@ -189,6 +189,19 @@ it('opens odnoklassniki or mail.ru right away through vk id and ignores unknown 
         ->toStartWith('https://oauth.yandex.ru/authorize?')->not->toContain('provider=');
 });
 
+it('asks yandex to show account selection on every sign-in', function (): void {
+    foreach (range(1, 2) as $attempt) {
+        Socialite::forgetDrivers();
+        $location = $this->get('/auth/yandex/redirect')->assertRedirect()->headers->get('Location');
+        parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+
+        expect($query['force_confirm'])->toBe('yes')
+            ->and($query['client_id'])->toBe('test-id')
+            ->and($query['redirect_uri'])->toBe(route('social.callback', 'yandex'))
+            ->and($query['state'])->not->toBeEmpty();
+    }
+});
+
 it('removes social links when the account is deleted', function (): void {
     $user = User::factory()->create();
     $user->socialAccounts()->create(['provider' => 'vkid', 'provider_user_id' => '555']);

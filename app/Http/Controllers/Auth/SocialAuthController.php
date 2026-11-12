@@ -46,7 +46,7 @@ class SocialAuthController extends Controller
 
     public function __construct(private readonly SocialAccounts $accounts) {}
 
-    public function redirect(string $provider, bool $askAgain = false): SymfonyRedirect|RedirectResponse
+    public function redirect(string $provider): SymfonyRedirect|RedirectResponse
     {
         if (! config("services.{$provider}.client_id")) {
             return redirect()->route('login')->withErrors(['email' => 'Вход через '.self::NAMES[$provider].' пока не настроен.']);
@@ -62,11 +62,7 @@ class SocialAuthController extends Controller
         if ($provider === 'yandex') {
             $driver->scopes(array_merge(['login:email', 'login:info'], $phone ? ['login:default_phone'] : []));
 
-            // при подтверждении телефона просим Яндекс заново показать разрешения:
-            // иначе он молча отдаёт старое согласие, выданное ещё без доступа к номеру
-            if ($askAgain) {
-                $driver->with(['force_confirm' => 'yes']);
-            }
+            $driver->with(['force_confirm' => 'yes']);
         } else {
             if ($phone) {
                 $driver->scopes(['phone']);
@@ -94,7 +90,7 @@ class SocialAuthController extends Controller
             'phone_scope' => (bool) config("services.{$provider}.phone"),
         ]);
 
-        return $this->redirect($provider, askAgain: true);
+        return $this->redirect($provider);
     }
 
     /**
