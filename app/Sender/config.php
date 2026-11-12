@@ -33,9 +33,7 @@ return [
             'welcome' => env('SENDER_TEMPLATE_WELCOME', 'welcome'),
             'email_confirmation' => env('SENDER_TEMPLATE_EMAIL_CONFIRMATION', 'email-confirmation'),
             'password_reset' => env('SENDER_TEMPLATE_PASSWORD_RESET', 'password-reset'),
-            'password_reset_link' => env('SENDER_TEMPLATE_PASSWORD_RESET_LINK', 'password-reset-link'),
             'event_registration' => env('SENDER_TEMPLATE_EVENT_REGISTRATION', 'event-registration'),
-            'api_registration' => env('SENDER_TEMPLATE_API_REGISTRATION', 'api-registration'),
         ],
         // база «Пользователи MagExpert» в Sender: сайт держит её в актуальном виде только через открытый API Sender
         // (SENDER_API_URL + SENDER_API_KEY), как сторонний сервис. Первичная загрузка — php artisan sender:sync-users.

@@ -78,11 +78,23 @@ it('creates an api user with an unusable password and a set-password link', func
         'privacy_consent' => true, 'oferta_consent' => true, 'newsletter_consent' => true,
     ])->assertCreated()->assertJsonMissingPath('data.password');
 
-    $mail = collect($this->client->calls)->firstWhere('template', 'api-registration');
+    $mail = collect($this->client->calls)->firstWhere('template', 'welcome');
 
     expect($mail)->not->toBeNull()
         ->and($mail['data'])->not->toHaveKey('password')
         ->and($mail['data']['set_password_url'])->toContain('/reset-password/');
+});
+
+it('sends the site registration content even without marketing consent', function (): void {
+    config(['services.sender.templates.welcome' => '4']);
+    $this->postJson('/api/users', [
+        'first_name' => 'Анна', 'email' => 'no-newsletter@example.com',
+        'privacy_consent' => true, 'oferta_consent' => true, 'newsletter_consent' => false,
+    ])->assertCreated();
+
+    expect($this->client->calls)->toHaveCount(1)
+        ->and($this->client->calls[0]['template'])->toBe('4')
+        ->and($this->client->calls[0]['data']['set_password_url'])->toContain('/reset-password/');
 });
 
 it('gives every response an X-Request-Id and keeps the one that came with the request', function (): void {

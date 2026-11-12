@@ -34,7 +34,7 @@ it('sends a password reset link without a password', function (): void {
     $sent = $this->service->sendPasswordResetLink($user, 'https://mag-expert.ru/reset-password/token', 60);
 
     expect($sent)->toBeTrue()
-        ->and($this->client->calls[0]['template'])->toBe('password-reset-link')
+        ->and($this->client->calls[0]['template'])->toBe('password-reset')
         ->and($this->client->calls[0]['to'])->toBe('user@example.com')
         ->and($this->client->calls[0]['data'])->toBe([
             'first_name' => 'Анна',
@@ -44,11 +44,11 @@ it('sends a password reset link without a password', function (): void {
         ]);
 });
 
-it('sends an api registration email with a set-password link and no password', function (): void {
+it('uses the site registration content for an api user with a set-password link and no password', function (): void {
     $user = User::factory()->create(['email' => 'A@b.ru', 'first_name' => 'Анна', 'last_name' => 'Иванова']);
 
-    expect($this->service->sendApiRegistrationEmail($user))->toBeTrue()
-        ->and($this->client->calls[0]['template'])->toBe('api-registration');
+    expect($this->service->sendWelcomeEmail($user, needsPassword: true))->toBeTrue()
+        ->and($this->client->calls[0]['template'])->toBe('welcome');
 
     $data = $this->client->calls[0]['data'];
 
@@ -56,6 +56,51 @@ it('sends an api registration email with a set-password link and no password', f
         ->and($data['set_password_url'])->toContain('/reset-password/')->toContain(rawurlencode('A@b.ru'))
         ->and($data['set_password_expires_in'])->toBe(60)
         ->and($data)->not->toHaveKey('password');
+});
+
+it('maps each user action to its configured content id', function (string $action, string $expected): void {
+    config(['services.sender.templates' => [
+        'welcome' => '4', 'password_reset' => '2', 'email_confirmation' => '6', 'event_registration' => '1',
+    ]]);
+    $user = User::factory()->create();
+    $event = Event::factory()->create(['letter_draft_id' => null]);
+
+    match ($action) {
+        'registration' => $this->service->sendWelcomeEmail($user),
+        'api' => $this->service->sendWelcomeEmail($user, needsPassword: true),
+        'password' => $this->service->sendPasswordResetLink($user, 'https://example.com/reset-password/token', 60),
+        'email' => $this->service->sendEmailConfirmation($user),
+        'event' => $this->service->sendEventRegistrationEmail($event, $user),
+    };
+
+    expect($this->client->calls)->toHaveCount(1)
+        ->and($this->client->calls[0]['template'])->toBe($expected);
+})->with([
+    ['registration', '4'], ['api', '4'], ['password', '2'], ['email', '6'], ['event', '1'],
+]);
+
+it('renders the shared registration content with a setup link only when needed', function (): void {
+    $attributes = json_decode(file_get_contents(base_path('deploy/templates/welcome.json')), true)[0];
+    $template = new App\Sender\Models\Template($attributes);
+    $renderer = app(App\Sender\Services\TemplateRenderer::class);
+    $ordinary = $renderer->render($template, ['first_name' => 'Анна', 'user_email' => 'anna@example.com']);
+    $api = $renderer->render($template, [
+        'first_name' => 'Анна', 'user_email' => 'anna@example.com',
+        'set_password_url' => 'https://example.com/reset-password/one-time', 'set_password_expires_in' => 60,
+    ]);
+    expect($ordinary['html'])->not->toContain('Задать пароль', '{{')
+        ->and($api['html'])->toContain('https://example.com/reset-password/one-time', '60 мин.')
+        ->and($api['html'])->not->toContain('пароль, который вы указали', '{{');
+});
+
+it('renders password recovery as a link rather than sending a generated password', function (): void {
+    $attributes = json_decode(file_get_contents(base_path('deploy/templates/password-reset.json')), true)[0];
+    $content = app(App\Sender\Services\TemplateRenderer::class)->render(new App\Sender\Models\Template($attributes), [
+        'first_name' => 'Анна', 'user_email' => 'anna@example.com',
+        'reset_url' => 'https://example.com/reset-password/one-time', 'expires_in' => 60,
+    ]);
+    expect($content['html'])->toContain('https://example.com/reset-password/one-time')
+        ->not->toContain('{{ password }}', 'создан новый пароль', '{{');
 });
 
 it('sends an event registration email with only filled fields', function (): void {
@@ -106,7 +151,7 @@ it('does not send a set-password link to an existing user', function (): void {
 it('keeps a rejected letter in the outbox as failed instead of losing it silently', function (): void {
     $this->client->status = 'blocked';
 
-    expect($this->service->sendApiRegistrationEmail(User::factory()->create()))->toBeTrue();
+    expect($this->service->sendWelcomeEmail(User::factory()->create(), needsPassword: true))->toBeTrue();
 
     $entry = MailOutbox::query()->latest('id')->first();
 
@@ -124,7 +169,7 @@ it('keeps the letter pending in the outbox when the client throws', function ():
         }
     });
 
-    expect($this->service->sendApiRegistrationEmail(User::factory()->create()))->toBeTrue();
+    expect($this->service->sendWelcomeEmail(User::factory()->create(), needsPassword: true))->toBeTrue();
 
     // очередь sync не умеет повторять: после исчерпания попыток письмо помечено failed, но записано и видно в журнале
     $entry = MailOutbox::query()->latest('id')->first();

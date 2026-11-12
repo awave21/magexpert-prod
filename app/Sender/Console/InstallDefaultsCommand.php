@@ -64,22 +64,7 @@ HTML,
 Страница мероприятия: {{ event_url }}
 TEXT,
             ],
-            [
-                'slug' => 'api-registration',
-                'name' => 'Регистрация через API',
-                'subject' => 'Ваша учётная запись создана',
-                'body_html' => <<<'HTML'
-<p>Здравствуйте{{#if name}}, {{ name }}{{/if}}!</p>
-<p>Для вас создана учётная запись ({{ user_email }}).</p>
-<p><a href="{{ set_password_url }}">Задать пароль</a>: ссылка действует {{ set_password_expires_in }} мин.</p>
-HTML,
-                'body_text' => <<<'TEXT'
-Здравствуйте{{#if name}}, {{ name }}{{/if}}!
 
-Для вас создана учётная запись ({{ user_email }}).
-Задать пароль: {{ set_password_url }} (ссылка действует {{ set_password_expires_in }} мин.)
-TEXT,
-            ],
         ];
     }
 }

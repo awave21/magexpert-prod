@@ -59,9 +59,7 @@ class UserController extends Controller
             ]);
 
             // письмо со ссылкой «Задать пароль»: пароль нигде не генерируется и не отправляется
-            if ($request->newsletter_consent) {
-                $this->sendRegistrationEmail($user);
-            }
+            $this->sendRegistrationEmail($user);
 
             return response()->json([
                 'success' => true,
@@ -94,8 +92,7 @@ class UserController extends Controller
     protected function sendRegistrationEmail(User $user): void
     {
         try {
-            // Используем специальный метод для API регистрации
-            app(SenderMailService::class)->sendApiRegistrationEmail($user);
+            app(SenderMailService::class)->sendWelcomeEmail($user, needsPassword: true);
 
             \Log::info('API registration email sent', [
                 'email' => $user->email,

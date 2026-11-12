@@ -159,7 +159,7 @@ test('письмо со ссылкой уходит через Sender по св�
     $this->post('/forgot-password', ['email' => $user->email]);
 
     expect($client->calls)->toHaveCount(1)
-        ->and($client->calls[0]['template'])->toBe('password-reset-link')
+        ->and($client->calls[0]['template'])->toBe('password-reset')
         ->and($client->calls[0]['to'])->toBe('anna@example.test')
         ->and($client->calls[0]['data']['first_name'])->toBe('Анна')
         ->and($client->calls[0]['data']['expires_in'])->toBe(60)

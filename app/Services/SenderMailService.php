@@ -98,7 +98,7 @@ class SenderMailService
      */
     public function sendPasswordResetLink(User $user, string $resetUrl, int $expiresInMinutes): bool
     {
-        return $this->send($this->template('password_reset_link'), $user->email, [
+        return $this->send($this->template('password_reset'), $user->email, [
             'first_name' => (string) $user->first_name,
             'user_email' => strtolower($user->email),
             'reset_url' => $resetUrl,
@@ -109,7 +109,7 @@ class SenderMailService
     /**
      * Приветствие после регистрации на сайте. Пароль пользователь придумал сам, поэтому в письме его нет.
      */
-    public function sendWelcomeEmail(User $user): bool
+    public function sendWelcomeEmail(User $user, bool $needsPassword = false): bool
     {
         $name = trim($user->first_name.' '.$user->last_name);
 
@@ -119,6 +119,8 @@ class SenderMailService
             'user_name' => $name,
             'user_email' => strtolower($user->email),
             'site_url' => url('/'),
+            'set_password_url' => $needsPassword ? app(PasswordSetupLink::class)->url($user) : null,
+            'set_password_expires_in' => $needsPassword ? app(PasswordSetupLink::class)->expiresInMinutes() : null,
             // кнопка «Подтвердить email» в письме показывается только тем, у кого он ещё не подтверждён
             'verify_url' => $user->exists && ! $user->hasVerifiedEmail() ? app(EmailConfirmation::class)->url($user) : null,
         ], fn ($value): bool => $value !== null && $value !== ''), null, ['kind' => 'welcome', 'user_id' => $user->id]);
@@ -134,22 +136,6 @@ class SenderMailService
             'user_email' => strtolower($user->email),
             'verify_url' => app(EmailConfirmation::class)->url($user),
         ], null, ['kind' => 'email_confirmation', 'user_id' => $user->id]);
-    }
-
-    /**
-     * Учётную запись создали через API: человек сам задаёт пароль по одноразовой ссылке.
-     */
-    public function sendApiRegistrationEmail(User $user): bool
-    {
-        $link = app(PasswordSetupLink::class);
-
-        return $this->send($this->template('api_registration'), $user->email, [
-            'user_email' => strtolower($user->email),
-            'name' => trim($user->first_name.' '.$user->last_name),
-            'set_password_url' => $link->url($user),
-            'set_password_expires_in' => $link->expiresInMinutes(),
-            'generated_at' => now()->format('d.m.Y H:i'),
-        ], null, ['kind' => 'api_registration', 'user_id' => $user->id]);
     }
 
     /**
