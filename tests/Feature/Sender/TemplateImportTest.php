@@ -24,10 +24,10 @@ it('imports the welcome template from the repository file', function (): void {
 });
 
 it('imports the password reset link template', function (): void {
-    $this->artisan('sender:template-import', ['file' => base_path('deploy/templates/password-reset-link.json')])
+    $this->artisan('sender:template-import', ['file' => base_path('deploy/templates/password-reset.json')])
         ->assertSuccessful();
 
-    $template = $this->organization->templates()->where('slug', 'password-reset-link')->firstOrFail();
+    $template = $this->organization->templates()->where('slug', 'password-reset')->firstOrFail();
 
     expect($template->editor)->toBe('blocks')
         ->and($template->subject)->toBe('Смена пароля на mag-expert.ru')
