@@ -167,9 +167,9 @@ export function BlockInspector({ block: b, position, settings: s, onChange, onRe
       body = (
         <Group title="Текст">
           <Row label="Размер"><Num label="Размер шрифта" value={b.size ?? (b.type === 'heading' ? s.headingSize : s.fontSize)} min={10} max={64} suffix="px" onChange={(v) => set({ size: v })} /></Row>
-          <Row label="Цвет"><ColorField label="Цвет текста" value={b.color} allowEmpty emptyLabel="Как в письме" onChange={(v) => set({ color: v })} /></Row>
+          <Row label="Цвет"><ColorField label="Цвет текста" value={b.color} allowEmpty emptyLabel={hideVariables ? "Как в стилях" : "Как в письме"} onChange={(v) => set({ color: v })} /></Row>
           <Row label="Выравнивание"><AlignSeg value={b.align} onChange={(v) => set({ align: v })} /></Row>
-          <div className="hint">Выделите слова в письме, чтобы сделать их жирными, добавить ссылку или переменную.</div>
+          <div className="hint">{hideVariables ? "Выделите слова на холсте, чтобы изменить оформление или добавить ссылку." : "Выделите слова в письме, чтобы сделать их жирными, добавить ссылку или переменную."}</div>
         </Group>
       )
       break

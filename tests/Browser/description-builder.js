@@ -21,6 +21,9 @@ async (page) => {
     const editor = frame.locator('.be-canvas .tiptap');
     await editor.fill('Редактируем прямо на холсте');
     await page.waitForFunction(() => window.output.includes('Редактируем прямо на холсте'));
+    const textBox = await editor.boundingBox();
+    const toolbar = await frame.locator('.be-fmt').boundingBox();
+    if (toolbar.y + toolbar.height > textBox.y + 1) throw new Error('Format toolbar overlaps the edited text');
     if (await frame.locator('.be-right .tiptap').count()) throw new Error('Text editor must be on the canvas');
     if (await frame.getByRole('button', { name: 'Переменная', exact: true }).count()) throw new Error('Variable control must be hidden');
     const side = await frame.locator('.be-right').boundingBox();
