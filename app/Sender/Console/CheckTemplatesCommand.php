@@ -20,7 +20,7 @@ class CheckTemplatesCommand extends Command
 
     public function handle(TemplateLinter $linter): int
     {
-        $system = array_map('strval', array_values((array) config('sender.client.templates', [])));
+        $system = array_map('strval', [...array_values((array) config('sender.client.templates', [])), config('sender.auth_mail.password_reset_template')]);
         $failed = false;
         $rows = [];
         $checked = 0;

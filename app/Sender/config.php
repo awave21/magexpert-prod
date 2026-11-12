@@ -20,6 +20,10 @@ return [
     'max_attempts' => (int) env('SENDER_MAX_ATTEMPTS', 3),
     'dkim_selector' => env('SENDER_DKIM_SELECTOR', 'mail'),
     'server_ip' => env('SENDER_SERVER_IP'),
+    'auth_mail' => [
+        'organization' => env('SENDER_AUTH_MAIL_ORGANIZATION', env('SENDER_ORGANIZATION', 'magexpert')),
+        'password_reset_template' => env('SENDER_AUTH_PASSWORD_RESET_TEMPLATE', 'magsender-password-reset'),
+    ],
     'client' => [
         'driver' => env('SENDER_CLIENT_DRIVER', 'local'),
         'organization' => env('SENDER_ORGANIZATION', 'magexpert'),

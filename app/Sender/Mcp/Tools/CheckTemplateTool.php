@@ -83,7 +83,7 @@ class CheckTemplateTool implements Tool
             return $kind;
         }
 
-        $system = array_map('strval', array_values((array) config('sender.client.templates', [])));
+        $system = array_map('strval', [...array_values((array) config('sender.client.templates', [])), config('sender.auth_mail.password_reset_template')]);
 
         return $template !== null && (in_array($template->slug, $system, true) || in_array((string) $template->id, $system, true))
             ? 'transactional'

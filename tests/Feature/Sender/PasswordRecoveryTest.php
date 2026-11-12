@@ -1,7 +1,9 @@
 <?php
 
 use App\Sender\Mail\PasswordResetMail;
+use App\Sender\Models\Domain;
 use App\Sender\Models\Organization;
+use App\Sender\Models\Template;
 use App\Sender\Models\User;
 use App\Sender\Services\AuthService;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -12,12 +14,56 @@ use Illuminate\Support\Facades\Mail;
 beforeEach(function (): void {
     $this->migrateSenderDatabase();
     Mail::fake();
-    config(['sender.ui_url' => 'https://magsender.ru', 'sender.client.system_from_address' => 'noreply@magsender.ru']);
+    config(['sender.ui_url' => 'https://magsender.ru', 'sender.client.system_from_address' => 'noreply@magsender.ru',
+        'sender.auth_mail.organization' => 'mag-expert', 'sender.auth_mail.password_reset_template' => 'magsender-password-reset']);
     $organization = Organization::create(['name' => 'MagExpert', 'slug' => 'mag-expert', 'is_active' => true]);
+    $domain = $organization->domains()->create(['domain' => 'magsender.ru', 'verification_token' => 'test', 'dkim_selector' => 'mail', 'status' => Domain::STATUS_VERIFIED]);
+    $sender = $organization->senderAddresses()->create(['domain_id' => $domain->id, 'email' => 'noreply@magsender.ru', 'name' => 'MagSender', 'confirmed_at' => now()]);
+    $content = json_decode(file_get_contents(base_path('deploy/templates/magsender-password-reset.json')), true)[0];
+    $this->content = $organization->templates()->create([...$content, 'sender_address_id' => $sender->id]);
     $this->account = User::create([
         'organization_id' => $organization->id, 'name' => 'Максим',
         'email' => 'admin@example.com', 'password' => 'old-password', 'is_active' => true,
     ]);
+});
+
+it('uses separate editable content for magsender recovery and leaves magexpert content unchanged', function (): void {
+    $site = Template::create(['organization_id' => $this->account->organization_id, 'slug' => 'password-reset', 'name' => 'MagExpert', 'subject' => 'MagExpert only', 'body_html' => '<p>MagExpert only</p>']);
+    config(['services.sender.templates.password_reset' => (string) $site->id]);
+    $this->content->update(['subject' => 'Свой заголовок MagSender']);
+    $this->postJson('/api/sender/v1/admin/forgot-password', ['email' => $this->account->email])->assertOk();
+
+    $mail = Mail::queued(PasswordResetMail::class)->first();
+    expect($mail->templateId)->toBe($this->content->id)->not->toBe($site->id)
+        ->and($mail->content['subject'])->toBe('Свой заголовок MagSender')
+        ->and($mail->content['html'])->toContain('magsender.ru/reset-password#')
+        ->not->toContain('mag-expert.ru', 'MagExpert only', '{{')
+        ->and($site->fresh()->body_html)->toBe('<p>MagExpert only</p>');
+    $mail->assertSeeInHtml('MagSender');
+});
+
+it('does not let a tenant replace the platform recovery content', function (): void {
+    $other = Organization::create(['name' => 'Other', 'slug' => 'other', 'is_active' => true]);
+    $other->templates()->create(['slug' => 'magsender-password-reset', 'name' => 'Other', 'subject' => 'Other content', 'body_html' => '<p>Other content</p>']);
+    $this->account->update(['organization_id' => $other->id]);
+    $this->postJson('/api/sender/v1/admin/forgot-password', ['email' => $this->account->email])->assertOk();
+    expect(Mail::queued(PasswordResetMail::class)->first()->templateId)->toBe($this->content->id);
+});
+
+it('keeps using the configured content id after its alias changes', function (): void {
+    config(['sender.auth_mail.password_reset_template' => (string) $this->content->id]);
+    $this->content->update(['slug' => 'renamed-magsender-recovery']);
+    $this->postJson('/api/sender/v1/admin/forgot-password', ['email' => $this->account->email])->assertOk();
+    expect(Mail::queued(PasswordResetMail::class)->first()->templateId)->toBe($this->content->id);
+});
+
+it('does not fall back to magexpert content if magsender content is missing', function (): void {
+    $this->content->delete();
+    $this->withoutExceptionHandling();
+    expect(fn () => $this->postJson('/api/sender/v1/admin/forgot-password', ['email' => $this->account->email]))
+        ->toThrow(RuntimeException::class, 'Не настроен отдельный шаблон');
+    Mail::assertNothingQueued();
+    expect(DB::connection('sender')->table('sender_password_resets')->count())->toBe(0);
 });
 
 function recoveryLink(): array

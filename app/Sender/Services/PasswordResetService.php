@@ -3,9 +3,11 @@
 namespace App\Sender\Services;
 
 use App\Sender\Mail\PasswordResetMail;
+use App\Sender\Models\Template;
 use App\Sender\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class PasswordResetService
 {
@@ -34,8 +36,37 @@ class PasswordResetService
 
             $base = rtrim((string) (config('sender.ui_url') ?: url('/sender')), '/');
             $url = $base.'/reset-password#'.http_build_query(['token' => $token, 'email' => $user->email]);
-            Mail::to($user->email)->queue(new PasswordResetMail($url));
+            $template = $this->template();
+            $sender = $template->senderAddress;
+            if (! $sender?->isConfirmed() || ! $sender->domain?->isVerified()) {
+                throw new RuntimeException('У письма восстановления MagSender не подтверждён отправитель');
+            }
+            $content = app(TemplateRenderer::class)->render($template, [
+                'first_name' => Str::before($user->name, ' '),
+                'name' => $user->name,
+                'user_email' => $user->email,
+                'reset_url' => $url,
+                'expires_in' => 60,
+                'site_url' => $base,
+            ]);
+            Mail::to($user->email)->queue(new PasswordResetMail($url, $template->id, $content, $sender->email, $sender->name, $template->reply_to));
         });
+    }
+
+    private function template(): Template
+    {
+        $key = (string) config('sender.auth_mail.password_reset_template');
+        $template = Template::query()->whereHas('organization', fn ($query) => $query
+            ->where('slug', config('sender.auth_mail.organization'))->where('is_active', true))
+            ->with('senderAddress.domain')
+            ->when(ctype_digit($key), fn ($query) => $query->whereKey((int) $key), fn ($query) => $query->where('slug', $key))
+            ->first();
+
+        if ($template === null) {
+            throw new RuntimeException('Не настроен отдельный шаблон восстановления пароля MagSender');
+        }
+
+        return $template;
     }
 
     public function reset(string $email, string $token, string $password): bool
