@@ -317,7 +317,7 @@
                     <p class="mb-2 text-sm font-semibold text-zinc-900 dark:text-white">Как увидят на сайте</p>
                     <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
                         <div class="aspect-video bg-zinc-100 dark:bg-zinc-800">
-                            <img v-if="previewImage" :src="previewImage" alt="" class="size-full object-cover" />
+                            <img :src="previewImage || '/images/default-event-cover.webp'" alt="" class="size-full object-cover" />
                         </div>
                         <div class="space-y-1 p-3">
                             <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ previewMeta }}</p>
