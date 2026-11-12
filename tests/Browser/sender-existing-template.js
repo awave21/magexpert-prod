@@ -31,6 +31,15 @@ async (page, base = 'https://magsender.ru') => {
         await page.goto(base+'/templates/1', { waitUntil: 'domcontentloaded' });
         const edit = page.getByRole('button', { name: 'Редактировать письмо', exact: true });
         await edit.waitFor();
+        const preview = page.locator('.tpl-preview');
+        const card = preview.locator('.inbox');
+        if (await card.getByRole('button', { name: 'Редактировать письмо', exact: true }).count() !== 1) throw new Error('Edit action is outside the email preview');
+        const buttonBounds = await edit.boundingBox();
+        const cardBounds = await card.boundingBox();
+        if (Math.abs(buttonBounds.x + buttonBounds.width / 2 - cardBounds.x - cardBounds.width / 2) > 2) throw new Error('Edit action is not centered on the email');
+        const settingsBounds = await page.getByRole('region', { name: 'Данные письма', exact: true }).boundingBox();
+        if (width === 1280 && cardBounds.x + cardBounds.width > settingsBounds.x) throw new Error('Email preview is not to the left of settings');
+        if (width === 390 && settingsBounds.y < cardBounds.y + cardBounds.height) throw new Error('Mobile settings overlap the email preview');
         if (await page.locator('.tpl-ways, .tpl-steps').count()) throw new Error('Existing content still shows creation choices');
         await edit.click();
         await page.locator('.be-body').waitFor();
