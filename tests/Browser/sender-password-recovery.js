@@ -13,7 +13,7 @@ async (page) => {
         await page.getByRole('link', { name: 'Забыли пароль?' }).click();
         await page.getByLabel('Email', { exact: true }).fill('test@example.com');
         await page.getByRole('button', { name: 'Отправить ссылку' }).click();
-        await page.getByRole('status').waitFor();
+        await page.locator('p[role="status"]').waitFor();
         await page.goto(base+'/reset-password#token='+ 'x'.repeat(64)+'&email=test%40example.com', { waitUntil: 'domcontentloaded' });
         await page.getByLabel('Новый пароль', { exact: true }).fill('test-password');
         await page.getByLabel('Повторите пароль').fill('test-password');
