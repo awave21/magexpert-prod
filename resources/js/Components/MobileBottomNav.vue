@@ -1,10 +1,11 @@
 <template>
     <nav
+        aria-label="Основная навигация"
         class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)] md:hidden z-50"
     >
         <div class="grid grid-cols-5 h-16">
             <!-- Библиотека -->
-            <Link
+            <NavigationLink
                 :href="route('documents.index')"
                 class="flex flex-col items-center justify-center text-xs font-medium transition-colors"
                 :class="
@@ -15,9 +16,9 @@
             >
                 <BookOpenIcon class="w-6 h-6 mb-1" />
                 Библиотека
-            </Link>
+            </NavigationLink>
             <!-- Главная -->
-            <Link
+            <NavigationLink
                 :href="route('welcome')"
                 class="flex flex-col items-center justify-center text-xs font-medium transition-colors"
                 :class="
@@ -28,10 +29,10 @@
             >
                 <HomeIcon class="w-6 h-6 mb-1" />
                 Главная
-            </Link>
+            </NavigationLink>
 
             <!-- Мероприятия -->
-            <Link
+            <NavigationLink
                 :href="route('events.index')"
                 class="flex flex-col items-center justify-center text-xs font-medium transition-colors"
                 :class="
@@ -42,10 +43,10 @@
             >
                 <CalendarIcon class="w-6 h-6 mb-1" />
                 Мероприятия
-            </Link>
+            </NavigationLink>
 
             <!-- Личный кабинет -->
-            <Link
+            <NavigationLink
                 :href="
                     $page.props.auth.user ? route('dashboard') : route('login')
                 "
@@ -62,10 +63,10 @@
             >
                 <UserIcon class="w-6 h-6 mb-1" />
                 Кабинет
-            </Link>
+            </NavigationLink>
 
             <!-- Контакты -->
-            <Link
+            <NavigationLink
                 :href="route('contacts.index')"
                 class="flex flex-col items-center justify-center text-xs font-medium transition-colors"
                 :class="
@@ -76,13 +77,13 @@
             >
                 <PhoneIcon class="w-6 h-6 mb-1" />
                 Контакты
-            </Link>
+            </NavigationLink>
         </div>
     </nav>
 </template>
 
 <script setup>
-import { Link } from "@inertiajs/vue3";
+import NavigationLink from "@/Components/Navigation/NavigationLink.vue";
 import {
     HomeIcon,
     CalendarIcon,

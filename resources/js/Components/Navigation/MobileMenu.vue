@@ -21,7 +21,7 @@
                     v-show="openDropdown === index"
                     class="mt-1 space-y-1 rounded-xl bg-gray-50 p-1.5 dark:bg-gray-800/50"
                 >
-                    <Link
+                    <NavigationLink
                         v-for="dropItem in item.dropdownItems"
                         :key="dropItem.name"
                         :href="dropItem.href"
@@ -31,13 +31,13 @@
                                 ? 'bg-brandblue/10 text-brandblue dark:bg-brandblue/20 dark:text-brandblue'
                                 : '',
                         ]"
-                        @click="emitClose"
+                        @start="emitClose"
                     >
                         {{ dropItem.name }}
-                    </Link>
+                    </NavigationLink>
                 </div>
             </div>
-            <Link
+            <NavigationLink
                 v-else
                 :href="item.href"
                 class="block rounded-xl px-3 py-2 text-base font-medium transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white"
@@ -46,44 +46,44 @@
                         ? 'bg-brandblue/10 text-brandblue dark:bg-brandblue/20 dark:text-brandblue'
                         : 'text-gray-700',
                 ]"
-                @click="emitClose"
+                @start="emitClose"
             >
                 {{ item.name }}
-            </Link>
+            </NavigationLink>
         </template>
 
-        <Link
+        <NavigationLink
             :href="route('login')"
             class="block rounded-xl px-3 py-2 text-base font-medium transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white"
             v-if="!isAuth"
-            @click="emitClose"
+            @start="emitClose"
         >
             Войти
-        </Link>
+        </NavigationLink>
 
-        <Link
+        <NavigationLink
             :href="route('register')"
             class="block rounded-xl px-3 py-2 text-base font-medium transition-colors hover:bg-gray-100 text-brandblue dark:text-brandblue dark:hover:bg-gray-700"
             v-if="!isAuth"
-            @click="emitClose"
+            @start="emitClose"
         >
             Регистрация
-        </Link>
+        </NavigationLink>
 
-        <Link
+        <NavigationLink
             :href="route('dashboard')"
             class="block rounded-xl px-3 py-2 text-base font-medium text-white transition-colors bg-brandcoral hover:bg-brandcoral/90 dark:bg-brandcoral dark:hover:bg-brandcoral/80"
             v-if="isAuth"
-            @click="emitClose"
+            @start="emitClose"
         >
             Личный кабинет
-        </Link>
+        </NavigationLink>
     </div>
 </template>
 
 <script setup>
 import { ref } from "vue";
-import { Link } from "@inertiajs/vue3";
+import NavigationLink from "./NavigationLink.vue";
 import { ChevronDownIcon } from "@heroicons/vue/24/outline";
 
 const props = defineProps({

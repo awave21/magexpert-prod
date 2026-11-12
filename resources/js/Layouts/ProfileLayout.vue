@@ -5,6 +5,7 @@ import { useToast } from 'vue-toastification';
 import { ArrowLeftIcon, BookOpenIcon, CalendarDaysIcon, ChevronLeftIcon, Cog6ToothIcon, EnvelopeIcon, KeyIcon, PaperAirplaneIcon, PhoneIcon, SignalIcon, SparklesIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 import MainLogo from '@/Components/main-logo.vue';
 import CookieConsent from '@/Components/CookieConsent.vue';
+import NavigationLink from '@/Components/Navigation/NavigationLink.vue';
 import UserMenu from '@/Components/Cabinet/UserMenu.vue';
 import MessagesBell from '@/Components/Cabinet/MessagesBell.vue';
 
@@ -263,7 +264,7 @@ watch(() => page.props.flash?.error, (error) => {
             class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden dark:border-gray-800 dark:bg-gray-900"
         >
             <div class="mx-auto grid h-16 max-w-xl grid-cols-4">
-                <Link
+                <NavigationLink
                     v-for="item in nav"
                     :key="item.route"
                     :href="route(item.route)"
@@ -273,7 +274,7 @@ watch(() => page.props.flash?.error, (error) => {
                 >
                     <component :is="item.icon" class="h-6 w-6" aria-hidden="true" />
                     {{ item.short }}
-                </Link>
+                </NavigationLink>
             </div>
         </nav>
     </div>

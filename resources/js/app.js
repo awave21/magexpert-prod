@@ -1,17 +1,24 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { createPinia } from 'pinia';
 
 // Импортируем Toast
-import Toast from "vue-toastification";
+import Toast, { useToast } from "vue-toastification";
 import "vue-toastification/dist/index.css";
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+router.on('exception', (event) => {
+    if (event.detail.exception?.code === 'ERR_NETWORK') {
+        useToast().error('Не удалось открыть страницу. Проверьте соединение и попробуйте ещё раз.', { position: 'top-center' });
+        event.preventDefault();
+    }
+});
 
 // Опции для Toast
 const toastOptions = {
@@ -50,7 +57,8 @@ createInertiaApp({
             .mount(el);
     },
     progress: {
-        color: '#4B5563',
+        delay: 0,
+        color: '#6186b6',
     },
 });
 

@@ -35,7 +35,7 @@ class HandleInertiaRequests extends Middleware
                 'token' => csrf_token(),
             ],
             'auth' => [
-                'user' => $request->user() ? [
+                'user' => fn () => $request->user() ? [
                     'id' => $request->user()->id,
                     'first_name' => $request->user()->first_name,
                     'last_name' => $request->user()->last_name,
@@ -55,7 +55,6 @@ class HandleInertiaRequests extends Middleware
                     'profile_missing' => $request->user()->hasAnyRole(['admin', 'editor', 'manager']) ? [] : $request->user()->missingProfileRequirements(),
                     'permissions' => $request->user()->permissions ?? [],
                     'roles' => $request->user()->roles()->get(),
-                    'stats' => $this->getUserStats($request->user()),
                 ] : null,
             ],
             // кнопки входа показываем только для провайдеров, у которых в .env есть ключи
@@ -73,27 +72,5 @@ class HandleInertiaRequests extends Middleware
                 'location' => $request->url(),
             ],
         ]);
-    }
-
-    /**
-     * Получить статистику пользователя
-     *
-     * @param  \App\Models\User  $user
-     */
-    private function getUserStats($user): array
-    {
-        $liveEventsCount = $user->liveEvents->count();
-        $upcomingEventsCount = $user->upcomingEvents->count();
-        $totalAccessibleEvents = $user->accessibleEvents()->count();
-        $archivedEvents = $user->accessibleEvents()
-            ->where('events.is_archived', true)
-            ->count();
-
-        return [
-            'availableEvents' => $totalAccessibleEvents,
-            'liveEvents' => $liveEventsCount,
-            'upcomingEvents' => $upcomingEventsCount,
-            'archive' => $archivedEvents,
-        ];
     }
 }
