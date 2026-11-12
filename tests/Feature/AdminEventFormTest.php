@@ -232,3 +232,17 @@ test('defaultTags приводит адрес и дату к допустимы�
         ->and((new Event(['slug' => $long, 'start_date' => null]))->defaultTags()[0])->toHaveLength(120)
         ->and((new Event(['slug' => null, 'start_date' => null]))->defaultTags())->toBe([]);
 });
+
+test('обложка мероприятия загружается и сохраняется в WebP', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $event = Event::factory()->create();
+
+    $this->actingAs(eventEditor())->post("/admin/events/{$event->id}", eventPayload([
+        '_method' => 'PUT',
+        'image' => \Illuminate\Http\UploadedFile::fake()->image('cover.png', 120, 80),
+    ]))->assertSessionHasNoErrors()->assertSessionHas('success');
+
+    $path = str_replace('/storage/', '', $event->fresh()->image);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($path);
+    expect(getimagesizefromstring(\Illuminate\Support\Facades\Storage::disk('public')->get($path))['mime'])->toBe('image/webp');
+});

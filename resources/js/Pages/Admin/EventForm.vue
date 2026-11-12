@@ -241,7 +241,7 @@
                     />
                     </div>
                     <div class="space-y-5">
-    <ImageUpload label="Обложка" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
+    <ImageUpload label="Обложка" upload-label="Загрузить обложку" replace-label="Заменить обложку" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
 
                     <div>
                         <span :class="label">Программа мероприятия</span>
