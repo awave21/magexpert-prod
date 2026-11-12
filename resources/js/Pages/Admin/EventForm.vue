@@ -229,8 +229,8 @@
             <section id="sec-5" v-show="tab === 'sec-5'" role="tabpanel" :aria-labelledby="`tab-sec-5`" :class="box">
                 <h3 :class="boxTitle">Описание и материалы</h3>
                 <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-                    <div class="lg:col-span-2">
-                    <RichTextEditor
+                    <div class="lg:col-span-3">
+                    <DescriptionBuilder
                         id="full_description"
                         label="Подробное описание"
                         v-model="form.full_description"
@@ -240,7 +240,7 @@
                         :event-id="props.event?.id ?? null"
                     />
                     </div>
-                    <div class="space-y-5">
+                    <div class="grid gap-5 md:grid-cols-2 lg:col-span-3">
     <ImageUpload label="Обложка" upload-label="Загрузить обложку" replace-label="Заменить обложку" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
 
                     <div>
@@ -356,7 +356,7 @@ import AdminLayout from "@/Layouts/AdminLayout.vue";
 import MultiSelectInput from "@/Components/Form/MultiSelectInput.vue";
 import ImageUpload from "@/Components/Form/ImageUpload.vue";
 import SpeakerSelector from "@/Components/Form/SpeakerSelector.vue";
-import RichTextEditor from "@/Components/Form/RichTextEditor.vue";
+import DescriptionBuilder from "@/Components/Form/DescriptionBuilder.vue";
 import SelectInput from "@/Components/Form/SelectInput.vue";
 import DateInput from "@/Components/Form/DateInput.vue";
 import TimeInput from "@/Components/Form/TimeInput.vue";

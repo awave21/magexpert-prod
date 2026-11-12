@@ -1,0 +1,54 @@
+async (page) => {
+const errors=[]; page.on('pageerror', e => errors.push(e.message));
+await page.goto('http://127.0.0.1:5178/@vite/client');
+await page.evaluate(async()=>{
+ const {createApp,h,ref}=await import('/node_modules/.vite/deps/vue.js');
+ const {default:Builder}=await import('/resources/js/Components/Form/DescriptionBuilder.vue');
+ const {default:Toast}=await import('/node_modules/.vite/deps/vue-toastification.js');
+ document.body.innerHTML='<div id="test"></div>';
+ window.axios={post:async(url,data)=>({data:await (await fetch(url,{method:'POST',body:data})).json()})};window.output='';window.initial='<h2 style="margin:32px 0 12px">Программа</h2><p>Описание</p><p><a href="https://example.com/register" style="display:inline-block;padding:12px;background:#f27b63">Регистрация</a></p>';
+ const value=ref(window.initial);
+ createApp({render:()=>h(Builder,{modelValue:value.value,'onUpdate:modelValue':v=>{value.value=v;window.output=v},uploadEndpoint:'/upload'})}).use(Toast).mount('#test');
+});
+await page.getByText('Программа',{exact:true}).waitFor();
+if(await page.evaluate(()=>window.output)!=='')throw Error('Mount unexpectedly rewrote existing HTML');
+await page.locator('.builder-block').nth(2).click();
+await page.getByLabel('Текст кнопки').fill('Очное участие');
+await page.getByLabel('Ссылка',{exact:true}).fill('https://example.com/new');
+let output=await page.evaluate(()=>window.output);
+if(!output.includes('Очное участие')||!output.includes('https://example.com/new')||!output.startsWith('<h2 style="margin:32px 0 12px">Программа</h2>'))throw Error('Button edit or HTML preservation failed');
+await page.getByRole('button',{name:'Отступ',exact:true}).click();
+await page.getByLabel('Высота, px').fill('48');
+if(!(await page.evaluate(()=>window.output)).includes('height:48px'))throw Error('Spacer failed');
+await page.getByRole('button',{name:'Копия',exact:true}).click();
+if(await page.locator('.builder-block').count()!==5)throw Error('Duplicate failed');
+await page.getByRole('button',{name:'Удалить',exact:true}).click();
+await page.getByRole('button',{name:'Отменить',exact:true}).click();
+if(await page.locator('.builder-block').count()!==5)throw Error('Undo failed');
+await page.locator('.builder-block').nth(1).click();
+await page.locator('.ql-editor').fill('Новый текст описания');
+if(!(await page.evaluate(()=>window.output)).includes('Новый текст описания'))throw Error('Rich text update failed');
+await page.evaluate(async()=>{
+ const {parseBlocks,renderBlock,safeUrl}=await import('/resources/js/Support/descriptionBlocks.js');
+ const html=window.output;
+ if(parseBlocks(html,new DOMParser()).map(renderBlock).join('')!==html)throw Error('Round-trip changed HTML');
+ if(safeUrl('javascript:alert(1)')||safeUrl('//example.com'))throw Error('Unsafe URL accepted');
+});
+await page.getByRole('button',{name:'Переместить блок ниже',exact:true}).click();
+await page.getByRole('button',{name:'Переместить блок выше',exact:true}).click();
+await page.route('**/upload',route=>route.fulfill({json:{url:'/storage/editor/test.webp'}}));
+await page.getByRole('button',{name:'Изображение',exact:true}).click();
+await page.locator('input[type=file]').setInputFiles({name:'test.png',mimeType:'image/png',buffer:Buffer.from('image')});
+await page.waitForFunction(()=>window.output.includes('/storage/editor/test.webp'));
+await page.getByLabel('Описание изображения',{exact:true}).fill('Схема');
+await page.getByRole('button',{name:'Предпросмотр',exact:true}).click();
+await page.frameLocator('iframe').getByText('Очное участие').waitFor();
+await page.getByRole('button',{name:'Редактировать',exact:true}).click();
+await page.setViewportSize({width:390,height:844});
+if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Mobile overflow');
+await page.screenshot({path:'/tmp/description-builder-mobile.png',fullPage:true});
+await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'/tmp/description-builder-desktop.png',fullPage:true});
+if(errors.length)throw Error(errors.join('\n'));
+return { blocks: await page.locator('.builder-block').count(), mobileOverflow: false, errors };
+
+};
