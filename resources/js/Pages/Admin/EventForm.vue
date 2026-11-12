@@ -229,10 +229,10 @@
                 </div>
             </section>
 
-            <!-- 5. Описание и материалы -->
+            <!-- 5. Описание -->
             <section id="sec-5" v-show="tab === 'sec-5'" role="tabpanel" :aria-labelledby="`tab-sec-5`" :class="box">
                 <div class="flex flex-wrap items-center justify-between gap-3">
-                    <h3 :class="boxTitle">Описание и материалы</h3>
+                    <h3 :class="boxTitle">Описание</h3>
                     <details class="relative text-sm">
                         <summary class="cursor-pointer text-zinc-500 hover:text-brandblue">Как увидят карточку на сайте</summary>
                         <div class="absolute right-0 z-20 mt-3 w-64 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
@@ -254,8 +254,13 @@
                         :event-id="props.event?.id ?? null"
                     />
                     </div>
-                    <div class="grid gap-5 md:grid-cols-2 lg:col-span-3">
-    <ImageUpload label="Обложка" upload-label="Загрузить обложку" replace-label="Заменить обложку" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
+                </div>
+            </section>
+
+            <section id="sec-materials" v-show="tab === 'sec-materials'" role="tabpanel" aria-labelledby="tab-sec-materials" :class="box">
+                <h3 :class="boxTitle">Обложка и программа</h3>
+                <div class="grid gap-5 md:grid-cols-2">
+                    <ImageUpload label="Обложка" upload-label="Загрузить обложку" replace-label="Заменить обложку" v-model="form.image" v-model:delete-photo="form.delete_image" :error="form.errors.image" />
 
                     <div>
                         <span :class="label">Программа мероприятия</span>
@@ -266,11 +271,10 @@
                         </div>
                         <label v-else :class="fileButton">
                             <input id="event_file" type="file" accept=".pdf,.docx,.jpg,.jpeg,.png" class="sr-only" @change="pickFile" />
-                            Выбрать файл
+                            Загрузить программу
                         </label>
                         <p :class="hint">Необязательно. PDF, DOCX, JPG или PNG до 10 МБ.<template v-if="form.delete_file"> Файл удалится после сохранения.</template></p>
                         <p v-if="form.errors.file" :class="error">{{ form.errors.file }}</p>
-                    </div>
                     </div>
                 </div>
             </section>
@@ -569,7 +573,8 @@ const sections = [
     { id: "sec-2", label: "Дата и место" },
     { id: "sec-3", label: "Видео" },
     { id: "sec-4", label: "Доступ и оплата" },
-    { id: "sec-5", label: "Описание и материалы" },
+    { id: "sec-5", label: "Описание" },
+    { id: "sec-materials", label: "Обложка и программа" },
     { id: "sec-speakers", label: "Спикеры" },
     { id: "sec-6", label: "Публикация" },
 ];
@@ -578,7 +583,7 @@ const readiness = computed(() => [
     { label: "Название и тип", done: !!form.title.trim() && !!form.event_type, tab: "sec-1" },
     { label: "Дата и место", done: form.is_on_demand || !!form.start_date, tab: "sec-2" },
     { label: "Спикеры", done: form.speakers.length > 0, tab: "sec-speakers" },
-    { label: "Обложка", done: !!previewImage.value, tab: "sec-5" },
+    { label: "Обложка", done: !!previewImage.value, tab: "sec-materials" },
     { label: "Описание", done: !!(form.short_description.trim() || form.full_description.trim()), tab: "sec-1" },
 ]);
 const readyCount = computed(() => readiness.value.filter((item) => item.done).length);
@@ -627,7 +632,8 @@ const tabFields = {
     "sec-2": ["start_date", "start_time", "end_date", "end_time", "location", "city", "is_on_demand"],
     "sec-3": ["kinescope_id", "kinescope_playlist_id", "kinescope_type"],
     "sec-4": ["price", "show_price", "tags", "tags.0", "letter_draft_id", "max_quantity", "external_url"],
-    "sec-5": ["short_description", "full_description", "topic", "image", "file"],
+    "sec-5": ["full_description"],
+    "sec-materials": ["image", "delete_image", "file", "delete_file"],
     "sec-speakers": ["speakers"],
     "sec-6": ["slug", "sort_order"],
 };
