@@ -3,10 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use Illuminate\Foundation\Application;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class WelcomeController extends Controller
 {
@@ -22,11 +21,10 @@ class WelcomeController extends Controller
             ->with(['category'])
             ->where('is_active', true)
             ->where('is_archived', false)
-            ->where('registration_enabled', true)
-            ->where(function($query) {
+            ->where(function ($query) {
                 // Ищем мероприятия, которые еще не прошли
                 $query->where('start_date', '>=', Carbon::today())
-                      ->orWhere('is_on_demand', true);
+                    ->orWhere('is_on_demand', true);
             })
             ->orderBy('start_date', 'asc')
             ->orderBy('start_time', 'asc')
@@ -50,4 +48,4 @@ class WelcomeController extends Controller
             ] : null,
         ]);
     }
-} 
+}
