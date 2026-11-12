@@ -245,6 +245,7 @@
                     <div class="lg:col-span-3">
                     <DescriptionBuilder
                         ref="descriptionEditor"
+                        @save="submitForm"
                         id="full_description"
                         label="Подробное описание"
                         v-model="form.full_description"

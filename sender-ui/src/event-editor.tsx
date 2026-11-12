@@ -29,6 +29,8 @@ function App() {
   const embedded = useMemo<EmbeddedEditor | null>(() => initial === null ? null : ({
     template: { id: 0, name: 'Описание мероприятия', slug: '', subject: '', body_html: initial, editor: 'blocks', design: readEventDesign(initial) } as Template,
     onChange: design => { latestHtml = writeEventContent(design); post({ type: 'change', html: latestHtml }) },
+    onOverlay: open => { document.documentElement.classList.toggle('editor-overlay', open); post({ type: 'overlay', open }) },
+    onSaveRequest: () => post({ type: 'save-request' }),
     registerSave: callback => { save = callback },
   }), [initial])
   return embedded ? <BlockEditor key={initial} embedded={embedded} /> : <div className="be-center muted">Загрузка редактора…</div>
@@ -44,3 +46,12 @@ window.addEventListener('message', async event => {
   }
 })
 createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><MemoryRouter><ToastProvider><App /></ToastProvider></MemoryRouter></QueryClientProvider>)
+
+let resizeFrame = 0
+const resizeObserver = new ResizeObserver(() => {
+  cancelAnimationFrame(resizeFrame)
+  resizeFrame = requestAnimationFrame(() => {
+    if (!document.documentElement.classList.contains('editor-overlay')) post({ type: 'resize', height: Math.ceil(document.getElementById('root')!.getBoundingClientRect().height) })
+  })
+})
+resizeObserver.observe(document.getElementById('root')!)

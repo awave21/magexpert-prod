@@ -1,3 +1,13 @@
 .be-event{height:100dvh;position:relative;inset:auto}.be-event .be-top{flex-wrap:wrap;min-height:64px;height:auto;padding:12px 18px}.be-event .be-back{display:none}.be-event .be-left{width:180px}.be-event .be-tiles{grid-template-columns:1fr;gap:7px}.be-event .be-tile{height:42px;flex-direction:row;justify-content:flex-start;padding:0 14px;border-radius:9px;font-size:12px}.be-event .be-tile svg{width:18px;height:18px}.be-event .be-canvas{padding:64px 48px 48px;min-width:280px}.be-event .be-right{width:280px}.be-event .be-mail{max-width:100%}.be-event .be-title{min-width:140px}.be-event .be-fmt-wrap{position:sticky;top:8px;z-index:6;flex-shrink:0;min-height:38px}.be-event .be-tag{left:0;right:auto;top:-22px;border-radius:6px 6px 0 0}.be-event .be-tabs{flex-direction:column}.be-event .be-tabs button{height:30px}.be-event .be-canvas .be-rt{min-height:1.5em}.be-event .be-body{overflow:auto}.be-event .be-right{flex-shrink:0}
 @media(max-width:900px){.be-event .be-left{width:146px;padding:10px}.be-event .be-canvas{padding:56px 32px 32px}.be-event .be-right{width:244px}.be-event .be-title>span{display:none}.be-event .be-top .be-sep{display:none}.be-event .be-top{gap:7px}}
 @media(max-width:650px){.be-event .be-body{flex-wrap:wrap}.be-event .be-left{width:100%;max-height:160px}.be-event .be-tabs{flex-direction:row}.be-event .be-tiles{display:flex;overflow:auto;padding:2px 1px 8px}.be-event .be-tile{flex:none;min-width:115px}.be-event .be-left>.hint{display:none}.be-event .be-canvas{width:100%;min-height:320px;padding:48px 38px 32px}.be-event .be-right{width:100%;max-height:none;border-top:1px solid var(--line)}.be-event .be-inspector{padding:16px}.be-event .be-right .be-row{min-height:35px}}
+
+html,body,#root{height:auto;min-height:0;overflow:hidden}
+.be-event{height:auto;min-height:620px;overflow:visible}
+.be-event .be-body{overflow:visible;flex:0 0 auto;align-items:stretch}
+.be-event .be-left,.be-event .be-right,.be-event .be-canvas{overflow:visible}
+.be-event .be-canvas{min-height:540px}
+.editor-overlay,.editor-overlay body,.editor-overlay #root{height:100%;overflow:hidden}
+.editor-overlay .be-event{height:100dvh;min-height:0;overflow:hidden}
+.editor-overlay .be-body{min-height:0;overflow:hidden}
+@media(max-width:650px){.be-event .be-left{max-height:none}.be-event .be-tiles{overflow:visible;flex-wrap:wrap}.be-event .be-canvas{min-height:320px}}

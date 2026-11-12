@@ -2,15 +2,17 @@
     <div class="event-description-editor" :class="{ expanded }" @keydown.esc="expanded = false">
         <div class="editor-heading"><div><strong>{{ label }}</strong><span>Редактируйте текст на холсте. Оформление и отступы — в панели справа.</span></div><button type="button" @click="expanded = !expanded">{{ expanded ? 'Свернуть' : 'На весь экран' }}</button></div>
         <p v-if="!ready" class="editor-loading">{{ loadingError || 'Загрузка редактора MagSender…' }}</p>
-        <iframe ref="frame" src="/event-editor/event-editor.html" title="Редактор описания мероприятия MagSender" class="editor-frame" :class="{ waiting: !ready }"></iframe>
+        <iframe ref="frame" src="/event-editor/event-editor.html" title="Редактор описания мероприятия MagSender" :style="{ height: `${overlayOpen ? overlayHeight : frameHeight}px` }" class="editor-frame" :class="{ waiting: !ready }"></iframe>
         <p v-if="error" class="editor-error">{{ error }}</p>
     </div>
 </template>
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 const props = defineProps({ modelValue: { type: String, default: '' }, label: { type: String, default: 'Подробное описание' }, error: { type: String, default: '' }, uploadEndpoint: { type: String, required: true }, eventId: { type: [Number, String], default: null } });
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'save']);
 const frame = ref(null), ready = ref(false), expanded = ref(false), loadingError = ref('');
+const frameHeight = ref(820), overlayOpen = ref(false), overlayHeight = ref(700);
+let previouslyExpanded = false;
 const pending = new Map(); let lastEmitted = props.modelValue; let loadingTimer;
 function send(data) { frame.value?.contentWindow?.postMessage({ channel: 'magexpert-description', ...data }, window.location.origin); }
 function update(html) { lastEmitted = html; emit('update:modelValue', html); }
@@ -18,6 +20,13 @@ async function onMessage(event) {
     if (event.origin !== window.location.origin || event.source !== frame.value?.contentWindow || event.data?.channel !== 'magexpert-description') return;
     const data = event.data;
     if (data.type === 'ready') { ready.value = true; clearTimeout(loadingTimer); send({ type: 'init', html: props.modelValue }); }
+    if (data.type === 'resize' && Number.isFinite(data.height)) frameHeight.value = Math.max(320, Math.ceil(data.height));
+    if (data.type === 'save-request') emit('save');
+    if (data.type === 'overlay') {
+        if (data.open && !overlayOpen.value) { previouslyExpanded = expanded.value; expanded.value = true; overlayHeight.value = Math.max(320, window.innerHeight - 100); }
+        if (!data.open && overlayOpen.value) expanded.value = previouslyExpanded;
+        overlayOpen.value = data.open;
+    }
     if (data.type === 'change') update(data.html);
     if (data.type === 'flushed') {
         const request = pending.get(data.id); if (!request) return;
@@ -47,5 +56,5 @@ function flush() {
 defineExpose({ flush });
 </script>
 <style scoped>
-.event-description-editor{overflow:hidden;border:1px solid #dee1e8;border-radius:14px;background:#fff}.editor-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 20px;border-bottom:1px solid #dee1e8;color:#1c1f27}.editor-heading strong{display:block;font-size:14px}.editor-heading span{display:block;font-size:12px;color:#7a808e;margin-top:4px}.editor-heading button{flex:none;border:1px solid #dee1e8;border-radius:7px;background:white;padding:8px 12px;font-size:12px;cursor:pointer}.editor-frame{display:block;width:100%;height:820px;border:0;background:white}.waiting{height:0;visibility:hidden}.editor-loading{padding:32px;color:#7a808e;font-size:13px}.editor-error{padding:12px 20px;font-size:13px;color:#b6322d}.expanded{position:fixed;inset:12px;z-index:60;display:flex;flex-direction:column;box-shadow:0 0 0 100vmax #171d2b80}.expanded .editor-frame{flex:1;min-height:0;height:100%}.editor-heading button:focus-visible{outline:2px solid #4c68eb;outline-offset:2px}@media(max-width:640px){.expanded{inset:4px}.editor-heading{padding:12px}.editor-heading span{font-size:11px}.editor-frame{height:1050px}}
+.event-description-editor{overflow:hidden;border:1px solid #dee1e8;border-radius:14px;background:#fff}.editor-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 20px;border-bottom:1px solid #dee1e8;color:#1c1f27}.editor-heading strong{display:block;font-size:14px}.editor-heading span{display:block;font-size:12px;color:#7a808e;margin-top:4px}.editor-heading button{flex:none;border:1px solid #dee1e8;border-radius:7px;background:white;padding:8px 12px;font-size:12px;cursor:pointer}.editor-frame{display:block;width:100%;height:820px;border:0;background:white}.waiting{height:0;visibility:hidden}.editor-loading{padding:32px;color:#7a808e;font-size:13px}.editor-error{padding:12px 20px;font-size:13px;color:#b6322d}.expanded{position:fixed;inset:12px;z-index:60;display:flex;flex-direction:column;box-shadow:0 0 0 100vmax #171d2b80}.expanded{overflow:auto}.expanded .editor-frame{flex:none;min-height:0}.editor-heading button:focus-visible{outline:2px solid #4c68eb;outline-offset:2px}@media(max-width:640px){.expanded{inset:4px}.editor-heading{padding:12px}.editor-heading span{font-size:11px}.editor-frame{height:1050px}}
 </style>

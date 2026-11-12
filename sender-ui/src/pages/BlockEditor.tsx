@@ -72,6 +72,8 @@ const isTyping = () => {
 export type EmbeddedEditor = {
   template: Template
   onChange: (design: Design) => void
+  onOverlay?: (open: boolean) => void
+  onSaveRequest?: () => void
   registerSave: (save: () => Promise<void>) => void
 }
 
@@ -101,6 +103,7 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
   const [testTo, setTestTo] = useState('')
   const [zeroOpen, setZeroOpen] = useState<string | null>(null)
   const [rendering, setRendering] = useState<string | null>(null)
+
 
   // первая загрузка: блоки из шаблона или выбор, с чего начать
   useEffect(() => {
@@ -144,6 +147,7 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
 
   // макет поверх текущего письма: стили и логотип сохраняются, отменить можно через Cmd+Z
   const [presetsOpen, setPresetsOpen] = useState(false)
+  useEffect(() => { embedded?.onOverlay?.(!!zeroOpen || htmlOpen || presetsOpen) }, [zeroOpen, htmlOpen, presetsOpen, embedded])
   const applyPreset = (key: string) => {
     const preset = PRESETS.find((p) => p.key === key)
     if (!preset) return
@@ -265,7 +269,7 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
       setSavedJson(JSON.stringify(d))
       qc.setQueryData(['template', id], r)
       qc.invalidateQueries({ queryKey: ['templates'] })
-      toast(embedded ? 'Описание подготовлено. Сохраните мероприятие.' : 'Письмо сохранено')
+      if (!embedded) toast('Письмо сохранено')
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : (e as Error).message, true),
   })
@@ -296,7 +300,7 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey
-      if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); if (ready && !save.isPending) save.mutate(); return }
+      if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); if (embedded) embedded.onSaveRequest?.(); else if (ready && !save.isPending) save.mutate(); return }
       if (isTyping()) return
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); dispatch({ type: e.shiftKey ? 'redo' : 'undo' }); return }
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); dispatch({ type: 'redo' }); return }
@@ -514,7 +518,7 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
         <button type="button" className="btn ghost" onClick={() => setPresetsOpen(true)}><LayoutTemplate size={15} />Макеты</button>
         <button type="button" className="btn ghost" onClick={() => setHtmlOpen(true)}><Code2 size={15} />HTML</button>
         {!embedded && <button type="button" className="btn" onClick={() => { setTestTo(user?.email ?? ''); setTestOpen(true) }}><Send size={15} />Отправить тест</button>}
-        <button type="button" className="btn primary" disabled={save.isPending || (!dirty && !!savedJson)} onClick={() => save.mutate()} title="Cmd+S">{rendering ?? (save.isPending ? 'Сохраняем…' : embedded ? 'Применить' : 'Сохранить')}</button>
+        {!embedded && <button type="button" className="btn primary" disabled={save.isPending || (!dirty && !!savedJson)} onClick={() => save.mutate()} title="Cmd+S">{rendering ?? (save.isPending ? 'Сохраняем…' : 'Сохранить')}</button>}
       </header>
 
       <div className="be-body">
