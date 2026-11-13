@@ -86,12 +86,12 @@ const telegram = {
                             class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden"
                         >
                             <!-- Изображение мероприятия -->
-                            <div
-                                class="h-48 bg-cover bg-center"
-                                :style="{
-                                    backgroundImage: `url(${upcomingEvent.image || '/images/default-event-cover.webp'})`,
-                                }"
-                            ></div>
+                            <img
+                                :src="upcomingEvent.image || '/images/default-event-cover.webp'"
+                                :alt="upcomingEvent.title"
+                                class="block h-auto w-full"
+                                decoding="async"
+                            />
 
                             <!-- Информация о мероприятии -->
                             <div class="p-6">
@@ -111,7 +111,7 @@ const telegram = {
                                     >
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
-                                            class="h-4 w-4 mr-2"
+                                        class="h-4 w-4 shrink-0 mr-2"
                                             fill="none"
                                             viewBox="0 0 24 24"
                                             stroke="currentColor"
@@ -149,7 +149,7 @@ const telegram = {
                                     >
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
-                                            class="h-4 w-4 mr-2"
+                                            class="h-4 w-4 shrink-0 mr-2"
                                             fill="none"
                                             viewBox="0 0 24 24"
                                             stroke="currentColor"
