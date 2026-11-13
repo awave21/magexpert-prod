@@ -58,7 +58,18 @@ async (page) => {
     await page.screenshot({ path: '/tmp/magsender-event-editor.png', fullPage: true });
     for (const width of [1440, 1000, 780, 390]) {
         await page.setViewportSize({ width, height: 1000 });
+        const before = await frame.locator('.be-tabs').evaluate(el => {
+            const tabs = el.getBoundingClientRect(), sidebar = el.closest('.be-left').getBoundingClientRect(), canvas = document.querySelector('.be-canvas').getBoundingClientRect();
+            return [tabs.x, tabs.y, tabs.width, tabs.height, sidebar.width, sidebar.height, canvas.x, canvas.width];
+        });
         await frame.getByRole('tab', { name: 'Стили страницы', exact: true }).click();
+        const after = await frame.locator('.be-tabs').evaluate(el => {
+            const tabs = el.getBoundingClientRect(), sidebar = el.closest('.be-left').getBoundingClientRect(), canvas = document.querySelector('.be-canvas').getBoundingClientRect();
+            if ([...el.querySelectorAll('button')].some(button => button.getBoundingClientRect().height < 44 || button.scrollWidth > button.clientWidth + 1)) throw new Error('Editor tab buttons are too small');
+            return [tabs.x, tabs.y, tabs.width, tabs.height, sidebar.width, sidebar.height, canvas.x, canvas.width];
+        });
+        if (after.some((value, index) => Math.abs(value - before[index]) > 1)) throw new Error(`Sidebar or canvas jumps when switching at ${width}px`);
+
         const overflow = await frame.locator('.be-styles').evaluate(root => {
             const bounds = root.closest('.be-left').getBoundingClientRect();
             return [...root.querySelectorAll('input,select,button,.be-slider,.be-color')].filter(el => {

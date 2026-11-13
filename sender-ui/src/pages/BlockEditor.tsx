@@ -494,6 +494,22 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
     )
   }
 
+  const palette = (
+<>
+              <div className="be-tiles">
+                {TILES.filter(t => !embedded || t.type !== 'footer').map((t) => (
+                  <button type="button" key={t.type} className={`be-tile${drag?.kind === 'new' && drag.type === t.type ? ' dragging' : ''}`} draggable
+                    onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', t.type); setDrag({ kind: 'new', type: t.type }) }}
+                    onDragEnd={() => { setDrag(null); setDropAt(null) }}
+                    onClick={() => addBlock(t.type)}>
+                    {t.icon}{BLOCK_LABELS[t.type]}
+                  </button>
+                ))}
+              </div>
+              <div className="hint">Перетащите блок в письмо или нажмите, чтобы добавить его под выбранным.</div>
+            </>
+  )
+
   const mailWidth = device === 'mobile' ? 375 : s.width
 
   return (
@@ -528,23 +544,12 @@ export default function BlockEditor({ embedded }: { embedded?: EmbeddedEditor } 
             <button type="button" role="tab" aria-selected={tab === 'blocks'} className={tab === 'blocks' ? 'on' : ''} onClick={() => setTab('blocks')}>Блоки</button>
             <button type="button" role="tab" aria-selected={tab === 'styles'} className={tab === 'styles' ? 'on' : ''} onClick={() => setTab('styles')}>{embedded ? 'Стили страницы' : 'Стили письма'}</button>
           </div>
-          {tab === 'blocks' ? (
-            <>
-              <div className="be-tiles">
-                {TILES.filter(t => !embedded || t.type !== 'footer').map((t) => (
-                  <button type="button" key={t.type} className={`be-tile${drag?.kind === 'new' && drag.type === t.type ? ' dragging' : ''}`} draggable
-                    onDragStart={(e) => { e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', t.type); setDrag({ kind: 'new', type: t.type }) }}
-                    onDragEnd={() => { setDrag(null); setDropAt(null) }}
-                    onClick={() => addBlock(t.type)}>
-                    {t.icon}{BLOCK_LABELS[t.type]}
-                  </button>
-                ))}
-              </div>
-              <div className="hint">Перетащите блок в письмо или нажмите, чтобы добавить его под выбранным.</div>
-            </>
-          ) : (
-            <StylesPanel settings={s} onChange={patchSettings} />
-          )}
+          {embedded ? (
+            <div className="be-panels">
+              <div className="be-panel" aria-hidden={tab !== 'blocks'} inert={tab !== 'blocks'}>{palette}</div>
+              <div className="be-panel" aria-hidden={tab !== 'styles'} inert={tab !== 'styles'}><StylesPanel settings={s} onChange={patchSettings} /></div>
+            </div>
+          ) : tab === 'blocks' ? palette : <StylesPanel settings={s} onChange={patchSettings} />}
         </aside>
 
         {/* холст */}
