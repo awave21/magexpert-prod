@@ -11,6 +11,9 @@ use App\Models\VideoProgress;
 use App\Services\Bitrix24RegistrationService;
 use App\Services\PaymentService;
 use App\Services\SenderMailService;
+use App\Services\SocialAccounts;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -266,7 +269,7 @@ class EventsController extends Controller
         if ($validator->fails()) {
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
-        $user = User::where('email', $request->email)->first();
+        $user = app(SocialAccounts::class)->userByEmail(trim((string) $request->email));
         if ($user) {
             return response()->json([
                 'success' => true,
@@ -310,7 +313,9 @@ class EventsController extends Controller
                 $user = auth()->user();
 
                 if ($event->hasUserAccess($user)) {
-                    return $this->successResponse($request, 'Вы уже зарегистрированы на это мероприятие');
+                    return $this->successResponse($request, 'Вы уже зарегистрированы на это мероприятие', [
+                        'is_new_user' => false, 'already_registered' => true, 'email_queued' => null,
+                    ]);
                 }
 
                 $this->syncWithBitrix24Safe($event, $user, $request);
@@ -332,17 +337,7 @@ class EventsController extends Controller
                 $user->assumeNewsletterConsent();
                 SyncUserToSender::dispatchEventTag($user, $event);
 
-                try {
-                    app(SenderMailService::class)->sendEventRegistrationEmail($event, $user);
-                } catch (\Throwable $e) {
-                    \Log::warning('Не удалось отправить email при быстрой регистрации', [
-                        'event_id' => $event->id,
-                        'user_id' => $user->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-
-                return $this->successResponse($request, 'Регистрация прошла успешно!');
+                return $this->registrationResponse($request, $event, $user, false);
             } catch (\Throwable $e) {
                 \Log::error('Ошибка быстрой регистрации: '.$e->getMessage(), ['event_id' => $event->id]);
 
@@ -380,7 +375,7 @@ class EventsController extends Controller
         }
 
         try {
-            $user = User::where('email', $request->email)->first();
+            $user = app(SocialAccounts::class)->userByEmail(trim((string) $request->email));
             $isNewUser = false;
 
             if ($isExistingUser) {
@@ -413,7 +408,9 @@ class EventsController extends Controller
             }
 
             if ($event->hasUserAccess($user)) {
-                return $this->successResponse($request, 'Вы уже зарегистрированы на это мероприятие');
+                return $this->successResponse($request, 'Вы уже зарегистрированы на это мероприятие', [
+                    'is_new_user' => false, 'already_registered' => true, 'email_queued' => null,
+                ]);
             }
 
             $this->syncWithBitrix24Safe($event, $user, $request);
@@ -444,17 +441,7 @@ class EventsController extends Controller
             $user->assumeNewsletterConsent();
             SyncUserToSender::dispatchEventTag($user, $event);
 
-            try {
-                app(SenderMailService::class)->sendEventRegistrationEmail($event, $user);
-            } catch (\Throwable $e) {
-                \Log::warning('Не удалось отправить email о регистрации', [
-                    'event_id' => $event->id,
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            return $this->successResponse($request, 'Регистрация успешна!');
+            return $this->registrationResponse($request, $event, $user, $isNewUser);
         } catch (\Throwable $e) {
             \Log::error('Ошибка при регистрации: '.$e->getMessage(), [
                 'event_id' => $event->id,
@@ -465,14 +452,35 @@ class EventsController extends Controller
         }
     }
 
-    /** Вспомогательные методы */
-    private function successResponse(Request $request, string $message)
+    private function registrationResponse(Request $request, Event $event, User $user, bool $isNewUser): JsonResponse|RedirectResponse
     {
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => $message]);
+        $emailQueued = false;
+
+        try {
+            $emailQueued = app(SenderMailService::class)->sendEventRegistrationEmail($event, $user);
+        } catch (\Throwable $exception) {
+            \Log::warning('Не удалось подготовить письмо о регистрации', [
+                'event_id' => $event->id,
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
         }
 
-        return back()->with('success', $message);
+        return $this->successResponse($request, 'Регистрация успешна!', [
+            'is_new_user' => $isNewUser,
+            'already_registered' => false,
+            'email_queued' => $emailQueued,
+        ]);
+    }
+
+    /** Вспомогательные методы */
+    private function successResponse(Request $request, string $message, array $registration = []): JsonResponse|RedirectResponse
+    {
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $message, 'registration' => $registration]);
+        }
+
+        return back()->with('success', $message)->with('registration', $registration);
     }
 
     private function errorResponse(Request $request, string $message)

@@ -33,7 +33,10 @@ function guestRegistration(array $overrides = []): array
 it('registers a new guest without account details in the event letter', function (): void {
     $event = Event::factory()->create(['is_paid' => false, 'registration_enabled' => true, 'is_active' => true]);
 
-    $this->post("/events/{$event->slug}/register", guestRegistration())->assertSessionHasNoErrors();
+    $this->post("/events/{$event->slug}/register", guestRegistration())
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('registration.is_new_user', true)
+        ->assertSessionHas('registration.email_queued', true);
 
     $user = User::query()->where('email', 'new.guest@example.com')->firstOrFail();
     $mail = collect($this->client->calls)->firstWhere('template', 'event-registration');
@@ -102,4 +105,50 @@ it('gives every response an X-Request-Id and keeps the one that came with the re
 
     $this->withHeader('X-Request-Id', 'client-trace-12345678')->get('/up')
         ->assertHeader('X-Request-Id', 'client-trace-12345678');
+});
+
+it('registers an existing account without creating or changing its credentials', function (): void {
+    $event = Event::factory()->create(['is_paid' => false, 'registration_enabled' => true, 'is_active' => true]);
+    $user = User::factory()->create(['email' => 'Existing@Example.com']);
+    $password = $user->password;
+    $count = User::query()->count();
+
+    $this->postJson('/api/check-user-email', ['email' => 'existing@example.com'])
+        ->assertOk()->assertJsonPath('exists', true);
+    $this->postJson("/events/{$event->slug}/register", ['email' => 'existing@example.com', 'existing_user' => true])
+        ->assertOk()
+        ->assertJsonPath('registration.is_new_user', false)
+        ->assertJsonPath('registration.already_registered', false)
+        ->assertJsonPath('registration.email_queued', true);
+
+    expect(User::query()->count())->toBe($count)
+        ->and($user->fresh()->password)->toBe($password)
+        ->and($this->client->calls)->toHaveCount(1)
+        ->and($this->client->calls[0]['template'])->toBe('event-registration');
+});
+
+it('reports an existing registration without promising another email', function (): void {
+    $event = Event::factory()->create(['is_paid' => false, 'registration_enabled' => true, 'is_active' => true]);
+    $user = User::factory()->create();
+    $event->users()->attach($user, ['access_type' => 'free', 'payment_status' => 'free', 'is_active' => true]);
+
+    $this->postJson("/events/{$event->slug}/register", ['email' => $user->email, 'existing_user' => true])
+        ->assertOk()
+        ->assertJsonPath('registration.is_new_user', false)
+        ->assertJsonPath('registration.already_registered', true)
+        ->assertJsonPath('registration.email_queued', null);
+
+    expect($this->client->calls)->toBe([]);
+});
+
+it('keeps registration successful and reports when the letter cannot be prepared', function (): void {
+    $event = Event::factory()->create(['is_paid' => false, 'registration_enabled' => true, 'is_active' => true]);
+    $user = User::factory()->create();
+    $this->mock(App\Services\SenderMailService::class)
+        ->shouldReceive('sendEventRegistrationEmail')->once()->andReturn(false);
+
+    $this->postJson("/events/{$event->slug}/register", ['email' => $user->email, 'existing_user' => true])
+        ->assertOk()->assertJsonPath('registration.email_queued', false);
+
+    expect($event->hasUserAccess($user))->toBeTrue();
 });

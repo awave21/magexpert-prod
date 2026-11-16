@@ -151,7 +151,7 @@ it('does not send a set-password link to an existing user', function (): void {
 it('keeps a rejected letter in the outbox as failed instead of losing it silently', function (): void {
     $this->client->status = 'blocked';
 
-    expect($this->service->sendWelcomeEmail(User::factory()->create(), needsPassword: true))->toBeTrue();
+    expect($this->service->sendWelcomeEmail(User::factory()->create(), needsPassword: true))->toBeFalse();
 
     $entry = MailOutbox::query()->latest('id')->first();
 
@@ -171,11 +171,12 @@ it('keeps the letter pending in the outbox when the client throws', function ():
 
     expect($this->service->sendWelcomeEmail(User::factory()->create(), needsPassword: true))->toBeTrue();
 
-    // очередь sync не умеет повторять: после исчерпания попыток письмо помечено failed, но записано и видно в журнале
+    // после сбоя sync письмо остаётся pending: планировщик подберёт его для повторной доставки
     $entry = MailOutbox::query()->latest('id')->first();
 
     expect($entry)->not->toBeNull()
-        ->and($entry->last_error)->toContain('Sender недоступен');
+        ->and($entry->last_error)->toContain('Sender недоступен')
+        ->and($entry->status)->toBe(MailOutbox::STATUS_PENDING);
 });
 
 it('writes the letter to the outbox with the context and links it to the Sender message', function (): void {

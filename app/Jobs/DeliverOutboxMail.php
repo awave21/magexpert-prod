@@ -72,6 +72,15 @@ class DeliverOutboxMail implements ShouldQueue
 
         if ($entry !== null && $entry->status === MailOutbox::STATUS_PENDING) {
             $entry->last_error = $exception?->getMessage() ?? $entry->last_error;
+
+            if ($entry->next_attempt_at !== null) {
+                $entry->save();
+
+                Log::warning('Sender: попытки очереди исчерпаны, письмо ожидает повторной доставки', ['outbox_id' => $entry->id, 'error' => $entry->last_error]);
+
+                return;
+            }
+
             $this->markFailed($entry);
         }
     }

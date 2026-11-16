@@ -17,7 +17,7 @@ use Throwable;
  *
  * Письмо не отправляется в запросе пользователя: оно записывается в исходящие (MailOutbox) вместе с действием
  * и уходит из очереди с повторами (DeliverOutboxMail). Поэтому недоступность Sender письмо не теряет, а методы
- * возвращают true, когда письмо принято к отправке.
+ * возвращают true, когда письмо принято к отправке и ещё не отклонено.
  */
 class SenderMailService
 {
@@ -182,7 +182,7 @@ class SenderMailService
             $this->dispatchDelivery($entry);
         }
 
-        return true;
+        return $entry->fresh()->status !== MailOutbox::STATUS_FAILED;
     }
 
     /**
