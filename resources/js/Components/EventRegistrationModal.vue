@@ -106,6 +106,7 @@ const STEPS = {
 
 const currentStep = ref(STEPS.EMAIL_CHECK);
 const userExists = ref(false);
+const registrationResult = ref(null);
 const isLoading = ref(false);
 
 // Форма для проверки email
@@ -132,6 +133,7 @@ const registrationForm = useForm({
 const resetModal = () => {
     currentStep.value = STEPS.EMAIL_CHECK;
     userExists.value = false;
+    registrationResult.value = null;
     emailForm.reset();
     registrationForm.reset();
     isLoading.value = false;
@@ -222,7 +224,8 @@ const submitRegistration = async () => {
     } else {
         registrationForm.post(route("events.register", props.event.slug), {
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (page) => {
+                registrationResult.value = page.props.flash?.registration ?? null;
                 if (props.event.is_on_demand) {
                     currentStep.value = STEPS.CONFIRMATION;
                 } else if (props.event.is_paid) {
@@ -252,7 +255,8 @@ const handleExistingUserRegistration = async () => {
 
         existingUserForm.post(route("events.register", props.event.slug), {
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (page) => {
+                registrationResult.value = page.props.flash?.registration ?? null;
                 if (props.event.is_on_demand) {
                     currentStep.value = STEPS.CONFIRMATION;
                 } else if (props.event.is_paid) {
@@ -884,22 +888,40 @@ const progressPercent = computed(() => {
                                         class="text-lg font-medium text-gray-900 dark:text-white"
                                     >
                                         {{
-                                            props.event.is_on_demand
-                                                ? "Заявка отправлена!"
-                                                : "Регистрация успешна!"
+                                            registrationResult?.already_registered
+                                                ? "Вы уже зарегистрированы"
+                                                : props.event.is_on_demand
+                                                    ? "Заявка отправлена!"
+                                                    : "Регистрация успешна!"
                                         }}
                                     </h3>
                                     <p
                                         class="mt-2 text-sm text-gray-600 dark:text-gray-400"
                                     >
                                         {{
-                                            props.event.is_on_demand
-                                                ? "Мы получили вашу заявку на участие. С вами свяжется менеджер."
-                                                : "Вы успешно зарегистрированы на мероприятие. Подробности будут отправлены на ваш email."
+                                            registrationResult?.already_registered
+                                                ? "Ваша регистрация на это мероприятие уже сохранена."
+                                                : props.event.is_on_demand
+                                                    ? "Мы получили вашу заявку на участие. С вами свяжется менеджер."
+                                                    : "Вы успешно зарегистрированы на мероприятие."
                                         }}
                                     </p>
                                     <p
-                                        v-if="!props.event.is_on_demand"
+                                        v-if="!props.event.is_on_demand && registrationResult?.email_queued === true"
+                                        class="mt-2 text-sm text-gray-600 dark:text-gray-400"
+                                    >
+                                        Письмо с подробностями поставлено в очередь отправки на ваш email.
+                                    </p>
+                                    <p
+                                        v-else-if="!props.event.is_on_demand && registrationResult?.email_queued === false"
+                                        role="status"
+                                        class="mt-2 text-sm text-amber-800 dark:text-amber-200"
+                                    >
+                                        Не удалось подготовить письмо. Ваша регистрация сохранена. Если письмо не придёт, свяжитесь с нами:
+                                        <a href="mailto:info@mag-expert.ru" class="underline">info@mag-expert.ru</a>.
+                                    </p>
+                                    <p
+                                        v-if="!props.event.is_on_demand && registrationResult?.is_new_user"
                                         class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-left text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200"
                                     >
                                         Мы создали для вас личный кабинет. Подтвердите email и укажите город и специализацию в
