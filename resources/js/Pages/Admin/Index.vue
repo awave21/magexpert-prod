@@ -302,35 +302,6 @@
         {{ stats.users_count }} пользователей · {{ overview.events_total }} мероприятий · {{ overview.speakers_total }} спикеров · {{ overview.library_total }} материалов. Данные обновляются раз в 5 минут, расчёт в {{ analytics.generated_at }}.
       </p>
 
-      <!-- Служебное: проверка уведомлений -->
-      <details class="group rounded-xl border border-zinc-200 dark:border-zinc-800">
-        <summary class="flex cursor-pointer select-none items-center justify-between px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-          Служебное: проверка уведомлений
-          <ChevronRightIcon class="size-4 text-zinc-400 transition-transform group-open:rotate-90" aria-hidden="true" />
-        </summary>
-        <div class="space-y-3 border-t border-zinc-100 px-4 py-4 dark:border-zinc-800">
-          <p class="text-sm text-zinc-500 dark:text-zinc-400">Тестовое уведомление уйдёт всем пользователям с ролью «Администратор» и появится в колокольчике.</p>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="test in notificationTests"
-              :key="test.type"
-              type="button"
-              class="cursor-pointer rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:border-brandblue hover:text-brandblue-dark dark:border-zinc-600 dark:text-zinc-200 dark:hover:border-brandblue dark:hover:text-white"
-              @click="sendTest(test)"
-            >
-              {{ test.label }}
-            </button>
-          </div>
-          <p
-            v-if="notificationMessage"
-            class="rounded-lg px-3 py-2 text-sm"
-            :class="notificationOk ? 'bg-brandblue-soft text-brandblue-dark dark:bg-brandblue/15 dark:text-brandblue' : 'bg-brandcoral-soft text-red-700 dark:bg-red-900/30 dark:text-red-300'"
-            role="status"
-          >
-            {{ notificationMessage }}
-          </p>
-        </div>
-      </details>
     </div>
   </AdminLayout>
 </template>
@@ -338,7 +309,6 @@
 <script setup>
 import { computed, defineComponent, h, ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import axios from 'axios';
 import { ChevronRightIcon, PlusIcon } from '@heroicons/vue/20/solid';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import TrendChart from '@/Components/Admin/Analytics/TrendChart.vue';
@@ -487,34 +457,4 @@ const paymentClass = (item) => {
   return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200';
 };
 
-// Проверка уведомлений
-const notificationMessage = ref('');
-const notificationOk = ref(true);
-const notificationTests = [
-  { type: 'order', label: 'О заказе', title: 'Новый заказ', message: 'Получен новый заказ на сумму 1500 руб.' },
-  { type: 'user', label: 'О пользователе', title: 'Новый пользователь', message: 'Зарегистрирован новый пользователь: Иван Иванов' },
-  { type: 'payment', label: 'Об оплате', title: 'Оплата получена', message: 'Получена оплата заказа #123 на сумму 1500 руб.' },
-];
-
-const sendTest = async (test) => {
-  try {
-    const response = await axios.post('/api/test-notification', {
-      id: Date.now(),
-      type: test.type,
-      title: test.title,
-      message: test.message,
-      timestamp: new Date().toISOString(),
-      read: false,
-    });
-    notificationOk.value = true;
-    notificationMessage.value = response.data.message || 'Уведомление отправлено';
-  } catch (error) {
-    console.error('Ошибка при отправке тестового уведомления:', error);
-    notificationOk.value = false;
-    notificationMessage.value = 'Не удалось отправить уведомление';
-  }
-  setTimeout(() => {
-    notificationMessage.value = '';
-  }, 5000);
-};
 </script>

@@ -140,11 +140,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import { useAdminStore } from '@/Stores/adminStore';
 import { useToast } from 'vue-toastification';
-import { usePage } from '@inertiajs/vue3';
 import SlideOverModal from '@/Components/Modal/SlideOverModal.vue';
 import { 
     BellIcon, 
@@ -172,7 +171,6 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 const adminStore = useAdminStore();
 const toast = useToast();
-const page = usePage();
 
 // Состояние компонента
 const selectedType = ref('all');
@@ -201,24 +199,7 @@ const hasUnreadNotifications = computed(() => {
 
 // Обработчики событий жизненного цикла
 onMounted(() => {
-    // Используем глобальный объект Echo для подписки на уведомления
-    if (window.Echo && page.props.auth.user) {
-        window.Echo.private(`admin.notifications.${page.props.auth.user.id}`)
-            .listen('AdminNotification', (e) => {
-                adminStore.addNotification(e.notification);
-                showToast(e.notification);
-            });
-    }
-
-    // Загружаем уведомления с сервера при монтировании
     loadNotifications();
-});
-
-onUnmounted(() => {
-    // Отписываемся от канала при размонтировании компонента
-    if (window.Echo && page.props.auth.user) {
-        window.Echo.leave(`admin.notifications.${page.props.auth.user.id}`);
-    }
 });
 
 // Методы
@@ -235,18 +216,6 @@ const loadNotifications = async () => {
     } finally {
         loading.value = false;
     }
-};
-
-// Функция для отображения всплывающего уведомления
-const showToast = (notification) => {
-    const toastType = notification.type === 'success' ? 'success' :
-                      notification.type === 'error' ? 'error' :
-                      notification.type === 'warning' ? 'warning' : 'info';
-                      
-    toast(notification.message, {
-        type: toastType,
-        timeout: 5000
-    });
 };
 
 // Функция для отметки уведомления как прочитанного

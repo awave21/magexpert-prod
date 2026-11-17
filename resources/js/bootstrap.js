@@ -1,6 +1,4 @@
 import axios from 'axios';
-import Echo from 'laravel-echo';
-import Pusher from 'pusher-js';
 
 // Утилита: записать токен в meta
 const setMetaCsrfToken = (token) => {
@@ -105,60 +103,6 @@ axios.interceptors.response.use(
         return Promise.reject(error);
     }
 );
-
-// Настройка Echo для WebSocket
-window.Pusher = Pusher;
-window.Echo = new Echo({
-    broadcaster: 'pusher',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: window.location.hostname,
-    wsPort: null,
-    wssPort: null,
-    forceTLS: true,
-    encrypted: true,
-    enabledTransports: ['ws', 'wss'],
-    disableStats: true,
-    cluster: false,
-    authEndpoint: '/broadcasting/auth',
-    auth: {
-        headers: {
-            'X-CSRF-TOKEN': getCSRFToken()
-        }
-    }
-});
-
-// Улучшенное логирование WebSocket
-const connectionStates = {
-    connecting: 'Подключение...',
-    connected: 'Подключено',
-    disconnected: 'Отключено',
-    failed: 'Ошибка подключения'
-};
-
-window.Echo.connector.pusher.connection.bind('state_change', states => {
-    const currentState = window.Echo.connector.pusher.connection.state;
-    console.log('%c WebSocket:', 'background: #4CAF50; color: white; padding: 2px 4px; border-radius: 3px;', 
-        connectionStates[currentState] || currentState
-    );
-    
-    if (import.meta.env.DEV) {
-        console.log('Состояния:', states);
-        console.log('Настройки:', window.Echo.connector.pusher.config);
-    }
-});
-
-window.Echo.connector.pusher.connection.bind('error', error => {
-    console.error('%c WebSocket Error:', 'background: #f44336; color: white; padding: 2px 4px; border-radius: 3px;', 
-        error
-    );
-});
-
-// Автоматическое переподключение
-window.Echo.connector.pusher.connection.bind('disconnected', () => {
-    setTimeout(() => {
-        window.Echo.connector.pusher.connect();
-    }, 5000);
-});
 
 if (import.meta.env.DEV) {
     window.addEventListener('unhandledrejection', event => {

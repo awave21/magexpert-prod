@@ -557,7 +557,7 @@
 import { Link, usePage, router } from "@inertiajs/vue3";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { useAdminStore } from "@/Stores/adminStore";
-import { computed, onMounted, onUnmounted, watch } from "vue";
+import { computed, onMounted, watch } from "vue";
 import { useToast } from "vue-toastification";
 import UserAvatar from "@/Components/UserAvatar.vue";
 import NotificationDrawer from "@/Components/Admin/NotificationDrawer.vue";
@@ -737,21 +737,5 @@ const logout = () => {
 // Инициализация темной темы при монтировании
 onMounted(() => {
     adminStore.initDarkMode();
-
-    // Инициализируем подписку на уведомления
-    if (window.Echo && page.props.auth.user) {
-        window.Echo.private(
-            `admin.notifications.${page.props.auth.user.id}`
-        ).listen("AdminNotification", (data) => {
-            adminStore.addNotification(data.notification);
-        });
-    }
-});
-
-// Отписываемся от канала при размонтировании компонента
-onUnmounted(() => {
-    if (window.Echo && page.props.auth.user) {
-        window.Echo.leave(`admin.notifications.${page.props.auth.user.id}`);
-    }
 });
 </script>

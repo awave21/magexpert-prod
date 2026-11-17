@@ -18,7 +18,6 @@ use App\Http\Controllers\DaDataController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventsController;
 use App\Http\Controllers\ExhibitionController;
-use App\Http\Controllers\GameController;
 use App\Http\Controllers\MedicalLibraryController as PublicMedicalLibraryController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
@@ -253,9 +252,5 @@ Route::prefix('admin')->middleware(['auth', 'role:admin,editor,manager'])->group
         Route::delete('/notifications', [NotificationController::class, 'clearAll'])->name('notifications.clear');
     });
 });
-
-Route::get('/game', [GameController::class, 'index'])->name('game');
-Route::post('/api/test-websocket', [GameController::class, 'testWebSocket']);
-Route::post('/api/test-notification', [\App\Http\Controllers\Admin\NotificationController::class, 'testNotification']);
 
 require __DIR__.'/auth.php';
